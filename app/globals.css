@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm neutrals */
+  --color-cream-50: #fbf9f6;
+  --color-cream-100: #f6f1ea;
+  --color-cream-200: #ede4da;
+  --color-cream-300: #e0d4c6;
+
+  --color-ink-300: #b3aaa1;
+  --color-ink-400: #8a8078;
+  --color-ink-500: #6e655d;
+  --color-ink-700: #4a423b;
+  --color-ink-900: #2a2521;
+  --color-ink-950: #201c19;
+
+  /* Rose-gold accent */
+  --color-blush-50: #fbf3f4;
+  --color-blush-100: #f6e7e9;
+  --color-blush-200: #eed2d6;
+  --color-blush-300: #dfadb4;
+  --color-blush-400: #cd8b95;
+  --color-blush-500: #b76e79;
+  --color-blush-600: #a05762;
+  --color-blush-700: #85434d;
+  --color-blush-800: #6d3640;
+  --color-blush-900: #5a2e36;
+
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cream-50 text-ink-900 font-sans antialiased;
+}
+
+::selection {
+  @apply bg-blush-200 text-ink-950;
+}
+
+/* Range inputs (volume slider) */
+input[type="range"].volume {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cream-200;
+  accent-color: var(--color-blush-500);
+}
+input[type="range"].volume::-webkit-slider-thumb {
+  @apply size-5 appearance-none rounded-full border-2 border-white bg-blush-500 shadow-md;
+}
+input[type="range"].volume::-moz-range-thumb {
+  @apply size-5 rounded-full border-2 border-white bg-blush-500 shadow-md;
+}
