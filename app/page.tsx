@@ -44,7 +44,8 @@ export default function HomePage() {
               </Link>
             </div>
             <p className="mt-5 text-xs text-ink-400">
-              Free to try · photos never stored · illustrations, not medical predictions
+              Free to try · photos never stored on our servers · illustrations, not medical
+              predictions
             </p>
           </div>
 

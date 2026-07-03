@@ -11,25 +11,30 @@ interface BeforeAfterSliderProps {
 /**
  * Draggable before/after comparison. A full-size transparent range input
  * drives the divider, which makes the slider keyboard- and screen-reader-
- * accessible for free.
+ * accessible for free (its focus is surfaced on the container via CSS).
+ *
+ * The user's original photo is the in-flow image so it defines the layout
+ * box at its true aspect ratio; the AI "after" image is overlaid with
+ * object-cover, so a small aspect-ratio drift in the model output crops the
+ * generated image slightly instead of distorting the user's real photo.
  */
 export function BeforeAfterSlider({ beforeSrc, afterSrc, className }: BeforeAfterSliderProps) {
   const [percent, setPercent] = useState(50);
 
   return (
     <div
-      className={`relative select-none overflow-hidden rounded-2xl bg-ink-950 ${className ?? ""}`}
+      className={`ba-slider relative select-none overflow-hidden rounded-2xl bg-ink-950 ${className ?? ""}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={afterSrc} alt="After preview" className="block w-full" draggable={false} />
+      <img src={beforeSrc} alt="Before photo" className="block w-full" draggable={false} />
       <div
         className="absolute inset-0 overflow-hidden"
-        style={{ clipPath: `inset(0 ${100 - percent}% 0 0)` }}
+        style={{ clipPath: `inset(0 0 0 ${percent}%)` }}
         aria-hidden
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={beforeSrc}
+          src={afterSrc}
           alt=""
           className="block h-full w-full object-cover"
           draggable={false}

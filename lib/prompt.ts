@@ -26,10 +26,10 @@ export function buildEditPrompt(config: PreviewConfig): string {
       : cc < 400
         ? "a natural-looking increase of roughly one to one and a half cup sizes"
         : cc < 550
-          ? "a clearly noticeable increase of roughly two cup sizes"
+          ? "a clearly noticeable increase of roughly one and a half to two cup sizes"
           : cc < 700
             ? "a full increase of roughly two to two and a half cup sizes"
-            : "a dramatic increase of well over two cup sizes";
+            : "a dramatic increase of roughly two and a half or more cup sizes";
 
   return [
     "You are assisting a plastic-surgery consultation tool that shows patients a realistic preview of breast augmentation results.",

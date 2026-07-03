@@ -1,13 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  // Uploaded photos are sent to the generate API as base64 JSON, so allow
-  // larger request bodies for server actions / API routes.
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "12mb",
-    },
-  },
-};
+// Note: App Router route handlers have no built-in request body size limit;
+// the upload cap for /api/generate is enforced inside the route itself.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

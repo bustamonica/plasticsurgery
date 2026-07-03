@@ -8,7 +8,8 @@
   --color-cream-300: #e0d4c6;
 
   --color-ink-300: #b3aaa1;
-  --color-ink-400: #8a8078;
+  /* 4.5:1+ on white, cream-50 and cream-100 — safe for small text */
+  --color-ink-400: #766c64;
   --color-ink-500: #6e655d;
   --color-ink-700: #4a423b;
   --color-ink-900: #2a2521;
@@ -52,4 +53,11 @@ input[type="range"].volume::-webkit-slider-thumb {
 }
 input[type="range"].volume::-moz-range-thumb {
   @apply size-5 rounded-full border-2 border-white bg-blush-500 shadow-md;
+}
+
+/* The comparison slider's range input is visually hidden, so surface its
+   keyboard focus on the container instead. */
+.ba-slider:has(input:focus-visible) {
+  outline: 3px solid var(--color-blush-500);
+  outline-offset: 3px;
 }

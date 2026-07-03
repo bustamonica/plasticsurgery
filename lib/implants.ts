@@ -50,7 +50,7 @@ export const BRANDS: ImplantBrand[] = [
     id: "motiva",
     name: "Motiva",
     manufacturer: "Establishment Labs",
-    fill: "SmoothSilk shell with adaptive Ergonomix gel",
+    fill: "SmoothSilk shell with adaptive ProgressiveGel (Ergonomix line)",
     blurb:
       "A newer-generation implant (FDA-approved in 2024) whose gel adapts to movement — rounder when lying down, teardrop when upright — for a particularly natural, dynamic look.",
     highlights: ["Adaptive gel that moves with you", "Very natural upright teardrop look", "Modern low-texture SmoothSilk surface"],

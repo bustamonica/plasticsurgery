@@ -8,6 +8,8 @@ export interface UploadedPhoto {
   /** Raw base64 (no prefix) for the API. */
   base64: string;
   mimeType: string;
+  width: number;
+  height: number;
 }
 
 interface PhotoUploadProps {
@@ -29,6 +31,10 @@ async function processFile(file: File): Promise<UploadedPhoto> {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas unavailable");
+  // JPEG has no alpha channel — without this, transparent PNG/WebP areas
+  // would composite to solid black.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
@@ -37,6 +43,8 @@ async function processFile(file: File): Promise<UploadedPhoto> {
     dataUrl,
     base64: dataUrl.split(",")[1],
     mimeType: "image/jpeg",
+    width,
+    height,
   };
 }
 
@@ -107,7 +115,8 @@ export function PhotoUpload({ onPhoto }: PhotoUploadProps) {
         </span>
         <span className="max-w-xs text-xs leading-relaxed text-ink-400">
           Best results: a front-facing, well-lit photo from the waist up, wearing a fitted top
-          or sports bra. Photos are processed in memory and never stored.
+          or sports bra. Photos are never stored on our servers — see Privacy for how the AI
+          provider handles them.
         </span>
       </button>
       <input
@@ -120,7 +129,11 @@ export function PhotoUpload({ onPhoto }: PhotoUploadProps) {
           e.target.value = "";
         }}
       />
-      {error && <p className="mt-2 text-sm text-blush-700">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-blush-700">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

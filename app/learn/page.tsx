@@ -11,8 +11,9 @@ export const metadata: Metadata = {
 const VOLUME_GUIDE = [
   { range: "150–250 cc", effect: "Subtle enhancement — roughly half to one cup size." },
   { range: "250–400 cc", effect: "The most popular range — roughly one to one and a half cup sizes, natural-looking on most frames." },
-  { range: "400–550 cc", effect: "Clearly noticeable — around two cup sizes." },
-  { range: "550–800 cc", effect: "Full to dramatic — two and a half cup sizes or more; best discussed carefully with your surgeon." },
+  { range: "400–550 cc", effect: "Clearly noticeable — roughly one and a half to two cup sizes." },
+  { range: "550–700 cc", effect: "Full — roughly two to two and a half cup sizes." },
+  { range: "700–800 cc", effect: "Dramatic — roughly two and a half cup sizes or more; best discussed carefully with your surgeon." },
 ];
 
 export default function LearnPage() {
