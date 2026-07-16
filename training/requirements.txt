@@ -1,0 +1,5 @@
+pillow>=10.0
+# <5: OpenCV 5 removed the bundled Haar CascadeClassifier that deidentify.py
+# uses for offline face detection.
+opencv-python-headless>=4.9,<5
+numpy>=1.26

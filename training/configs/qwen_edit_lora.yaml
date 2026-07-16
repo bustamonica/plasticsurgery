@@ -1,0 +1,60 @@
+# LoRA fine-tune of Qwen-Image-Edit on paired before/after data, for
+# ostris/ai-toolkit (https://github.com/ostris/ai-toolkit).
+#
+# IMPORTANT: ai-toolkit moves fast — before running, diff this against the
+# current Qwen-Image-Edit example in ai-toolkit/config/examples/ and adopt any
+# renamed keys. The values below (rank, lr, steps) are sane starting points.
+#
+# Hardware: 1x A100 80GB. Reduce resolution to 768 or enable the toolkit's
+# low-VRAM/quantization options if you rent a smaller GPU.
+
+job: extension
+config:
+  name: augmentation_preview_lora_v1
+  process:
+    - type: sd_trainer
+      training_folder: output
+      device: cuda:0
+
+      network:
+        type: lora
+        linear: 32          # rank — 16 for quick smoke tests, 32-64 for real runs
+        linear_alpha: 32
+
+      save:
+        dtype: bf16
+        save_every: 500
+        max_step_saves_to_keep: 4
+
+      datasets:
+        - folder_path: /workspace/data/dataset/train/target
+          control_path: /workspace/data/dataset/train/control
+          caption_ext: txt
+          resolution: [1024]
+          buckets: true       # keep native aspect ratios via bucketing
+
+      train:
+        batch_size: 1
+        gradient_accumulation_steps: 4
+        steps: 4000
+        lr: 1.0e-4
+        optimizer: adamw8bit
+        noise_scheduler: flowmatch
+        dtype: bf16
+        gradient_checkpointing: true
+
+      model:
+        name_or_path: Qwen/Qwen-Image-Edit-2509
+        arch: qwen_image_edit
+        quantize: true        # fits comfortably on 80GB; required on smaller cards
+
+      sample:
+        sampler: flowmatch
+        sample_every: 500
+        width: 832
+        height: 1216
+        # Point these at a few VAL control images + their captions so the
+        # sample grid doubles as an eval set the model never trained on.
+        samples:
+          - prompt: "Edit this photo to simulate the outcome of breast augmentation surgery with 350 cc round implants giving even fullness and visible roundness in the upper breast, using a balanced moderate-plus profile. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same."
+            ctrl_img: /workspace/data/dataset/val/control/PICK_A_VAL_PAIR.jpg

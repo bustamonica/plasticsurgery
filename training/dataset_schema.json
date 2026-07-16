@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Before/after pair metadata (meta.json, one per pair folder)",
+  "type": "object",
+  "required": ["pair_id", "shape", "volume_cc", "view", "consent_ref"],
+  "properties": {
+    "pair_id": {
+      "type": "string",
+      "description": "Unique ID, e.g. 'clinic01-0001'. Must match the folder name."
+    },
+    "brand": {
+      "type": "string",
+      "enum": ["mentor", "natrelle", "motiva", "sientra", "other", "unknown"],
+      "description": "Implant brand, if the clinic recorded it."
+    },
+    "shape": {
+      "type": "string",
+      "enum": ["round", "teardrop"]
+    },
+    "profile": {
+      "type": "string",
+      "enum": ["moderate", "moderate-plus", "high", "extra-high", "unknown"]
+    },
+    "volume_cc": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 1000,
+      "description": "Implant volume in cc. If left/right differ, record the average and note it."
+    },
+    "months_post_op": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Months between surgery and the 'after' photo. 3+ preferred (settled result)."
+    },
+    "view": {
+      "type": "string",
+      "enum": ["front", "oblique-left", "oblique-right", "side-left", "side-right"]
+    },
+    "clothing": {
+      "type": "string",
+      "enum": ["nude", "bra", "top"],
+      "description": "What the subject is wearing in BOTH photos (pairs must match)."
+    },
+    "consent_ref": {
+      "type": "string",
+      "description": "Reference to the signed clinic agreement + patient release covering AI training, e.g. 'clinic01-agreement-2026-05'. Pairs without this are rejected at ingest."
+    },
+    "notes": { "type": "string" }
+  }
+}

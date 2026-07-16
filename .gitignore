@@ -24,3 +24,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# training data — NEVER commit patient photos or datasets derived from them
+/training/data/
+/training/output/
+/training/.venv/
