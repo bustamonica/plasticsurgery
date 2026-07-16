@@ -29,3 +29,6 @@ next-env.d.ts
 /training/data/
 /training/output/
 /training/.venv/
+
+# python
+__pycache__/
