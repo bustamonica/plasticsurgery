@@ -172,6 +172,20 @@ on watertight meshes). Note: `measurements['base_width_cm']` is the applied
 dome footprint; final visible extent runs ~1–1.5 cm wider from rim drape
 (v1 metric refinement).
 
+**rev.5** — implant DB swapped from illustrative placeholders to **verified
+manufacturer dimension tables** (581 SKUs; §2.9). Schema gains optional
+`profile_label`, `height_cm`, `notes` (additive, backward-compatible).
+Canonical 5-rank `profile_class` ladder (low < moderate < moderate plus <
+high < ultra high) maps each manufacturer's own profile name; dimensional
+invariants are enforced at generation time by `scripts/build_implants_db.py`
+(base width strictly increasing with volume per ladder; projection
+non-decreasing up to official-table rounding dips ≤0.2 cm; at fixed volume
+higher profile ⇒ base not wider + projection strictly greater; dome-fullness
+β ≥ 0.05 floor for every record). Real-data consequence: apex retention
+(delta/rated projection) ranges ~0.46–0.94 across the 230→550 cc sweep, so
+the projection regression band widens 0.5 → 1.0 cm (v0 skirt physics, see
+rev.3; v1 skirted dome should re-tighten).
+
 ### 2.5 morph.guardrails  [core]
 
 ```python
@@ -226,10 +240,14 @@ class ImplantSKU(BaseModel):
     base_width_cm: float = Field(gt=0)
     projection_cm: float = Field(gt=0)
     shape: Shape
-    profile_class: str             # free text: "low"|"moderate"|"moderate plus"|"high"|"ultra high"
+    profile_class: str             # canonical ladder: "low"|"moderate"|"moderate plus"|"high"|"ultra high"
     placement_options: list[Placement]
-    values_status: Literal["illustrative_placeholder","verified"] 
-    source: str                    # where dims came from / data-entry note
+    values_status: Literal["illustrative_placeholder","verified"]
+    source: str                    # manufacturer doc citation + cross-check note
+    # rev.5 (optional, additive):
+    profile_label: str | None      # manufacturer's own profile name, e.g. "Demi", "SRF (Full)"
+    height_cm: float | None        # anatomical shell height (round: absent)
+    notes: str | None              # source-conflict resolutions / market caveats
 
 class ImplantParams(BaseModel):    # geometric bundle consumed by MorphEngine
     volume_cc: float; base_width_cm: float; projection_cm: float
@@ -252,14 +270,43 @@ class ImplantDB:
         # raises ValueError if placement not in sku.placement_options
 ```
 
-### 2.9 implants.json starter data  [db]
+### 2.9 implants.json verified catalog  [db]  (rev.5)
 
-12–16 SKUs, all four brands, volumes 175–650 cc, ≥3 profile classes, both shapes
-(anatomical at least 2). Dimensions **realistic but illustrative**: typical
-350 cc high-profile round ≈ base 11.5–12.5 cm, projection 4.5–5.0 cm; scale
-plausibly across volumes/profiles (higher profile = narrower base + more
-projection at same cc). Every record: `values_status="illustrative_placeholder"`,
-`source="PLACEHOLDER — populate from manufacturer dimension tables (data-entry task M0)"`.
+**581 SKUs**, all four brands, volumes 95–965 cc, all 5 canonical profile
+classes, both shapes (136 anatomical). Every record is transcribed
+**programmatically** from vendored official-manufacturer tables by
+`scripts/build_implants_db.py` (never hand-edited — regenerate, don't patch).
+Source extractions with citations live in `implants/data/sources/*.json`.
+
+Included lines (smooth-shell tables throughout; textured variants differ
+≤0.2 cm or share dims and are documented but not duplicated):
+
+| Brand | Lines | Profiles (manufacturer label → canonical class) |
+|---|---|---|
+| Mentor | MemoryGel (4), MemoryShape (3 styles) | Moderate Classic→moderate, Moderate Plus→moderate plus, High→high, Ultra High→ultra high; MM/MM+/MH |
+| Natrelle | Inspira (5; dims gel-independent: Responsive=SoftTouch=Cohesive) | Low→low, Low-Plus→moderate, Moderate→moderate plus, Full→high, Extra-Full→ultra high |
+| Motiva | Ergonomix (4), Ergonomix2 (4), TrueFixation FF/MF/LF | Mini→low, Demi→moderate, Full→high, Corsé→ultra high |
+| Sientra | OPUS Luxe (5), OPUS Curve (4 variants) | Low→low, Moderate→moderate, Moderate Plus→moderate plus, High→high, Xtra High→ultra high |
+
+Primary sources: MENTOR Product Catalog PN 020827-181217 (mentordirect.com,
+cross-checked jnjmedtech.com — exact match); Natrelle Product Catalog
+(Allergan US ~2017, cross-checked 2015 sales tool + UK 2016 catalog); Motiva
+Implant Matrix (motiva.health, captured 2026-07, cross-checked 2020 catalogue
++ FDA PMA P230005); Sientra MDC-0343 R3 / MDC-0270 R11 / MDC-0400 R4
+(sientra.com, cross-checked MDC-0177 R6).
+
+Documented decisions/exclusions:
+- **Natrelle 410 excluded** (US market withdrawal July 2019, BIOCELL recall);
+  historical tables remain in sources/ for provenance only.
+- Motiva Round excluded (dimension-identical to Ergonomix per manufacturer);
+  Corsé 1050/1060 cc not listed (delisted from current catalogue).
+- Sientra Low Plus excluded (keeps canonical ladder unambiguous); Xtra High
+  245 cc dropped (only in 2022 QRG; 2019 catalog + current site start at 275).
+- Sientra MP 455 cc projection conflict resolved 4.8 cm (2-of-3 official docs;
+  per-record `notes`).
+- Motiva TrueFixation flagged per-record: not FDA-approved (international).
+- Anchor value: mentor-memorygel-350-hp = 11.7 cm base / 4.8 cm proj
+  (MENTOR catalog p.8, exact match jnjmedtech.com).
 
 ## 3. Tests (pytest, all must pass)
 
@@ -280,11 +327,14 @@ Each agent tests only its own modules. Required:
   with constructor params
 
 **db** — `tests/test_implant_db.py`:
-- JSON loads; all records validate; ≥12 SKUs; all `illustrative_placeholder`
+- JSON loads; all records validate; ≥500 SKUs; all `verified` with real
+  citations (no PLACEHOLDER stubs)
 - find() filters (brand, cc range, profile, placement); get() KeyError message
 - to_params mapping + invalid placement ValueError
-- dimensional sanity: at fixed volume, higher profile ⇒ smaller base width
-  AND larger projection (assert over the starter set, per shape)
+- dimensional sanity: at fixed volume within a manufacturer line, higher
+  profile ⇒ base width NOT larger AND strictly larger projection (rev.5:
+  official tables have equal-width steps); generator asserts the same
+  invariants at build time
 
 ## 4. Workflow rules
 

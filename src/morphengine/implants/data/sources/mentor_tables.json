@@ -1,0 +1,1588 @@
+{
+ "brand": "Mentor (Mentor Worldwide LLC / Johnson & Johnson MedTech)",
+ "series": [
+  {
+   "product_line": "MemoryGel",
+   "profile_label": "Moderate Classic",
+   "shape": "round",
+   "surface": "smooth",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 130,
+     "diameter_cm": 9.6,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 10.3,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 170,
+     "diameter_cm": 10.5,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 11.0,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 11.6,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 11.8,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 255,
+     "diameter_cm": 12.2,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 12.5,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 12.8,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 13.0,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 340,
+     "diameter_cm": 13.4,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 13.6,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 385,
+     "diameter_cm": 13.9,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 405,
+     "diameter_cm": 14.2,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 14.6,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 445,
+     "diameter_cm": 14.8,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 470,
+     "diameter_cm": 15.0,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 490,
+     "diameter_cm": 15.2,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 510,
+     "diameter_cm": 15.4,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 555,
+     "diameter_cm": 15.7,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 595,
+     "diameter_cm": 16.1,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 640,
+     "diameter_cm": 16.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 680,
+     "diameter_cm": 17.0,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 17.5,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 18.0,
+     "projection_cm": 4.1
+    }
+   ],
+   "rows_siltex_textured": [
+    {
+     "volume_cc": 130,
+     "diameter_cm": 9.6,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 10.2,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 170,
+     "diameter_cm": 10.6,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 11.0,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 11.5,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 11.7,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 255,
+     "diameter_cm": 12.1,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 12.3,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 12.6,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 12.9,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 340,
+     "diameter_cm": 13.2,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 13.4,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 385,
+     "diameter_cm": 13.7,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 405,
+     "diameter_cm": 14.0,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 14.3,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 445,
+     "diameter_cm": 14.5,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 470,
+     "diameter_cm": 14.7,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 490,
+     "diameter_cm": 14.9,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 510,
+     "diameter_cm": 15.1,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 555,
+     "diameter_cm": 15.4,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 595,
+     "diameter_cm": 15.8,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 640,
+     "diameter_cm": 16.3,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 680,
+     "diameter_cm": 16.7,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 17.2,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 17.6,
+     "projection_cm": 4.4
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.7 (smooth) and p.10 (SILTEX)"
+   },
+   "crosscheck": {
+    "url": "https://www.jnjmedtech.com/en-US/product/mentor-memorygel-implants",
+    "result": "match",
+    "notes": "All 25 smooth rows and all 25 SILTEX rows match jnjmedtech.com official US product page exactly (e.g. 300 cc smooth = 12.8 cm dia / 3.1 cm proj; 300 cc SILTEX = 12.6/3.3)."
+   }
+  },
+  {
+   "product_line": "MemoryGel",
+   "profile_label": "Moderate Plus",
+   "shape": "round",
+   "surface": "smooth",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 100,
+     "diameter_cm": 8.2,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 125,
+     "diameter_cm": 8.9,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 9.5,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 10.0,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 200,
+     "diameter_cm": 10.5,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 225,
+     "diameter_cm": 10.9,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 11.3,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 11.7,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 12.0,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 12.3,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 12.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 12.8,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 13.1,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 13.5,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 13.6,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 14.0,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 14.1,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 14.5,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 14.6,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 575,
+     "diameter_cm": 14.9,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 600,
+     "diameter_cm": 15.0,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 15.4,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 15.8,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 16.3,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 16.5,
+     "projection_cm": 5.1
+    }
+   ],
+   "rows_siltex_textured": [
+    {
+     "volume_cc": 100,
+     "diameter_cm": 8.1,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 125,
+     "diameter_cm": 8.8,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 9.4,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 10.0,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 200,
+     "diameter_cm": 10.5,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 225,
+     "diameter_cm": 10.9,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 11.3,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 11.7,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 12.0,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 12.3,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 12.6,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 12.9,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 13.2,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 13.5,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 13.7,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 13.9,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 14.1,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 14.4,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 14.4,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 575,
+     "diameter_cm": 14.9,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 600,
+     "diameter_cm": 14.7,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 15.5,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 15.7,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 16.2,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 16.6,
+     "projection_cm": 5.0
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.7 (smooth) and p.10 (SILTEX)"
+   },
+   "crosscheck": {
+    "url": "https://www.jnjmedtech.com/en-US/product/mentor-memorygel-implants ; https://www.mentordirect.com.au/sites/default/files/2024-01/Mentor%20-%20Product%20Catalogue%20-%20v10.1_Digital%20Version.pdf",
+    "result": "match",
+    "notes": "All 25 smooth rows match jnjmedtech.com exactly. Flagship 350 cc smooth = 12.5/3.9 also matches Mentor Product Guide 2021 (EMEA) and Mentor Direct Australia 2024 catalog. SILTEX rows 125-800 cc match Mentor Product Guide 2021 SILTEX Cohesive I table; the US-catalog-only SILTEX intermediate sizes (425/475/525/575/650/750 cc) print non-monotonic projections in the source and are transcribed verbatim."
+   }
+  },
+  {
+   "product_line": "MemoryGel",
+   "profile_label": "High Profile",
+   "shape": "round",
+   "surface": "smooth",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 125,
+     "diameter_cm": 8.3,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 8.8,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 9.3,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 200,
+     "diameter_cm": 9.7,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 225,
+     "diameter_cm": 10.1,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 10.5,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 10.8,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 11.1,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 11.4,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 11.7,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 12.2,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.8,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 12.9,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 13.2,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 13.6,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 600,
+     "diameter_cm": 14.0,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 14.4,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 14.8,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 15.1,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 15.5,
+     "projection_cm": 6.0
+    }
+   ],
+   "rows_siltex_textured": [
+    {
+     "volume_cc": 125,
+     "diameter_cm": 8.4,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 8.9,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 9.4,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 200,
+     "diameter_cm": 9.9,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 225,
+     "diameter_cm": 10.2,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 10.5,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 10.9,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 11.1,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 11.7,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 12.0,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 12.3,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.7,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 12.9,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 13.2,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 600,
+     "diameter_cm": 14.0,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 14.3,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 14.7,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 15.1,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 15.4,
+     "projection_cm": 6.3
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.8 (smooth) and p.11 (SILTEX)"
+   },
+   "crosscheck": {
+    "url": "https://www.jnjmedtech.com/en-US/product/mentor-memorygel-implants ; https://medistim.no/wp-content/uploads/2013/08/mentor-product-guide-web.pdf",
+    "result": "match",
+    "notes": "Flagship 350 cc smooth = 11.7 cm dia / 4.8 cm proj: matches jnjmedtech.com, Mentor Product Guide 2021 (EMEA) and medistim.no Mentor Product Guide. SILTEX 350 cc = 11.7/4.9 matches Product Guide 2021 SILTEX table. MDPI 2025 paper (doi 10.3390/app15168831) measured a 350 cc high-profile implant at 11.7/4.8 (consistent; it cites textured cat# 324-4350 with the smooth projection value)."
+   }
+  },
+  {
+   "product_line": "MemoryGel",
+   "profile_label": "Ultra High Profile",
+   "shape": "round",
+   "surface": "smooth",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 135,
+     "diameter_cm": 7.8,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 160,
+     "diameter_cm": 8.2,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 185,
+     "diameter_cm": 8.4,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 8.7,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 240,
+     "diameter_cm": 9.0,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 270,
+     "diameter_cm": 9.3,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 295,
+     "diameter_cm": 9.7,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 9.8,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 10.1,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 10.4,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 10.6,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 430,
+     "diameter_cm": 10.9,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 455,
+     "diameter_cm": 11.2,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 480,
+     "diameter_cm": 11.4,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 535,
+     "diameter_cm": 12.0,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 590,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 12.9,
+     "projection_cm": 6.4
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 13.3,
+     "projection_cm": 6.5
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 13.7,
+     "projection_cm": 6.6
+    },
+    {
+     "volume_cc": 800,
+     "diameter_cm": 14.1,
+     "projection_cm": 6.7
+    }
+   ],
+   "rows_siltex_textured": [
+    {
+     "volume_cc": 135,
+     "diameter_cm": 8.0,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 160,
+     "diameter_cm": 8.4,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 185,
+     "diameter_cm": 8.6,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 8.9,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 240,
+     "diameter_cm": 9.2,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 270,
+     "diameter_cm": 9.5,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 295,
+     "diameter_cm": 9.9,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 10.0,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 10.3,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 10.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 10.8,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 430,
+     "diameter_cm": 11.1,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 455,
+     "diameter_cm": 11.3,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 480,
+     "diameter_cm": 11.6,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 535,
+     "diameter_cm": 12.1,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 590,
+     "diameter_cm": 12.6,
+     "projection_cm": 6.5
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 13.0,
+     "projection_cm": 6.6
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 13.4,
+     "projection_cm": 6.7
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.8 (smooth) and p.11 (SILTEX)"
+   },
+   "crosscheck": {
+    "url": "https://www.jnjmedtech.com/en-US/product/mentor-memorygel-implants ; https://cof.hr/wp-content/uploads/2021/11/Mentor-Product-guide-2021.pdf",
+    "result": "match",
+    "notes": "Flagship 350 cc smooth = 10.1 cm dia / 5.2 cm proj matches jnjmedtech.com and Mentor Product Guide 2021 exactly; full smooth range 135-800 cc matches both. SILTEX Ultra High runs only 135-700 cc in the US catalog (consistent with FDA labeling size range 135-700 cc for textured UHP)."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "MM - Medium Height / Moderate Projection (Style 321)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 120,
+     "width_cm": 9.0,
+     "height_cm": 8.5,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 135,
+     "width_cm": 9.5,
+     "height_cm": 8.9,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 155,
+     "width_cm": 10.0,
+     "height_cm": 9.4,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 180,
+     "width_cm": 10.5,
+     "height_cm": 9.9,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 215,
+     "width_cm": 11.0,
+     "height_cm": 10.3,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 245,
+     "width_cm": 11.5,
+     "height_cm": 10.8,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 280,
+     "width_cm": 12.0,
+     "height_cm": 11.3,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 315,
+     "width_cm": 12.5,
+     "height_cm": 11.8,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 355,
+     "width_cm": 13.0,
+     "height_cm": 12.2,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 395,
+     "width_cm": 13.5,
+     "height_cm": 12.7,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 440,
+     "width_cm": 14.0,
+     "height_cm": 13.2,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 480,
+     "width_cm": 14.5,
+     "height_cm": 13.6,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 530,
+     "width_cm": 15.0,
+     "height_cm": 14.1,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 640,
+     "width_cm": 16.0,
+     "height_cm": 15.0,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 775,
+     "width_cm": 17.0,
+     "height_cm": 16.0,
+     "projection_cm": 5.9
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.3"
+   },
+   "crosscheck": {
+    "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf6/p060028b.pdf",
+    "result": "match",
+    "notes": "FDA PMA P060028 SSED Table 1: Style MM 120-775 cc, W 9.0-17.0 cm, H 8.5-16.0 cm, P 3.3-5.9 cm, 15 sizes - exactly matches catalog endpoints and size count. FDA product insert P060028c gives the same ranges."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "MM+ - Medium Height / Moderate Plus Projection (Style 322)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 140,
+     "width_cm": 9.0,
+     "height_cm": 8.5,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 165,
+     "width_cm": 9.5,
+     "height_cm": 8.9,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 195,
+     "width_cm": 10.0,
+     "height_cm": 9.4,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 225,
+     "width_cm": 10.5,
+     "height_cm": 9.9,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 255,
+     "width_cm": 11.0,
+     "height_cm": 10.3,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 295,
+     "width_cm": 11.5,
+     "height_cm": 10.8,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 330,
+     "width_cm": 12.0,
+     "height_cm": 11.3,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 375,
+     "width_cm": 12.5,
+     "height_cm": 11.8,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 420,
+     "width_cm": 13.0,
+     "height_cm": 12.2,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 475,
+     "width_cm": 13.5,
+     "height_cm": 12.7,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 525,
+     "width_cm": 14.0,
+     "height_cm": 13.2,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 585,
+     "width_cm": 14.5,
+     "height_cm": 13.6,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 650,
+     "width_cm": 15.0,
+     "height_cm": 14.1,
+     "projection_cm": 6.3
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.3"
+   },
+   "crosscheck": {
+    "url": "https://www.mentorimplants.fi/files/mentor_tuotekatalogi_2016.pdf",
+    "result": "match",
+    "notes": "All 13 rows match CPG 322 (Medium Height, Moderate Plus) tables in Mentor 2016 international catalog (e.g. 420 cc = 13.0 W / 12.2 H / 5.5 P)."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "MH - Medium Height / High Projection (Style 323)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 165,
+     "width_cm": 9.0,
+     "height_cm": 8.5,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 195,
+     "width_cm": 9.5,
+     "height_cm": 8.9,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 225,
+     "width_cm": 10.0,
+     "height_cm": 9.4,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 260,
+     "width_cm": 10.5,
+     "height_cm": 9.9,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 300,
+     "width_cm": 11.0,
+     "height_cm": 10.3,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 345,
+     "width_cm": 11.5,
+     "height_cm": 10.8,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 390,
+     "width_cm": 12.0,
+     "height_cm": 11.3,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 440,
+     "width_cm": 12.5,
+     "height_cm": 11.8,
+     "projection_cm": 6.2
+    },
+    {
+     "volume_cc": 495,
+     "width_cm": 13.0,
+     "height_cm": 12.2,
+     "projection_cm": 6.5
+    },
+    {
+     "volume_cc": 555,
+     "width_cm": 13.5,
+     "height_cm": 12.7,
+     "projection_cm": 6.7
+    },
+    {
+     "volume_cc": 620,
+     "width_cm": 14.0,
+     "height_cm": 13.2,
+     "projection_cm": 6.9
+    },
+    {
+     "volume_cc": 685,
+     "width_cm": 14.5,
+     "height_cm": 13.6,
+     "projection_cm": 7.1
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.4"
+   },
+   "crosscheck": {
+    "url": "https://www.mentordirect.com.au/sites/default/files/2024-01/Mentor%20-%20Product%20Catalogue%20-%20v10.1_Digital%20Version.pdf",
+    "result": "match",
+    "notes": "All 12 rows match Mentor Direct Australia 2024 CPG 323 table (e.g. 300 cc = 11.0 W / 10.3 H / 5.6 P; 685 cc = 14.5/13.6/7.1)."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "TM+ - Tall Height / Moderate Plus Projection (Style 332)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 145,
+     "width_cm": 9.0,
+     "height_cm": 9.4,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 175,
+     "width_cm": 9.5,
+     "height_cm": 9.9,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 205,
+     "width_cm": 10.0,
+     "height_cm": 10.4,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 235,
+     "width_cm": 10.5,
+     "height_cm": 10.9,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 270,
+     "width_cm": 11.0,
+     "height_cm": 11.5,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 305,
+     "width_cm": 11.5,
+     "height_cm": 12.0,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 350,
+     "width_cm": 12.0,
+     "height_cm": 12.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 395,
+     "width_cm": 12.5,
+     "height_cm": 13.0,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 445,
+     "width_cm": 13.0,
+     "height_cm": 13.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 495,
+     "width_cm": 13.5,
+     "height_cm": 14.1,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 555,
+     "width_cm": 14.0,
+     "height_cm": 14.6,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 615,
+     "width_cm": 14.5,
+     "height_cm": 15.1,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 680,
+     "width_cm": 15.0,
+     "height_cm": 15.6,
+     "projection_cm": 6.3
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.5"
+   },
+   "crosscheck": {
+    "url": "https://medistim.no/wp-content/uploads/2013/08/mentor-product-guide-web.pdf",
+    "result": "match",
+    "notes": "All 13 rows match CPG 332 tables in medistim.no Mentor Product Guide and Mentor Direct Australia 2024 (e.g. 350 cc = 12.0 W / 12.5 H / 5.1 P)."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "LM+ - Low Height / Moderate Plus Projection (Style 331)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 125,
+     "width_cm": 9.0,
+     "height_cm": 8.0,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 145,
+     "width_cm": 9.5,
+     "height_cm": 8.4,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 170,
+     "width_cm": 10.0,
+     "height_cm": 8.8,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 195,
+     "width_cm": 10.5,
+     "height_cm": 9.3,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 225,
+     "width_cm": 11.0,
+     "height_cm": 9.7,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 255,
+     "width_cm": 11.5,
+     "height_cm": 10.2,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 290,
+     "width_cm": 12.0,
+     "height_cm": 10.6,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 330,
+     "width_cm": 12.5,
+     "height_cm": 11.1,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 370,
+     "width_cm": 13.0,
+     "height_cm": 11.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 415,
+     "width_cm": 13.5,
+     "height_cm": 12.0,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 465,
+     "width_cm": 14.0,
+     "height_cm": 12.4,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 515,
+     "width_cm": 14.5,
+     "height_cm": 12.8,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 570,
+     "width_cm": 15.0,
+     "height_cm": 13.3,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 690,
+     "width_cm": 16.0,
+     "height_cm": 14.2,
+     "projection_cm": 6.8
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.5"
+   },
+   "crosscheck": {
+    "url": "https://www.236z.com/information/detail-id-22629",
+    "result": "match",
+    "notes": "Rows match third-party reproduction of the same Mentor catalog (e.g. 415 cc = 13.5 W / 12.0 H / 5.7 P; 690 cc = 16.0/14.2/6.8). No second official PDF located for LM+ specifically."
+   }
+  },
+  {
+   "product_line": "MemoryShape (formerly CPG)",
+   "profile_label": "TH - Tall Height / High Projection (Style 333)",
+   "shape": "anatomical",
+   "surface": "SILTEX microtextured",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 180,
+     "width_cm": 9.0,
+     "height_cm": 9.4,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 215,
+     "width_cm": 9.5,
+     "height_cm": 9.9,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 250,
+     "width_cm": 10.0,
+     "height_cm": 10.4,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 290,
+     "width_cm": 10.5,
+     "height_cm": 10.9,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 330,
+     "width_cm": 11.0,
+     "height_cm": 11.5,
+     "projection_cm": 5.6
+    },
+    {
+     "volume_cc": 380,
+     "width_cm": 11.5,
+     "height_cm": 12.0,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 430,
+     "width_cm": 12.0,
+     "height_cm": 12.5,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 485,
+     "width_cm": 12.5,
+     "height_cm": 13.0,
+     "projection_cm": 6.2
+    },
+    {
+     "volume_cc": 545,
+     "width_cm": 13.0,
+     "height_cm": 13.5,
+     "projection_cm": 6.5
+    },
+    {
+     "volume_cc": 610,
+     "width_cm": 13.5,
+     "height_cm": 14.1,
+     "projection_cm": 6.7
+    },
+    {
+     "volume_cc": 680,
+     "width_cm": 14.0,
+     "height_cm": 14.6,
+     "projection_cm": 6.9
+    },
+    {
+     "volume_cc": 755,
+     "width_cm": 14.5,
+     "height_cm": 15.1,
+     "projection_cm": 7.1
+    }
+   ],
+   "source": {
+    "url": "https://www.mentordirect.com/PSG/020827-181217%20Product%20Catalog%202020.pdf",
+    "doc_title": "MENTOR Product Catalog - Tissue Expanders, Implants and Sizers (Effective January 2019; doc PN 020827-181217)",
+    "page": "catalog p.4"
+   },
+   "crosscheck": {
+    "url": "https://www.jnjmedtech.com/sites/default/files/user_uploaded_assets/pdf_assets/2020-06/020827-200128%20Product%20Catalog%202020%20Final_3.pdf",
+    "result": "match",
+    "notes": "All 12 rows match the J&J-hosted 2020 Product Catalog and medistim.no CPG 333 table (e.g. 250 cc = 10.0 W / 10.4 H / 5.1 P; 755 cc = 14.5/15.1/7.1)."
+   }
+  }
+ ],
+ "notes": "PRIMARY SOURCE: official MENTOR US Product Catalog (Effective Jan 2019, PN 020827-181217) hosted on Mentor's own ordering portal mentordirect.com; identical 2020 edition is hosted on jnjmedtech.com. All source tables are published in CM (no mm conversion needed); diameter = base width for round implants. SURFACES DO NOT SHARE DIMENSIONS in the US line: SILTEX textured versions of the same profile/volume differ slightly from smooth (typically +0.1-0.2 cm diameter and +0.0-0.2 cm projection); both tables are provided per profile. Volume ranges: smooth Moderate Classic 130-800, Moderate Plus 100-800, High 125-800, Ultra High 135-800; SILTEX same except Ultra High 135-700 (matches FDA-approved size ranges in the MemoryGel labeling). FOOTNOTE printed on every table: 'Individual implant dimensions may vary slightly in products of this type. Not all units will conform exactly to the dimensions noted above.' (no numeric tolerance given). MemoryShape matrix is SILTEX microtextured only, Cohesive III gel; styles map to legacy CPG numbers: MM=321, MM+=322, MH=323, LM+=331, TM+=332, TH=333. Catalog also lists a Lower Pole Arc (A-B) dimension for shaped implants in some regional editions (not in the US catalog table); not included. OUT OF SCOPE but present in same catalog: MemoryGel Xtra (Moderate Plus Xtra, Moderate High Xtra, High Profile Xtra; smooth and SILTEX) and the new MemoryGel BOOST and MemoryGel Enhance (930-1445 cc, FDA-approved Dec 2024) lines - dimension tables for these were NOT extracted. GAPS: FDA P060028c product insert lists only Style MM ranges (original 2013 approval; other styles added via supplements, so no per-size FDA dimension table exists for MM+/MH/TM+/LM+/TH - catalog values cross-checked against regional Mentor catalogs instead). accessdata.fda.gov blocks direct download but the P060028c/P060028b PDFs were retrieved and read. No conflicts found between any sources; the only anomaly is the non-monotonic SILTEX Moderate Plus intermediate-size projections printed in the US catalog (transcribed verbatim)."
+}

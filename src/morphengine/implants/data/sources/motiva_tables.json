@@ -1,0 +1,1715 @@
+{
+ "brand": "Motiva",
+ "series": [
+  {
+   "product_line": "Ergonomix",
+   "profile_label": "Mini",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 105,
+     "diameter_cm": 8.5,
+     "projection_cm": 2.2
+    },
+    {
+     "volume_cc": 125,
+     "diameter_cm": 9.0,
+     "projection_cm": 2.3
+    },
+    {
+     "volume_cc": 140,
+     "diameter_cm": 9.5,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 9.75,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 160,
+     "diameter_cm": 10.0,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 170,
+     "diameter_cm": 10.25,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 185,
+     "diameter_cm": 10.5,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 10.75,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 11.0,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 230,
+     "diameter_cm": 11.25,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 245,
+     "diameter_cm": 11.5,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 260,
+     "diameter_cm": 11.75,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 12.0,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 290,
+     "diameter_cm": 12.25,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 310,
+     "diameter_cm": 12.5,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 13.0,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 13.5,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 430,
+     "diameter_cm": 14.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 14.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 15.0,
+     "projection_cm": 3.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix Round (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ERSM/ERSD/ERSF/ERSC)"
+   },
+   "crosscheck": {
+    "url": "https://garylross.com/wp-content/uploads/2020/10/motiva-breast-implant-catalogue.pdf",
+    "result": "match",
+    "notes": "2020 manufacturer catalogue 'Motiva Implant Matrix' (hosted by garylross.com) identical on all overlapping sizes; also matched by clinic table 236z.com and FDA PMA SSED ranges (US subset). CONFLICT: 2020 catalogue lists Corse 1050 cc @ base 15.0 / proj 7.8 cm, but the current official web catalogue shows '-' (not offered) at base 15.00 for Ergonomix Corse - appears delisted."
+   }
+  },
+  {
+   "product_line": "Ergonomix",
+   "profile_label": "Demi",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 135,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 155,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 180,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 9.75,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 10.0,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 10.25,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 230,
+     "diameter_cm": 10.5,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 245,
+     "diameter_cm": 10.75,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 265,
+     "diameter_cm": 11.0,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 285,
+     "diameter_cm": 11.25,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 11.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 11.75,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 340,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 12.25,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 12.5,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 13.0,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 13.5,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 14.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 575,
+     "diameter_cm": 14.5,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 625,
+     "diameter_cm": 15.0,
+     "projection_cm": 4.8
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix Round (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ERSM/ERSD/ERSF/ERSC)"
+   },
+   "crosscheck": {
+    "url": "https://garylross.com/wp-content/uploads/2020/10/motiva-breast-implant-catalogue.pdf",
+    "result": "match",
+    "notes": "2020 manufacturer catalogue 'Motiva Implant Matrix' (hosted by garylross.com) identical on all overlapping sizes; also matched by clinic table 236z.com and FDA PMA SSED ranges (US subset). CONFLICT: 2020 catalogue lists Corse 1050 cc @ base 15.0 / proj 7.8 cm, but the current official web catalogue shows '-' (not offered) at base 15.00 for Ergonomix Corse - appears delisted."
+   }
+  },
+  {
+   "product_line": "Ergonomix",
+   "profile_label": "Full",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 145,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 255,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 10.5,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 295,
+     "diameter_cm": 10.75,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 315,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 335,
+     "diameter_cm": 11.25,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 355,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 11.75,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 12.25,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 625,
+     "diameter_cm": 14.0,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 14.5,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 775,
+     "diameter_cm": 15.0,
+     "projection_cm": 6.1
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix Round (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ERSM/ERSD/ERSF/ERSC)"
+   },
+   "crosscheck": {
+    "url": "https://garylross.com/wp-content/uploads/2020/10/motiva-breast-implant-catalogue.pdf",
+    "result": "match",
+    "notes": "2020 manufacturer catalogue 'Motiva Implant Matrix' (hosted by garylross.com) identical on all overlapping sizes; also matched by clinic table 236z.com and FDA PMA SSED ranges (US subset). CONFLICT: 2020 catalogue lists Corse 1050 cc @ base 15.0 / proj 7.8 cm, but the current official web catalogue shows '-' (not offered) at base 15.00 for Ergonomix Corse - appears delisted."
+   }
+  },
+  {
+   "product_line": "Ergonomix",
+   "profile_label": "Corsé",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 180,
+     "diameter_cm": 8.5,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 210,
+     "diameter_cm": 9.0,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 240,
+     "diameter_cm": 9.5,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 260,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 280,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 10.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 10.75,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 410,
+     "diameter_cm": 11.25,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 440,
+     "diameter_cm": 11.5,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 11.75,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 510,
+     "diameter_cm": 12.0,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 12.25,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 590,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 13.0,
+     "projection_cm": 6.6
+    },
+    {
+     "volume_cc": 725,
+     "diameter_cm": 13.5,
+     "projection_cm": 6.9
+    },
+    {
+     "volume_cc": 825,
+     "diameter_cm": 14.0,
+     "projection_cm": 7.2
+    },
+    {
+     "volume_cc": 925,
+     "diameter_cm": 14.5,
+     "projection_cm": 7.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix Round (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ERSM/ERSD/ERSF/ERSC)"
+   },
+   "crosscheck": {
+    "url": "https://garylross.com/wp-content/uploads/2020/10/motiva-breast-implant-catalogue.pdf",
+    "result": "match",
+    "notes": "2020 manufacturer catalogue 'Motiva Implant Matrix' (hosted by garylross.com) identical on all overlapping sizes; also matched by clinic table 236z.com and FDA PMA SSED ranges (US subset). CONFLICT: 2020 catalogue lists Corse 1050 cc @ base 15.0 / proj 7.8 cm, but the current official web catalogue shows '-' (not offered) at base 15.00 for Ergonomix Corse - appears delisted."
+   }
+  },
+  {
+   "product_line": "Ergonomix2",
+   "profile_label": "Mini",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 95,
+     "diameter_cm": 8.0,
+     "projection_cm": 2.1
+    },
+    {
+     "volume_cc": 110,
+     "diameter_cm": 8.5,
+     "projection_cm": 2.2
+    },
+    {
+     "volume_cc": 130,
+     "diameter_cm": 9.0,
+     "projection_cm": 2.3
+    },
+    {
+     "volume_cc": 155,
+     "diameter_cm": 9.5,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 165,
+     "diameter_cm": 9.75,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 10.0,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 180,
+     "diameter_cm": 10.25,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 200,
+     "diameter_cm": 10.5,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 10.75,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 11.0,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 11.25,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 260,
+     "diameter_cm": 11.5,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 11.75,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 290,
+     "diameter_cm": 12.0,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 12.25,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 330,
+     "diameter_cm": 12.5,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 13.0,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 420,
+     "diameter_cm": 13.5,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 14.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 14.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 560,
+     "diameter_cm": 15.0,
+     "projection_cm": 3.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix2/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix2 (official web catalogue)",
+    "page": "single-page interactive table (catalog codes E2SM/E2SD/E2SF/E2SC)"
+   },
+   "crosscheck": {
+    "url": "https://medicalbeautyconcepts.com/en/ergonomix-2-motiva-breast-enlargement/",
+    "result": "match",
+    "notes": "Distributor size-chart images 'Motiva Implants Ergonomix2' match official app exactly for Mini/Demi/Full and Corse through 965 cc. Argentina ANMAT Dispo 4809-22 model codes (E2SM-95..560, E2SD-125..660, E2SF-135..825) match. CONFLICT: distributor chart additionally lists Corse 1060 cc @ base 15.0 / proj 7.8 cm and Establishment Labs 10-K mentions volumes up to 1060 cc, but current official app shows '-' at base 15.00 for E2 Corse."
+   }
+  },
+  {
+   "product_line": "Ergonomix2",
+   "profile_label": "Demi",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 125,
+     "diameter_cm": 8.0,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 170,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 195,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 210,
+     "diameter_cm": 9.75,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 225,
+     "diameter_cm": 10.0,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 10.25,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 10.5,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 270,
+     "diameter_cm": 10.75,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 285,
+     "diameter_cm": 11.0,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 295,
+     "diameter_cm": 11.25,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 11.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 335,
+     "diameter_cm": 11.75,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 12.25,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 405,
+     "diameter_cm": 12.5,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 13.0,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 13.5,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 545,
+     "diameter_cm": 14.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 605,
+     "diameter_cm": 14.5,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 660,
+     "diameter_cm": 15.0,
+     "projection_cm": 4.8
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix2/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix2 (official web catalogue)",
+    "page": "single-page interactive table (catalog codes E2SM/E2SD/E2SF/E2SC)"
+   },
+   "crosscheck": {
+    "url": "https://medicalbeautyconcepts.com/en/ergonomix-2-motiva-breast-enlargement/",
+    "result": "match",
+    "notes": "Distributor size-chart images 'Motiva Implants Ergonomix2' match official app exactly for Mini/Demi/Full and Corse through 965 cc. Argentina ANMAT Dispo 4809-22 model codes (E2SM-95..560, E2SD-125..660, E2SF-135..825) match. CONFLICT: distributor chart additionally lists Corse 1060 cc @ base 15.0 / proj 7.8 cm and Establishment Labs 10-K mentions volumes up to 1060 cc, but current official app shows '-' at base 15.00 for E2 Corse."
+   }
+  },
+  {
+   "product_line": "Ergonomix2",
+   "profile_label": "Full",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 135,
+     "diameter_cm": 8.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 155,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 240,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 250,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 290,
+     "diameter_cm": 10.5,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 10.75,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 330,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 355,
+     "diameter_cm": 11.25,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 11.75,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 430,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.25,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 535,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 595,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 670,
+     "diameter_cm": 14.0,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 750,
+     "diameter_cm": 14.5,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 825,
+     "diameter_cm": 15.0,
+     "projection_cm": 6.1
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix2/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix2 (official web catalogue)",
+    "page": "single-page interactive table (catalog codes E2SM/E2SD/E2SF/E2SC)"
+   },
+   "crosscheck": {
+    "url": "https://medicalbeautyconcepts.com/en/ergonomix-2-motiva-breast-enlargement/",
+    "result": "match",
+    "notes": "Distributor size-chart images 'Motiva Implants Ergonomix2' match official app exactly for Mini/Demi/Full and Corse through 965 cc. Argentina ANMAT Dispo 4809-22 model codes (E2SM-95..560, E2SD-125..660, E2SF-135..825) match. CONFLICT: distributor chart additionally lists Corse 1060 cc @ base 15.0 / proj 7.8 cm and Establishment Labs 10-K mentions volumes up to 1060 cc, but current official app shows '-' at base 15.00 for E2 Corse."
+   }
+  },
+  {
+   "product_line": "Ergonomix2",
+   "profile_label": "Corsé",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 160,
+     "diameter_cm": 8.0,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 8.5,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 9.0,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 255,
+     "diameter_cm": 9.5,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 270,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 290,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 340,
+     "diameter_cm": 10.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 370,
+     "diameter_cm": 10.75,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 395,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 11.25,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 455,
+     "diameter_cm": 11.5,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 495,
+     "diameter_cm": 11.75,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 530,
+     "diameter_cm": 12.0,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 575,
+     "diameter_cm": 12.25,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 615,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 675,
+     "diameter_cm": 13.0,
+     "projection_cm": 6.6
+    },
+    {
+     "volume_cc": 755,
+     "diameter_cm": 13.5,
+     "projection_cm": 6.9
+    },
+    {
+     "volume_cc": 860,
+     "diameter_cm": 14.0,
+     "projection_cm": 7.2
+    },
+    {
+     "volume_cc": 965,
+     "diameter_cm": 14.5,
+     "projection_cm": 7.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/ergonomix2/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Ergonomix2 (official web catalogue)",
+    "page": "single-page interactive table (catalog codes E2SM/E2SD/E2SF/E2SC)"
+   },
+   "crosscheck": {
+    "url": "https://medicalbeautyconcepts.com/en/ergonomix-2-motiva-breast-enlargement/",
+    "result": "match",
+    "notes": "Distributor size-chart images 'Motiva Implants Ergonomix2' match official app exactly for Mini/Demi/Full and Corse through 965 cc. Argentina ANMAT Dispo 4809-22 model codes (E2SM-95..560, E2SD-125..660, E2SF-135..825) match. CONFLICT: distributor chart additionally lists Corse 1060 cc @ base 15.0 / proj 7.8 cm and Establishment Labs 10-K mentions volumes up to 1060 cc, but current official app shows '-' at base 15.00 for E2 Corse."
+   }
+  },
+  {
+   "product_line": "Round (SmoothSilk/SilkSurface PLUS, ProgressiveGel PLUS)",
+   "profile_label": "Mini",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 105,
+     "diameter_cm": 8.5,
+     "projection_cm": 2.2
+    },
+    {
+     "volume_cc": 125,
+     "diameter_cm": 9.0,
+     "projection_cm": 2.3
+    },
+    {
+     "volume_cc": 140,
+     "diameter_cm": 9.5,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 150,
+     "diameter_cm": 9.75,
+     "projection_cm": 2.4
+    },
+    {
+     "volume_cc": 160,
+     "diameter_cm": 10.0,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 170,
+     "diameter_cm": 10.25,
+     "projection_cm": 2.5
+    },
+    {
+     "volume_cc": 185,
+     "diameter_cm": 10.5,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 10.75,
+     "projection_cm": 2.6
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 11.0,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 230,
+     "diameter_cm": 11.25,
+     "projection_cm": 2.7
+    },
+    {
+     "volume_cc": 245,
+     "diameter_cm": 11.5,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 260,
+     "diameter_cm": 11.75,
+     "projection_cm": 2.8
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 12.0,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 290,
+     "diameter_cm": 12.25,
+     "projection_cm": 2.9
+    },
+    {
+     "volume_cc": 310,
+     "diameter_cm": 12.5,
+     "projection_cm": 3.0
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 13.0,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 13.5,
+     "projection_cm": 3.2
+    },
+    {
+     "volume_cc": 430,
+     "diameter_cm": 14.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 14.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 15.0,
+     "projection_cm": 3.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/round/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Round SmoothSilk PLUS (official web catalogue)",
+    "page": "single-page interactive table (catalog codes RSM/RSD/RSF/RSC)"
+   },
+   "crosscheck": {
+    "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf23/P230005B.pdf",
+    "result": "match",
+    "notes": "FDA PMA P230005 SSED (2024-09-26) US-approved Round ranges (Mini 245-400cc, Demi 205-525cc, Full 255-625cc) are consistent subsets of this international matrix with identical base/proj per size (e.g. Round Demi 205 @ 10.0/3.5, Full 400 @ 12.0/4.9 per FDA P230005D DFU table). No Corse approved in US."
+   }
+  },
+  {
+   "product_line": "Round (SmoothSilk/SilkSurface PLUS, ProgressiveGel PLUS)",
+   "profile_label": "Demi",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 135,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.1
+    },
+    {
+     "volume_cc": 155,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.3
+    },
+    {
+     "volume_cc": 180,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 190,
+     "diameter_cm": 9.75,
+     "projection_cm": 3.4
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 10.0,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 215,
+     "diameter_cm": 10.25,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 230,
+     "diameter_cm": 10.5,
+     "projection_cm": 3.6
+    },
+    {
+     "volume_cc": 245,
+     "diameter_cm": 10.75,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 265,
+     "diameter_cm": 11.0,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 285,
+     "diameter_cm": 11.25,
+     "projection_cm": 3.8
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 11.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 11.75,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 340,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 360,
+     "diameter_cm": 12.25,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 12.5,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 13.0,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 13.5,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 14.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 575,
+     "diameter_cm": 14.5,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 625,
+     "diameter_cm": 15.0,
+     "projection_cm": 4.8
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/round/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Round SmoothSilk PLUS (official web catalogue)",
+    "page": "single-page interactive table (catalog codes RSM/RSD/RSF/RSC)"
+   },
+   "crosscheck": {
+    "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf23/P230005B.pdf",
+    "result": "match",
+    "notes": "FDA PMA P230005 SSED (2024-09-26) US-approved Round ranges (Mini 245-400cc, Demi 205-525cc, Full 255-625cc) are consistent subsets of this international matrix with identical base/proj per size (e.g. Round Demi 205 @ 10.0/3.5, Full 400 @ 12.0/4.9 per FDA P230005D DFU table). No Corse approved in US."
+   }
+  },
+  {
+   "product_line": "Round (SmoothSilk/SilkSurface PLUS, ProgressiveGel PLUS)",
+   "profile_label": "Full",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 145,
+     "diameter_cm": 8.5,
+     "projection_cm": 3.5
+    },
+    {
+     "volume_cc": 175,
+     "diameter_cm": 9.0,
+     "projection_cm": 3.7
+    },
+    {
+     "volume_cc": 205,
+     "diameter_cm": 9.5,
+     "projection_cm": 3.9
+    },
+    {
+     "volume_cc": 220,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 235,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.1
+    },
+    {
+     "volume_cc": 255,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 275,
+     "diameter_cm": 10.5,
+     "projection_cm": 4.3
+    },
+    {
+     "volume_cc": 295,
+     "diameter_cm": 10.75,
+     "projection_cm": 4.4
+    },
+    {
+     "volume_cc": 315,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 335,
+     "diameter_cm": 11.25,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 355,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.7
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 11.75,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 12.25,
+     "projection_cm": 5.0
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 500,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.3
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 625,
+     "diameter_cm": 14.0,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 700,
+     "diameter_cm": 14.5,
+     "projection_cm": 5.9
+    },
+    {
+     "volume_cc": 775,
+     "diameter_cm": 15.0,
+     "projection_cm": 6.1
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/round/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Round SmoothSilk PLUS (official web catalogue)",
+    "page": "single-page interactive table (catalog codes RSM/RSD/RSF/RSC)"
+   },
+   "crosscheck": {
+    "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf23/P230005B.pdf",
+    "result": "match",
+    "notes": "FDA PMA P230005 SSED (2024-09-26) US-approved Round ranges (Mini 245-400cc, Demi 205-525cc, Full 255-625cc) are consistent subsets of this international matrix with identical base/proj per size (e.g. Round Demi 205 @ 10.0/3.5, Full 400 @ 12.0/4.9 per FDA P230005D DFU table). No Corse approved in US."
+   }
+  },
+  {
+   "product_line": "Round (SmoothSilk/SilkSurface PLUS, ProgressiveGel PLUS)",
+   "profile_label": "Corsé",
+   "shape": "round",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 180,
+     "diameter_cm": 8.5,
+     "projection_cm": 4.0
+    },
+    {
+     "volume_cc": 210,
+     "diameter_cm": 9.0,
+     "projection_cm": 4.2
+    },
+    {
+     "volume_cc": 240,
+     "diameter_cm": 9.5,
+     "projection_cm": 4.5
+    },
+    {
+     "volume_cc": 260,
+     "diameter_cm": 9.75,
+     "projection_cm": 4.6
+    },
+    {
+     "volume_cc": 280,
+     "diameter_cm": 10.0,
+     "projection_cm": 4.8
+    },
+    {
+     "volume_cc": 300,
+     "diameter_cm": 10.25,
+     "projection_cm": 4.9
+    },
+    {
+     "volume_cc": 325,
+     "diameter_cm": 10.5,
+     "projection_cm": 5.1
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 10.75,
+     "projection_cm": 5.2
+    },
+    {
+     "volume_cc": 380,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4
+    },
+    {
+     "volume_cc": 410,
+     "diameter_cm": 11.25,
+     "projection_cm": 5.5
+    },
+    {
+     "volume_cc": 440,
+     "diameter_cm": 11.5,
+     "projection_cm": 5.7
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 11.75,
+     "projection_cm": 5.8
+    },
+    {
+     "volume_cc": 510,
+     "diameter_cm": 12.0,
+     "projection_cm": 6.0
+    },
+    {
+     "volume_cc": 550,
+     "diameter_cm": 12.25,
+     "projection_cm": 6.1
+    },
+    {
+     "volume_cc": 590,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.3
+    },
+    {
+     "volume_cc": 650,
+     "diameter_cm": 13.0,
+     "projection_cm": 6.6
+    },
+    {
+     "volume_cc": 725,
+     "diameter_cm": 13.5,
+     "projection_cm": 6.9
+    },
+    {
+     "volume_cc": 825,
+     "diameter_cm": 14.0,
+     "projection_cm": 7.2
+    },
+    {
+     "volume_cc": 925,
+     "diameter_cm": 14.5,
+     "projection_cm": 7.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/round/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Round SmoothSilk PLUS (official web catalogue)",
+    "page": "single-page interactive table (catalog codes RSM/RSD/RSF/RSC)"
+   },
+   "crosscheck": {
+    "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf23/P230005B.pdf",
+    "result": "match",
+    "notes": "FDA PMA P230005 SSED (2024-09-26) US-approved Round ranges (Mini 245-400cc, Demi 205-525cc, Full 255-625cc) are consistent subsets of this international matrix with identical base/proj per size (e.g. Round Demi 205 @ 10.0/3.5, Full 400 @ 12.0/4.9 per FDA P230005D DFU table). No Corse approved in US."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "FF (Full height, Full projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 325,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.4,
+     "height_cm": 11.5
+    },
+    {
+     "volume_cc": 370,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.6,
+     "height_cm": 12.0
+    },
+    {
+     "volume_cc": 420,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.8,
+     "height_cm": 12.5
+    },
+    {
+     "volume_cc": 475,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.0,
+     "height_cm": 13.0
+    },
+    {
+     "volume_cc": 535,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.2,
+     "height_cm": 13.5
+    },
+    {
+     "volume_cc": 600,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.4,
+     "height_cm": 14.0
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "FC (Full height, Corsé projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 400,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4,
+     "height_cm": 11.5
+    },
+    {
+     "volume_cc": 505,
+     "diameter_cm": 12.0,
+     "projection_cm": 5.8,
+     "height_cm": 12.5
+    },
+    {
+     "volume_cc": 560,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.0,
+     "height_cm": 13.0
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "MF (Medium height, Full projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 280,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.4,
+     "height_cm": 10.0
+    },
+    {
+     "volume_cc": 320,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.6,
+     "height_cm": 10.5
+    },
+    {
+     "volume_cc": 365,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.8,
+     "height_cm": 11.0
+    },
+    {
+     "volume_cc": 415,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.0,
+     "height_cm": 11.5
+    },
+    {
+     "volume_cc": 465,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.2,
+     "height_cm": 12.0
+    },
+    {
+     "volume_cc": 525,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.4,
+     "height_cm": 12.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "MC (Medium height, Corsé projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 340,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4,
+     "height_cm": 10.0
+    },
+    {
+     "volume_cc": 390,
+     "diameter_cm": 11.5,
+     "projection_cm": 5.6,
+     "height_cm": 10.5
+    },
+    {
+     "volume_cc": 440,
+     "diameter_cm": 12.0,
+     "projection_cm": 5.8,
+     "height_cm": 11.0
+    },
+    {
+     "volume_cc": 495,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.0,
+     "height_cm": 11.5
+    },
+    {
+     "volume_cc": 555,
+     "diameter_cm": 13.0,
+     "projection_cm": 6.2,
+     "height_cm": 12.0
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "LF (Low height, Full projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 250,
+     "diameter_cm": 11.0,
+     "projection_cm": 4.4,
+     "height_cm": 9.0
+    },
+    {
+     "volume_cc": 285,
+     "diameter_cm": 11.5,
+     "projection_cm": 4.6,
+     "height_cm": 9.5
+    },
+    {
+     "volume_cc": 330,
+     "diameter_cm": 12.0,
+     "projection_cm": 4.8,
+     "height_cm": 10.0
+    },
+    {
+     "volume_cc": 375,
+     "diameter_cm": 12.5,
+     "projection_cm": 5.0,
+     "height_cm": 10.5
+    },
+    {
+     "volume_cc": 425,
+     "diameter_cm": 13.0,
+     "projection_cm": 5.2,
+     "height_cm": 11.0
+    },
+    {
+     "volume_cc": 480,
+     "diameter_cm": 13.5,
+     "projection_cm": 5.4,
+     "height_cm": 11.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  },
+  {
+   "product_line": "Anatomical TrueFixation",
+   "profile_label": "LC (Low height, Corsé projection)",
+   "shape": "anatomical (teardrop)",
+   "source_units": "cm",
+   "rows": [
+    {
+     "volume_cc": 305,
+     "diameter_cm": 11.0,
+     "projection_cm": 5.4,
+     "height_cm": 9.0
+    },
+    {
+     "volume_cc": 350,
+     "diameter_cm": 11.5,
+     "projection_cm": 5.6,
+     "height_cm": 9.5
+    },
+    {
+     "volume_cc": 400,
+     "diameter_cm": 12.0,
+     "projection_cm": 5.8,
+     "height_cm": 10.0
+    },
+    {
+     "volume_cc": 450,
+     "diameter_cm": 12.5,
+     "projection_cm": 6.0,
+     "height_cm": 10.5
+    }
+   ],
+   "source": {
+    "url": "https://motiva.health/app/implant-matrix/motiva/anatomical/",
+    "doc_title": "Motiva Product Catalogue (Implant Matrix) - Motiva Anatomical TrueFixation (official web catalogue)",
+    "page": "single-page interactive table (catalog codes ASFF/ASFC/ASMF/ASMC/ASLF/ASLC)"
+   },
+   "crosscheck": {
+    "url": "https://www.lifehealthcare.com.au/siteassets/resource-files/patient-cards-and-leaflets/prs/information-for-the-patient-breast-augmentation-and-reconstruction-with-motiva-implants-australia.pdf",
+    "result": "match",
+    "notes": "Official Australia patient information DOC-001004 rev3 (Establishment Labs) lists Anatomical TrueFixation e.g. ASLC-58 = 400 cc / 12.0 cm base, ASLC-60 = 450 cc / 12.5 cm base - matches app table. TrueFixation NOT in US FDA PMA (Round/Ergonomix round only)."
+   }
+  }
+ ],
+ "notes": "PRIMARY SOURCE: official Motiva web catalogue (motiva.health Product Catalogue / Implant Matrix app), captured 2026-07. All values published in CM (no mm conversion needed). Catalogue rows also carry arc-length column(s) which were omitted here per requested schema (volume/diameter/projection only); Anatomical rows additionally include height_cm. ERGONOMIX vs ERGONOMIX2: same profile projections per base width, but Ergonomix2 (ProgressiveGel PLUS, catalog E2Sx) packs MORE VOLUME per base width than Ergonomix (ProgressiveGel Ultima, ERSx) - e.g. base 11.5 cm Demi: Ergonomix 300 cc vs Ergonomix2 325 cc; Ergonomix2 also extends one base width lower (8.00 cm). Ergonomix2 volume ladder differs (95-965 cc vs 105-925 cc in current catalogue). ROUND (SmoothSilk/SilkSurface PLUS, ProgressiveGel PLUS, catalog RSx): diameter/projection/volume ladder IDENTICAL to Ergonomix per official app (only arc length differs). GAP/CONFLICT 1: Ergonomix Corse 1050 cc (base 15.0, proj 7.8 cm) appears in the 2020 manufacturer catalogue and clinic tables, but the current official app shows '-' at base 15.00 - max Ergonomix Corse is now 925 cc. GAP/CONFLICT 2: Ergonomix2 Corse 1060 cc (base 15.0, proj 7.8 cm) appears in distributor charts and is implied by Establishment Labs 10-K ('up to 1060cc'), but the current app shows '-' at 15.00 - max listed is 965 cc. TRUFIXATION STATUS: Motiva Anatomical TrueFixation is STILL LISTED in the current official motiva.health catalogue (3 heights x 2 projections, Full and Corse projections only, 250-600 cc). Not FDA-approved in the US (US PMA P230005 covers Round and Ergonomix round only, Mini/Demi/Full, no Corse, no anatomical). US FDA: P230005 SSED ranges are consistent subsets of the international matrix (identical dims per size). Detailed FDA DFU table P230005D could not be machine-parsed cleanly (server blocked direct download), but extracted cells matched the international matrix. Flagship cross-checks: Ergonomix Demi 300 cc = 11.50 cm base / 3.9 cm proj (app = 2020 catalogue = 236z.com); Ergonomix Full 400 cc = 12.00 cm / 4.9 cm (app = 2020 catalogue = 236z.com); Ergonomix2 Demi 325 cc = 11.50 / 3.9 (app = distributor chart = ANMAT codes). All match. Not extracted: Ergonomix Oval (oval-horizontal) and GlutealArmonic tables (out of scope); older VelvetSurface families share the same dimension matrix."
+}

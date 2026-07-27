@@ -1,4 +1,4 @@
-"""Tests for morphengine.implants.db — SPEC.md §3 (db list) and §2.9 starter data."""
+"""Tests for morphengine.implants.db — SPEC.md §3 (db list) and §2.9 rev.5 verified catalog."""
 
 from importlib import resources
 from pathlib import Path
@@ -27,7 +27,7 @@ def db() -> ImplantDB:
 
 
 # ---------------------------------------------------------------------------
-# JSON loads; all records validate; >= 12 SKUs; all illustrative_placeholder
+# JSON loads; all records validate; >= 500 SKUs; all verified (SPEC rev.5)
 # ---------------------------------------------------------------------------
 
 def test_bundled_json_resource_is_shipped():
@@ -37,7 +37,7 @@ def test_bundled_json_resource_is_shipped():
 
 def test_json_loads_and_all_records_validate(db):
     skus = db.find()
-    assert len(skus) >= 12
+    assert len(skus) >= 500  # full manufacturer dimension tables (581 at rev.5)
     assert all(isinstance(s, ImplantSKU) for s in skus)
 
 
@@ -46,10 +46,12 @@ def test_from_json_explicit_path_matches_bundled(db):
     assert [s.sku_id for s in from_path.find()] == [s.sku_id for s in db.find()]
 
 
-def test_all_records_illustrative_placeholder(db):
+def test_all_records_verified_with_real_citations(db):
     for sku in db.find():
-        assert sku.values_status == "illustrative_placeholder"
-        assert "PLACEHOLDER" in sku.source
+        assert sku.values_status == "verified"
+        assert "PLACEHOLDER" not in sku.source
+        assert len(sku.source) >= 30  # doc id + page + host, not a stub
+        assert sku.profile_label  # manufacturer's own profile name (rev.5)
 
 
 def test_sku_ids_unique(db):
@@ -58,22 +60,24 @@ def test_sku_ids_unique(db):
 
 
 # ---------------------------------------------------------------------------
-# SPEC §2.9 starter-data coverage
+# SPEC §2.9 rev.5 catalog coverage
 # ---------------------------------------------------------------------------
 
-def test_starter_data_coverage(db):
+def test_catalog_coverage(db):
     skus = db.find()
     brands = {s.brand for s in skus}
     assert {"Mentor", "Natrelle", "Motiva", "Sientra"} <= brands
     volumes = [s.volume_cc for s in skus]
-    assert min(volumes) >= 175 and max(volumes) <= 650
-    assert len({s.profile_class for s in skus}) >= 3
-    assert len([s for s in skus if s.shape is Shape.ANATOMICAL]) >= 2
+    assert min(volumes) >= 80 and max(volumes) <= 1000
+    assert {s.profile_class for s in skus} == {
+        "low", "moderate", "moderate plus", "high", "ultra high"}
+    assert len([s for s in skus if s.shape is Shape.ANATOMICAL]) >= 10
     assert {s.shape for s in skus} == {Shape.ROUND, Shape.ANATOMICAL}
-    # SPEC anchor: 350 cc high-profile round ~ base 11.5-12.5 cm, proj 4.5-5.0 cm
+    # SPEC anchor: Mentor MemoryGel High Profile 350 cc, official catalog
+    # (mentordirect.com PN 020827-181217, p.8) = 11.7 cm base / 4.8 cm proj
     anchor = db.get("mentor-memorygel-350-hp")
-    assert 11.5 <= anchor.base_width_cm <= 12.5
-    assert 4.5 <= anchor.projection_cm <= 5.0
+    assert anchor.base_width_cm == pytest.approx(11.7, abs=1e-9)
+    assert anchor.projection_cm == pytest.approx(4.8, abs=1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -164,9 +168,9 @@ def test_to_params_accepts_str_placement(db):
 
 
 def test_to_params_rejects_placement_not_in_options(db):
-    # natrelle-410-300-mod offers only submuscular / dual-plane
+    # anatomicals offer only submuscular / dual-plane
     with pytest.raises(ValueError) as excinfo:
-        db.to_params("natrelle-410-300-mod", Placement.SUBGLANDULAR)
+        db.to_params("mentor-memoryshape-300-mh", Placement.SUBGLANDULAR)
     assert "subglandular" in str(excinfo.value)
 
 
@@ -181,46 +185,54 @@ def test_to_params_unknown_sku_raises_keyerror(db):
 
 
 # ---------------------------------------------------------------------------
-# Dimensional sanity: at fixed volume, higher profile => smaller base width
-# AND larger projection (per shape), over the starter set.
+# Dimensional sanity: at fixed volume (within a manufacturer line), higher
+# profile => base width NOT LARGER (official tables have equal-width steps,
+# e.g. Sientra 590 cc) AND strictly larger projection. Mirrors the
+# generator's invariant check (scripts/build_implants_db.py).
 # ---------------------------------------------------------------------------
 
 def test_dimensional_sanity_profile_vs_dimensions(db):
-    groups: dict[tuple[Shape, float], list[ImplantSKU]] = {}
+    groups: dict[tuple[str, str, Shape, float], list[ImplantSKU]] = {}
     for sku in db.find():
-        groups.setdefault((sku.shape, sku.volume_cc), []).append(sku)
+        key = (sku.brand, sku.product_line, sku.shape, sku.volume_cc)
+        groups.setdefault(key, []).append(sku)
 
     checked = 0
-    for (shape, volume), skus in groups.items():
+    for (brand, line, shape, volume), skus in groups.items():
         by_profile: dict[str, ImplantSKU] = {}
         for sku in skus:
             assert sku.profile_class not in by_profile, (
-                f"ambiguous fixture data: two SKUs share shape={shape}, "
-                f"volume={volume}, profile={sku.profile_class!r}"
+                f"ambiguous catalog data: two SKUs share {brand}/{line}/"
+                f"{shape}/{volume}cc/{sku.profile_class!r}"
             )
             by_profile[sku.profile_class] = sku
         ordered = sorted(by_profile.values(), key=lambda s: PROFILE_RANK[s.profile_class])
         for lower, higher in zip(ordered, ordered[1:]):
-            assert higher.base_width_cm < lower.base_width_cm, (
-                f"{shape.value} {volume} cc: {higher.profile_class!r} base width "
-                f"{higher.base_width_cm} not < {lower.profile_class!r} {lower.base_width_cm}"
+            assert higher.base_width_cm <= lower.base_width_cm + 1e-9, (
+                f"{brand} {line} {volume} cc: {higher.profile_class!r} base width "
+                f"{higher.base_width_cm} > {lower.profile_class!r} {lower.base_width_cm}"
             )
             assert higher.projection_cm > lower.projection_cm, (
-                f"{shape.value} {volume} cc: {higher.profile_class!r} projection "
+                f"{brand} {line} {volume} cc: {higher.profile_class!r} projection "
                 f"{higher.projection_cm} not > {lower.profile_class!r} {lower.projection_cm}"
             )
             checked += 1
-    # the property is actually exercised, not vacuously true
-    assert checked >= 4
+    # the property is actually exercised, not vacuously true (130 at rev.5)
+    assert checked >= 100
 
 
-def test_dimensions_scale_monotonically_with_volume_per_profile(db):
-    """Plausibility: within (shape, profile_class), bigger cc => wider base."""
-    groups: dict[tuple[Shape, str], list[ImplantSKU]] = {}
+def test_dimensions_scale_with_volume_per_profile(db):
+    """Within (brand, line, shape, profile_class): bigger cc => strictly wider
+    base; projection non-decreasing up to official-table rounding dips <=0.2 cm
+    (e.g. Natrelle SRM 685->755 prints 5.2->5.0 in the Allergan catalog)."""
+    groups: dict[tuple[str, str, Shape, str], list[ImplantSKU]] = {}
     for sku in db.find():
-        groups.setdefault((sku.shape, sku.profile_class), []).append(sku)
+        key = (sku.brand, sku.product_line, sku.shape, sku.profile_class)
+        groups.setdefault(key, []).append(sku)
     for skus in groups.values():
         ordered = sorted(skus, key=lambda s: s.volume_cc)
         for small, big in zip(ordered, ordered[1:]):
-            assert big.base_width_cm > small.base_width_cm
-            assert big.projection_cm > small.projection_cm
+            assert big.base_width_cm > small.base_width_cm, (
+                f"{small.sku_id} -> {big.sku_id}: base width not increasing")
+            assert big.projection_cm >= small.projection_cm - 0.2 - 1e-9, (
+                f"{small.sku_id} -> {big.sku_id}: projection dip > 0.2 cm")

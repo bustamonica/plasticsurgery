@@ -1,0 +1,1810 @@
+{
+  "brand": "Sientra",
+  "series": [
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Low",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC",
+      "catalog_series": "10610-xxxLP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 160,
+          "diameter_cm": 10.5,
+          "projection_cm": 2.5
+        },
+        {
+          "volume_cc": 190,
+          "diameter_cm": 11.4,
+          "projection_cm": 2.6
+        },
+        {
+          "volume_cc": 220,
+          "diameter_cm": 12.1,
+          "projection_cm": 2.7
+        },
+        {
+          "volume_cc": 250,
+          "diameter_cm": 12.3,
+          "projection_cm": 2.8
+        },
+        {
+          "volume_cc": 280,
+          "diameter_cm": 13.0,
+          "projection_cm": 2.9
+        },
+        {
+          "volume_cc": 310,
+          "diameter_cm": 13.4,
+          "projection_cm": 3.0
+        },
+        {
+          "volume_cc": 340,
+          "diameter_cm": 13.7,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 370,
+          "diameter_cm": 14.5,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 400,
+          "diameter_cm": 14.8,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 425,
+          "diameter_cm": 15.1,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 450,
+          "diameter_cm": 15.4,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 475,
+          "diameter_cm": 15.6,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 15.9,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 525,
+          "diameter_cm": 16.2,
+          "projection_cm": 3.4
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 16.5,
+          "projection_cm": 3.5
+        },
+        {
+          "volume_cc": 575,
+          "diameter_cm": 16.7,
+          "projection_cm": 3.6
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 17.0,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 17.5,
+          "projection_cm": 3.8
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 17.9,
+          "projection_cm": 3.8
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "All 19 rows identical in MDC-0270 R11 (Low Projection table) and in MDC-0177 R6 (2017 catalog)."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Low Plus",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC (10610-xxxLPP) and HSC+ (10710-xxxLPP)",
+      "catalog_series": "10610/10710-xxxLPP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 80,
+          "diameter_cm": 8.0,
+          "projection_cm": 2.1
+        },
+        {
+          "volume_cc": 110,
+          "diameter_cm": 9.0,
+          "projection_cm": 2.4
+        },
+        {
+          "volume_cc": 140,
+          "diameter_cm": 9.75,
+          "projection_cm": 2.6
+        },
+        {
+          "volume_cc": 155,
+          "diameter_cm": 10.0,
+          "projection_cm": 2.7
+        },
+        {
+          "volume_cc": 175,
+          "diameter_cm": 10.5,
+          "projection_cm": 2.8
+        },
+        {
+          "volume_cc": 185,
+          "diameter_cm": 10.75,
+          "projection_cm": 2.9
+        },
+        {
+          "volume_cc": 195,
+          "diameter_cm": 11.0,
+          "projection_cm": 3.0
+        },
+        {
+          "volume_cc": 210,
+          "diameter_cm": 11.25,
+          "projection_cm": 3.0
+        },
+        {
+          "volume_cc": 225,
+          "diameter_cm": 11.5,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 235,
+          "diameter_cm": 11.75,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 12.0,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 280,
+          "diameter_cm": 12.5,
+          "projection_cm": 3.4
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 12.75,
+          "projection_cm": 3.5
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 13.0,
+          "projection_cm": 3.6
+        },
+        {
+          "volume_cc": 335,
+          "diameter_cm": 13.25,
+          "projection_cm": 3.6
+        },
+        {
+          "volume_cc": 355,
+          "diameter_cm": 13.5,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 390,
+          "diameter_cm": 14.0,
+          "projection_cm": 3.8
+        },
+        {
+          "volume_cc": 440,
+          "diameter_cm": 14.5,
+          "projection_cm": 3.9
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Round HSC & HSC+ breast implants, MDC-0270 R11 (c) 2022 Sientra, Inc. (official sientra.com domain)",
+        "page": "pp.1-2"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0704-R3-Breast-Reconstruction-Quick-Reference-Guide.pdf",
+        "result": "match",
+        "notes": "All 18 rows identical in MDC-0704 R3 Breast Reconstruction QRG (Low Plus Projection table). Low Plus does not appear in the 2019 catalog MDC-0343 R3 (added to portfolio later)."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Moderate",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC (10512-xxxMP) and HSC+ (10712-xxxMP)",
+      "catalog_series": "10512/10712-xxxMP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 190,
+          "diameter_cm": 10.3,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 210,
+          "diameter_cm": 10.7,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 230,
+          "diameter_cm": 11.1,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 250,
+          "diameter_cm": 11.4,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 270,
+          "diameter_cm": 11.8,
+          "projection_cm": 3.4
+        },
+        {
+          "volume_cc": 285,
+          "diameter_cm": 11.9,
+          "projection_cm": 3.5
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 12.0,
+          "projection_cm": 3.6
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 12.3,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 335,
+          "diameter_cm": 12.4,
+          "projection_cm": 3.8
+        },
+        {
+          "volume_cc": 350,
+          "diameter_cm": 12.5,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 365,
+          "diameter_cm": 12.7,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 380,
+          "diameter_cm": 12.8,
+          "projection_cm": 4.1
+        },
+        {
+          "volume_cc": 395,
+          "diameter_cm": 12.9,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 410,
+          "diameter_cm": 13.0,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 425,
+          "diameter_cm": 13.2,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 440,
+          "diameter_cm": 13.4,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 470,
+          "diameter_cm": 13.7,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 510,
+          "diameter_cm": 14.0,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 14.8,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 15.4,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 15.8,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 16.1,
+          "projection_cm": 4.7
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "All 22 rows identical in MDC-0270 R11 (Moderate Projection) and MDC-0704 R3 (HSC+ 10712 rows). 2017 catalog MDC-0177 R6 agrees on shared sizes but lists 410cc as 13.0/4.1 and lacks 365/425cc (older generation)."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Moderate Plus",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC (10621-xxxMP) and HSC+ (10721-xxxMP)",
+      "catalog_series": "10621/10721-xxxMP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 175,
+          "diameter_cm": 9.3,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 195,
+          "diameter_cm": 9.7,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 215,
+          "diameter_cm": 10.0,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 235,
+          "diameter_cm": 10.5,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 11.0,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 285,
+          "diameter_cm": 11.4,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 305,
+          "diameter_cm": 11.7,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 325,
+          "diameter_cm": 11.8,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 355,
+          "diameter_cm": 12.1,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 385,
+          "diameter_cm": 12.5,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 415,
+          "diameter_cm": 12.9,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 435,
+          "diameter_cm": 13.2,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 455,
+          "diameter_cm": 13.3,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 485,
+          "diameter_cm": 13.6,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 505,
+          "diameter_cm": 13.7,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 525,
+          "diameter_cm": 13.8,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 540,
+          "diameter_cm": 13.9,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 575,
+          "diameter_cm": 14.1,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 590,
+          "diameter_cm": 14.3,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 625,
+          "diameter_cm": 14.6,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 14.8,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 695,
+          "diameter_cm": 15.1,
+          "projection_cm": 5.5
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "RESOLVED (independent audit 2026-07-27): 455 cc projection is 4.6 cm in MDC-0343 R3 (2019) and MDC-0270 R11 (2022) — the two most recent documents; 4.8 cm appears only in the 2017 catalog (MDC-0177). 4.6 retained as current. All other rows identical across all three documents."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "High",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC (10621-xxxHP) and HSC+ (10721-xxxHP)",
+      "catalog_series": "10621/10721-xxxHP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 190,
+          "diameter_cm": 9.6,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 205,
+          "diameter_cm": 9.9,
+          "projection_cm": 4.1
+        },
+        {
+          "volume_cc": 225,
+          "diameter_cm": 10.2,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 240,
+          "diameter_cm": 10.5,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 10.8,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 280,
+          "diameter_cm": 11.1,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 11.4,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 330,
+          "diameter_cm": 11.7,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 350,
+          "diameter_cm": 12.0,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 385,
+          "diameter_cm": 12.3,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 415,
+          "diameter_cm": 12.5,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 440,
+          "diameter_cm": 12.8,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 470,
+          "diameter_cm": 13.1,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 505,
+          "diameter_cm": 13.4,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 535,
+          "diameter_cm": 13.7,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 565,
+          "diameter_cm": 14.0,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 590,
+          "diameter_cm": 14.3,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 620,
+          "diameter_cm": 14.5,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 14.7,
+          "projection_cm": 5.9
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 14.9,
+          "projection_cm": 6.0
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "All 20 rows identical in MDC-0270 R11 and MDC-0177 R6. No 400cc size exists in this profile - nearest published sizes are 385cc (12.3/4.9) and 415cc (12.5/5.0), identical across all three documents."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Xtra High",
+      "shape": "round",
+      "surface": "smooth",
+      "gel": "HSC (10621-xxxXP) and HSC+ (10721-xxxXP)",
+      "catalog_series": "10621/10721-xxxXP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 245,
+          "diameter_cm": 9.5,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 275,
+          "diameter_cm": 9.75,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 295,
+          "diameter_cm": 10.0,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 315,
+          "diameter_cm": 10.25,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 340,
+          "diameter_cm": 10.5,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 360,
+          "diameter_cm": 10.75,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 395,
+          "diameter_cm": 11.0,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 420,
+          "diameter_cm": 11.25,
+          "projection_cm": 5.9
+        },
+        {
+          "volume_cc": 445,
+          "diameter_cm": 11.5,
+          "projection_cm": 6.0
+        },
+        {
+          "volume_cc": 470,
+          "diameter_cm": 11.75,
+          "projection_cm": 6.1
+        },
+        {
+          "volume_cc": 510,
+          "diameter_cm": 12.0,
+          "projection_cm": 6.2
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Round HSC & HSC+ breast implants, MDC-0270 R11 (c) 2022 Sientra, Inc. (official sientra.com domain)",
+        "page": "pp.1-2"
+      },
+      "crosscheck": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "result": "mismatch",
+        "notes": "MDC-0343 R3 (2019) lists the same 10 rows from 275cc-510cc with identical dimensions but does NOT include the 245cc (9.5/5.0) row that MDC-0270 R11 (2022) adds. sientra.com currently advertises Xtra High as 275-510cc, so the 245cc size may have been added then withdrawn; treat 245cc as uncertain."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Low",
+      "shape": "round",
+      "surface": "textured (TRUE Texture)",
+      "gel": "HSC",
+      "catalog_series": "20610-xxxLP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 160,
+          "diameter_cm": 10.5,
+          "projection_cm": 2.5
+        },
+        {
+          "volume_cc": 190,
+          "diameter_cm": 11.4,
+          "projection_cm": 2.6
+        },
+        {
+          "volume_cc": 220,
+          "diameter_cm": 12.1,
+          "projection_cm": 2.7
+        },
+        {
+          "volume_cc": 250,
+          "diameter_cm": 12.3,
+          "projection_cm": 2.8
+        },
+        {
+          "volume_cc": 280,
+          "diameter_cm": 13.0,
+          "projection_cm": 2.9
+        },
+        {
+          "volume_cc": 310,
+          "diameter_cm": 13.4,
+          "projection_cm": 3.0
+        },
+        {
+          "volume_cc": 340,
+          "diameter_cm": 13.7,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 370,
+          "diameter_cm": 14.5,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 400,
+          "diameter_cm": 14.8,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 450,
+          "diameter_cm": 15.4,
+          "projection_cm": 3.2
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 15.9,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 16.5,
+          "projection_cm": 3.5
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 17.0,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 17.5,
+          "projection_cm": 3.8
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 17.9,
+          "projection_cm": 3.8
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "All 15 rows identical in MDC-0270 R11 and MDC-0177 R6. Textured Low has no 425/475/525cc sizes (unlike smooth Low)."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "Moderate Plus",
+      "shape": "round",
+      "surface": "textured (TRUE Texture)",
+      "gel": "HSC (20621-xxxMP) and HSC+ (20721-xxxMP)",
+      "catalog_series": "20621/20721-xxxMP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 175,
+          "diameter_cm": 9.3,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 195,
+          "diameter_cm": 9.7,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 215,
+          "diameter_cm": 10.0,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 235,
+          "diameter_cm": 10.5,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 11.0,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 285,
+          "diameter_cm": 11.4,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 305,
+          "diameter_cm": 11.7,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 325,
+          "diameter_cm": 11.8,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 355,
+          "diameter_cm": 12.1,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 385,
+          "diameter_cm": 12.5,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 415,
+          "diameter_cm": 12.9,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 435,
+          "diameter_cm": 13.2,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 455,
+          "diameter_cm": 13.3,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 485,
+          "diameter_cm": 13.6,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 505,
+          "diameter_cm": 13.7,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 525,
+          "diameter_cm": 13.8,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 540,
+          "diameter_cm": 13.9,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 575,
+          "diameter_cm": 14.1,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 590,
+          "diameter_cm": 14.3,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 625,
+          "diameter_cm": 14.6,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 14.8,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 695,
+          "diameter_cm": 15.1,
+          "projection_cm": 5.5
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "RESOLVED (independent audit 2026-07-27): 455 cc projection is 4.6 cm in MDC-0343 R3 (2019) and MDC-0270 R11 (2022) — the two most recent documents; 4.8 cm appears only in the 2017 catalog (MDC-0177). 4.6 retained as current. All other rows identical across all three documents."
+      }
+    },
+    {
+      "product_line": "OPUS Luxe",
+      "profile_label": "High",
+      "shape": "round",
+      "surface": "textured (TRUE Texture)",
+      "gel": "HSC (20621-xxxHP) and HSC+ (20721-xxxHP)",
+      "catalog_series": "20621/20721-xxxHP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 190,
+          "diameter_cm": 9.6,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 205,
+          "diameter_cm": 9.9,
+          "projection_cm": 4.1
+        },
+        {
+          "volume_cc": 225,
+          "diameter_cm": 10.2,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 240,
+          "diameter_cm": 10.5,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 10.8,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 280,
+          "diameter_cm": 11.1,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 11.4,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 330,
+          "diameter_cm": 11.7,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 350,
+          "diameter_cm": 12.0,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 385,
+          "diameter_cm": 12.3,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 415,
+          "diameter_cm": 12.5,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 440,
+          "diameter_cm": 12.8,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 470,
+          "diameter_cm": 13.1,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 505,
+          "diameter_cm": 13.4,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 535,
+          "diameter_cm": 13.7,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 565,
+          "diameter_cm": 14.0,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 590,
+          "diameter_cm": 14.3,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 620,
+          "diameter_cm": 14.5,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 14.7,
+          "projection_cm": 5.9
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 14.9,
+          "projection_cm": 6.0
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue-Luxe.pdf",
+        "doc_title": "Sientra OPUS Luxe Round Breast Implant Product Catalog, MDC-0343 R3 (c) 2019 Sientra, Inc., Effective July 2019 (official Sientra document; PDF mirrored by clinic site)",
+        "page": "p.1 (textured round), p.2 (smooth round)"
+      },
+      "crosscheck": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2022/07/MDC-0270-R11-HSC-HSC-Quick-Reference.pdf",
+        "result": "match",
+        "notes": "All 20 rows identical in MDC-0270 R11 and MDC-0177 R6. sanfranciscobreast.com clinic page states textured High marketed 190-565cc, but catalog and QRG both print the full 190-700cc ladder."
+      }
+    },
+    {
+      "product_line": "OPUS Curve (Luxe teardrop/anatomical)",
+      "profile_label": "Classic Base Moderate",
+      "shape": "anatomical (shaped, classic base - taller than wide)",
+      "surface": "textured",
+      "gel": "HSC+",
+      "catalog_series": "CBASE-xxxMP (legacy 20676-xxxE)",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 180,
+          "diameter_cm": 9.5,
+          "height_cm": 10.5,
+          "projection_cm": 3.6
+        },
+        {
+          "volume_cc": 210,
+          "diameter_cm": 10.0,
+          "height_cm": 11.0,
+          "projection_cm": 3.8
+        },
+        {
+          "volume_cc": 240,
+          "diameter_cm": 10.5,
+          "height_cm": 11.5,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 260,
+          "diameter_cm": 10.8,
+          "height_cm": 11.8,
+          "projection_cm": 4.1
+        },
+        {
+          "volume_cc": 275,
+          "diameter_cm": 11.0,
+          "height_cm": 12.0,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 295,
+          "diameter_cm": 11.3,
+          "height_cm": 12.3,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 310,
+          "diameter_cm": 11.5,
+          "height_cm": 12.5,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 335,
+          "diameter_cm": 11.8,
+          "height_cm": 12.8,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 350,
+          "diameter_cm": 12.0,
+          "height_cm": 13.0,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 375,
+          "diameter_cm": 12.3,
+          "height_cm": 13.3,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 400,
+          "diameter_cm": 12.5,
+          "height_cm": 13.5,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 425,
+          "diameter_cm": 12.8,
+          "height_cm": 13.8,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 450,
+          "diameter_cm": 13.0,
+          "height_cm": 14.0,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 475,
+          "diameter_cm": 13.3,
+          "height_cm": 14.3,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 13.5,
+          "height_cm": 14.5,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 525,
+          "diameter_cm": 13.8,
+          "height_cm": 14.8,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 14.0,
+          "height_cm": 15.0,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 575,
+          "diameter_cm": 14.3,
+          "height_cm": 15.3,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 14.5,
+          "height_cm": 15.5,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 625,
+          "diameter_cm": 14.7,
+          "height_cm": 15.7,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 14.9,
+          "height_cm": 15.9,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 15.0,
+          "height_cm": 16.0,
+          "projection_cm": 5.8
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2021/10/MDC-0400-R4-QRG-Teardrop-v3_FINAL.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Teardrop Shape HSC+ textured breast implants, MDC-0400 R4 (c) 2021 Sientra, Inc. (official sientra.com domain)",
+        "page": "p.1"
+      },
+      "crosscheck": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue_2017-curve.pdf",
+        "result": "match",
+        "notes": "MDC-0177 R6 (2017, style 20676-xxxE) lists the 180-450cc subset with identical WTH/HT/PROJ values (e.g. 350cc = 12.0/13.0/4.6 in both). MDC-0400 R4 extends the ladder to 700cc. FDA PMA P070004 Table 1 gives style 20676-E range 115-690cc - smaller legacy sizes (115-175cc) exist in the PMA but are not in any published OPUS-era per-size table."
+      }
+    },
+    {
+      "product_line": "OPUS Curve (Luxe teardrop/anatomical)",
+      "profile_label": "Classic Base High",
+      "shape": "anatomical (shaped, classic base - taller than wide)",
+      "surface": "textured",
+      "gel": "HSC+",
+      "catalog_series": "CBASE-xxxHP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 190,
+          "diameter_cm": 9.0,
+          "height_cm": 10.0,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 215,
+          "diameter_cm": 9.5,
+          "height_cm": 10.5,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 250,
+          "diameter_cm": 10.0,
+          "height_cm": 11.0,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 285,
+          "diameter_cm": 10.5,
+          "height_cm": 11.5,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 10.8,
+          "height_cm": 11.8,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 11.0,
+          "height_cm": 12.0,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 345,
+          "diameter_cm": 11.3,
+          "height_cm": 12.3,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 365,
+          "diameter_cm": 11.5,
+          "height_cm": 12.5,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 390,
+          "diameter_cm": 11.8,
+          "height_cm": 12.8,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 410,
+          "diameter_cm": 12.0,
+          "height_cm": 13.0,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 440,
+          "diameter_cm": 12.3,
+          "height_cm": 13.3,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 460,
+          "diameter_cm": 12.5,
+          "height_cm": 13.5,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 485,
+          "diameter_cm": 12.8,
+          "height_cm": 13.8,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 510,
+          "diameter_cm": 13.0,
+          "height_cm": 14.0,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 545,
+          "diameter_cm": 13.3,
+          "height_cm": 14.3,
+          "projection_cm": 5.9
+        },
+        {
+          "volume_cc": 570,
+          "diameter_cm": 13.5,
+          "height_cm": 14.5,
+          "projection_cm": 6.0
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 13.8,
+          "height_cm": 14.8,
+          "projection_cm": 6.1
+        },
+        {
+          "volume_cc": 635,
+          "diameter_cm": 14.0,
+          "height_cm": 15.0,
+          "projection_cm": 6.2
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2021/10/MDC-0400-R4-QRG-Teardrop-v3_FINAL.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Teardrop Shape HSC+ textured breast implants, MDC-0400 R4 (c) 2021 Sientra, Inc. (official sientra.com domain)",
+        "page": "p.1"
+      },
+      "crosscheck": {
+        "url": "https://sientra.com/breast-augmentation/implant-science/",
+        "result": "match",
+        "notes": "sientra.com advertises teardrop High projection range 190-635cc, matching this ladder exactly. No per-size classic-base-high table found in any second document (single-source per-size values)."
+      }
+    },
+    {
+      "product_line": "OPUS Curve (Luxe teardrop/anatomical)",
+      "profile_label": "Round Base Moderate",
+      "shape": "anatomical (shaped, round base)",
+      "surface": "textured",
+      "gel": "HSC+",
+      "catalog_series": "RBASE-xxxMP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 160,
+          "diameter_cm": 9.2,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 170,
+          "diameter_cm": 9.5,
+          "projection_cm": 4.1
+        },
+        {
+          "volume_cc": 190,
+          "diameter_cm": 9.9,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 205,
+          "diameter_cm": 10.1,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 220,
+          "diameter_cm": 10.4,
+          "projection_cm": 4.4
+        },
+        {
+          "volume_cc": 245,
+          "diameter_cm": 10.7,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 260,
+          "diameter_cm": 11.0,
+          "projection_cm": 4.6
+        },
+        {
+          "volume_cc": 275,
+          "diameter_cm": 11.3,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 11.6,
+          "projection_cm": 4.8
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 11.9,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 340,
+          "diameter_cm": 12.2,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 360,
+          "diameter_cm": 12.5,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 390,
+          "diameter_cm": 12.8,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 415,
+          "diameter_cm": 13.1,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 445,
+          "diameter_cm": 13.4,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 470,
+          "diameter_cm": 13.7,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 14.0,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 540,
+          "diameter_cm": 14.3,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 595,
+          "diameter_cm": 14.6,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 625,
+          "diameter_cm": 14.9,
+          "projection_cm": 5.9
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 15.2,
+          "projection_cm": 6.0
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 15.5,
+          "projection_cm": 6.1
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2021/10/MDC-0400-R4-QRG-Teardrop-v3_FINAL.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Teardrop Shape HSC+ textured breast implants, MDC-0400 R4 (c) 2021 Sientra, Inc. (official sientra.com domain)",
+        "page": "p.1"
+      },
+      "crosscheck": {
+        "url": "https://sientra.com/breast-augmentation/implant-science/",
+        "result": "match",
+        "notes": "sientra.com teardrop Moderate range 160-700cc matches. Round-base shaped implants are circular in base so only WTH and PROJ are published (height = width)."
+      }
+    },
+    {
+      "product_line": "OPUS Curve (Luxe teardrop/anatomical)",
+      "profile_label": "Round Base High",
+      "shape": "anatomical (shaped, round base)",
+      "surface": "textured",
+      "gel": "HSC+",
+      "catalog_series": "RBASE-xxxHP (legacy 20646-xxxRB)",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 200,
+          "diameter_cm": 9.8,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 220,
+          "diameter_cm": 9.9,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 235,
+          "diameter_cm": 10.1,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 255,
+          "diameter_cm": 10.4,
+          "projection_cm": 5.2
+        },
+        {
+          "volume_cc": 270,
+          "diameter_cm": 10.7,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 295,
+          "diameter_cm": 11.0,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 11.3,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 345,
+          "diameter_cm": 11.6,
+          "projection_cm": 5.6
+        },
+        {
+          "volume_cc": 370,
+          "diameter_cm": 11.9,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 395,
+          "diameter_cm": 12.2,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 425,
+          "diameter_cm": 12.5,
+          "projection_cm": 5.8
+        },
+        {
+          "volume_cc": 455,
+          "diameter_cm": 12.8,
+          "projection_cm": 6.0
+        },
+        {
+          "volume_cc": 485,
+          "diameter_cm": 13.1,
+          "projection_cm": 6.1
+        },
+        {
+          "volume_cc": 515,
+          "diameter_cm": 13.4,
+          "projection_cm": 6.2
+        }
+      ],
+      "source": {
+        "url": "https://dev.sientra.com/wp-content/uploads/2021/10/MDC-0400-R4-QRG-Teardrop-v3_FINAL.pdf",
+        "doc_title": "Sientra Quick Reference Guide - Teardrop Shape HSC+ textured breast implants, MDC-0400 R4 (c) 2021 Sientra, Inc. (official sientra.com domain)",
+        "page": "p.1"
+      },
+      "crosscheck": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue_2017-curve.pdf",
+        "result": "match",
+        "notes": "MDC-0177 R6 (2017, style 20646-xxxRB) lists the 200/220/235/255/270/320/370/425/485cc subset with identical dimensions (e.g. 320cc = 11.3/5.5 in both). MDC-0400 R4 adds 295/345/395/455/515cc. FDA PMA P070004 Table 1 style 20646-RB range (180-550cc, width 9.8-14.6, proj 4.3-5.8) is broadly consistent though its proj range appears to reflect the older Silimed generation."
+      }
+    },
+    {
+      "product_line": "Sientra shaped (legacy, pre-OPUS Curve branding)",
+      "profile_label": "Oval Base Low",
+      "shape": "anatomical (shaped, oval base - wider than tall)",
+      "surface": "textured",
+      "gel": "HSC+ (labeled HSC in 2017 catalog)",
+      "catalog_series": "20645-xxxLP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 170,
+          "diameter_cm": 11.3,
+          "height_cm": 9.8,
+          "projection_cm": 2.8
+        },
+        {
+          "volume_cc": 220,
+          "diameter_cm": 12.3,
+          "height_cm": 10.6,
+          "projection_cm": 3.1
+        },
+        {
+          "volume_cc": 270,
+          "diameter_cm": 13.3,
+          "height_cm": 11.1,
+          "projection_cm": 3.3
+        },
+        {
+          "volume_cc": 320,
+          "diameter_cm": 14.3,
+          "height_cm": 12.1,
+          "projection_cm": 3.5
+        },
+        {
+          "volume_cc": 410,
+          "diameter_cm": 15.4,
+          "height_cm": 13.1,
+          "projection_cm": 3.7
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 16.3,
+          "height_cm": 13.8,
+          "projection_cm": 4.1
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue_2017-curve.pdf",
+        "doc_title": "Sientra Breast Implant Product Catalog (round + shaped), MDC-0177 R6 (c) 2017 Sientra, Inc. (official Sientra document; PDF mirrored by clinic site)",
+        "page": "shaped implant tables"
+      },
+      "crosscheck": {
+        "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf7/p070004c.pdf",
+        "result": "match",
+        "notes": "FDA PMA P070004 Table 1 style 20645-LP: volume 170-500cc, width 11.3-16.3cm, height 9.8-13.8cm, projection 2.8-4.1cm - exactly matches the endpoints of this 6-row ladder."
+      }
+    },
+    {
+      "product_line": "Sientra shaped (legacy, pre-OPUS Curve branding)",
+      "profile_label": "Oval Base Moderate",
+      "shape": "anatomical (shaped, oval base - wider than tall)",
+      "surface": "textured",
+      "gel": "HSC+ (labeled HSC in 2017 catalog)",
+      "catalog_series": "20645-xxxMP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 180,
+          "diameter_cm": 10.0,
+          "height_cm": 8.9,
+          "projection_cm": 3.9
+        },
+        {
+          "volume_cc": 210,
+          "diameter_cm": 11.0,
+          "height_cm": 9.6,
+          "projection_cm": 4.0
+        },
+        {
+          "volume_cc": 250,
+          "diameter_cm": 12.0,
+          "height_cm": 10.3,
+          "projection_cm": 4.2
+        },
+        {
+          "volume_cc": 290,
+          "diameter_cm": 12.3,
+          "height_cm": 10.7,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 330,
+          "diameter_cm": 13.0,
+          "height_cm": 11.2,
+          "projection_cm": 4.5
+        },
+        {
+          "volume_cc": 370,
+          "diameter_cm": 13.4,
+          "height_cm": 11.4,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 400,
+          "diameter_cm": 13.7,
+          "height_cm": 11.8,
+          "projection_cm": 4.9
+        },
+        {
+          "volume_cc": 450,
+          "diameter_cm": 14.1,
+          "height_cm": 12.2,
+          "projection_cm": 5.1
+        },
+        {
+          "volume_cc": 500,
+          "diameter_cm": 14.7,
+          "height_cm": 12.8,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 15.2,
+          "height_cm": 13.1,
+          "projection_cm": 5.4
+        },
+        {
+          "volume_cc": 600,
+          "diameter_cm": 16.0,
+          "height_cm": 13.8,
+          "projection_cm": 5.5
+        },
+        {
+          "volume_cc": 650,
+          "diameter_cm": 16.6,
+          "height_cm": 14.3,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 700,
+          "diameter_cm": 16.9,
+          "height_cm": 14.5,
+          "projection_cm": 5.9
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue_2017-curve.pdf",
+        "doc_title": "Sientra Breast Implant Product Catalog (round + shaped), MDC-0177 R6 (c) 2017 Sientra, Inc. (official Sientra document; PDF mirrored by clinic site)",
+        "page": "shaped implant tables"
+      },
+      "crosscheck": {
+        "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf7/p070004c.pdf",
+        "result": "match",
+        "notes": "FDA PMA P070004 Table 1 style 20645-MP/HP: volume 120-700cc, width 8.9-16.9cm, height 8.0-14.5cm, projection 3.4-5.9cm - contains this ladder (FDA range also covers smaller 120/150cc sizes not printed per-size in the catalog)."
+      }
+    },
+    {
+      "product_line": "Sientra shaped (legacy, pre-OPUS Curve branding)",
+      "profile_label": "Oval Base High",
+      "shape": "anatomical (shaped, oval base - wider than tall)",
+      "surface": "textured",
+      "gel": "HSC+ (labeled HSC in 2017 catalog)",
+      "catalog_series": "20645-xxxHP",
+      "source_units": "cm",
+      "rows": [
+        {
+          "volume_cc": 180,
+          "diameter_cm": 9.8,
+          "height_cm": 8.3,
+          "projection_cm": 4.3
+        },
+        {
+          "volume_cc": 240,
+          "diameter_cm": 10.5,
+          "height_cm": 8.9,
+          "projection_cm": 4.7
+        },
+        {
+          "volume_cc": 300,
+          "diameter_cm": 11.4,
+          "height_cm": 10.1,
+          "projection_cm": 5.0
+        },
+        {
+          "volume_cc": 370,
+          "diameter_cm": 12.5,
+          "height_cm": 10.8,
+          "projection_cm": 5.3
+        },
+        {
+          "volume_cc": 480,
+          "diameter_cm": 13.5,
+          "height_cm": 11.5,
+          "projection_cm": 5.7
+        },
+        {
+          "volume_cc": 550,
+          "diameter_cm": 14.6,
+          "height_cm": 12.4,
+          "projection_cm": 5.8
+        }
+      ],
+      "source": {
+        "url": "https://www.sanfranciscobreast.com/wp-content/uploads/2021/05/Sientra_Catalogue_2017-curve.pdf",
+        "doc_title": "Sientra Breast Implant Product Catalog (round + shaped), MDC-0177 R6 (c) 2017 Sientra, Inc. (official Sientra document; PDF mirrored by clinic site)",
+        "page": "shaped implant tables"
+      },
+      "crosscheck": {
+        "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf7/p070004c.pdf",
+        "result": "match",
+        "notes": "Consistent with FDA PMA P070004 Table 1 style 20645-MP/HP range and with sanfranciscobreast.com portfolio summary (oval base high 180-550cc)."
+      }
+    }
+  ],
+  "flagship_crosschecks": [
+    {
+      "value": "Smooth/Shared Moderate Plus 305cc = 11.7cm WTH x 4.0cm PROJ",
+      "sources": [
+        "MDC-0343 R3",
+        "MDC-0270 R11",
+        "MDC-0177 R6"
+      ],
+      "result": "match (3 of 3 official documents)"
+    },
+    {
+      "value": "Smooth/Shared High 385cc = 12.3cm x 4.9cm and 415cc = 12.5cm x 5.0cm",
+      "sources": [
+        "MDC-0343 R3",
+        "MDC-0270 R11",
+        "MDC-0177 R6"
+      ],
+      "result": "match (3 of 3)"
+    },
+    {
+      "value": "Smooth Moderate 350cc = 12.5cm x 3.9cm",
+      "sources": [
+        "MDC-0343 R3",
+        "MDC-0270 R11",
+        "MDC-0704 R3"
+      ],
+      "result": "match (3 of 3)"
+    },
+    {
+      "value": "Shaped Round Base High 320cc = 11.3cm x 5.5cm",
+      "sources": [
+        "MDC-0400 R4",
+        "MDC-0177 R6"
+      ],
+      "result": "match"
+    },
+    {
+      "value": "Shaped Classic Base Moderate 350cc = 12.0 WTH x 13.0 HT x 4.6 PROJ",
+      "sources": [
+        "MDC-0400 R4",
+        "MDC-0177 R6"
+      ],
+      "result": "match"
+    },
+    {
+      "value": "Oval Base Low endpoints 170cc (11.3/9.8/2.8) - 500cc (16.3/13.8/4.1)",
+      "sources": [
+        "MDC-0177 R6",
+        "FDA PMA P070004C Table 1"
+      ],
+      "result": "match"
+    }
+  ],
+  "notes": "UNITS: All primary sources publish dimensions already in cm (WTH/HT/PROJ cm); no mm conversion was needed. No published Sientra ladder contains a 'Moderate Plus 300cc' or 'High 400cc' size - the nearest published sizes were cross-checked instead (MP 285/305cc; HP 385/415cc). KNOWN CONFLICTS: (1) Moderate Plus 455cc projection: 4.8cm in MDC-0343 R3 (2019) and MDC-0177 R6 (2017) vs 4.6cm in MDC-0270 R11 (2022). (2) Xtra High 245cc row exists only in MDC-0270 R11; the 2019 catalog and current sientra.com start Xtra High at 275cc. GAPS: (a) Oval Base shaped tables exist only in the 2017 catalog (MDC-0177 R6, legacy Silimed-era generation); no OPUS-era per-size oval base table was found - current sientra.com lists only 2 teardrop projections (moderate 160-700, high 190-635) and the oval base may be discontinued. (b) FDA PMA P070004C Table 1 and the 2025 patient brochure (MDC-0010 R6) approve wider ranges than the marketed OPUS ladders (e.g. smooth Moderate style 10512 approved 80-700cc, smooth High style 10521 95-695cc, textured Low style 20610 60-700cc, classic base style 20676-E 115-690cc) - per-size dimensions for those legacy sub-ladder sizes (e.g. 10512 below 190cc) are NOT published in any located document. (c) The pre-2015 'Smooth Round High' (style 10521, renamed Moderate-High in 2014) is a different, lower-profile product than the current OPUS High (10621) - do not conflate. (d) Classic Base High per-size values are single-source (MDC-0400 R4). SOURCES: MDC-0343 R3 and MDC-0177 R6 are official Sientra documents whose PDFs are mirrored on a clinic site (sanfranciscobreast.com); MDC-0270 R11, MDC-0400 R4 and MDC-0704 R3 are hosted on Sientra's own domain (dev.sientra.com). FDA PMA P070004C (accessdata.fda.gov) was used for range-level corroboration only - it publishes min/max ranges, not per-size ladders."
+}

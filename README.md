@@ -36,7 +36,7 @@ python -m morphengine.cli --sku mentor-memorygel-350-hp \
 | `morph.engine` | `MorphEngine.morph()` — delta morph with volume closure (bisection) |
 | `implants.db` | `ImplantDB` — SKU store → `ImplantParams` |
 
-**Algorithm** (per breast, SPEC rev.4): guardrail check → landmark-anchored local
+**Algorithm** (per breast, SPEC rev.5): guardrail check → landmark-anchored local
 frame → in-plane base-width scaling → dome field `h·(1−r²)^β` (per-implant
 fullness β from the rated volume/width/projection triple) along local surface
 normals, with volume-neutral placement and anatomical multipliers → slide-share
@@ -44,6 +44,24 @@ guardrail → volume closure (uniform multiplier, bisection, ±2 cc / ±1.5%).
 
 **Semantics:** volume and base width are hard constraints; measured projection
 is the volume-consistent output (rated projection ≠ in-vivo projection gain).
+
+## Implant catalog (581 SKUs, verified)
+
+Real manufacturer dimension tables — transcribed programmatically by
+`scripts/build_implants_db.py` from vendored official sources
+(`implants/data/sources/`), never hand-edited:
+
+- **Mentor** MemoryGel (4 profiles) + MemoryShape anatomicals — official
+  catalog PN 020827-181217, exact match vs jnjmedtech.com
+- **Natrelle** Inspira (5 profiles, dims gel-independent) — official Allergan
+  US catalog, cross-checked vs 2015 sales tool + UK 2016 catalog
+- **Motiva** Ergonomix + Ergonomix2 (4 profiles each) + TrueFixation
+  anatomicals — official Implant Matrix, cross-checked vs FDA PMA P230005
+- **Sientra** OPUS Luxe (5 profiles) + OPUS Curve anatomicals — official
+  MDC-0343/MDC-0270/MDC-0400 documents
+
+Exclusions documented in SPEC §2.9: Natrelle 410 (US withdrawal 2019),
+Motiva Round (identical to Ergonomix), delisted/uncertain sizes.
 
 ## Validation gates (pytest, 55 tests)
 
@@ -56,17 +74,20 @@ is the volume-consistent output (rated projection ≠ in-vivo projection gain).
 
 ## Known limitations (v0)
 
-- Wide-footprint domes spread volume into the skirt, so projection gain can
-  dip slightly for very large implants (v1: skirted-dome profile).
+- Wide-footprint domes spread volume into the skirt, so apex retention
+  (projection gain / rated projection) falls with footprint width — ~0.94 at
+  230 cc down to ~0.46 at 550 cc on the fixture (v1: skirted-dome profile).
 - Fixture-based validation only; real-body landmark providers (Anny/MHR)
   are the next milestone.
-- Implant dimensions are illustrative placeholders pending manufacturer data.
+- Smooth-shell dimensions cataloged; textured variants differ ≤0.2 cm
+  (documented in sources/, not duplicated in the DB).
 
 ## Status & disclaimers
 
-- Implant dimensions in `implants/data/implants.json` are **illustrative
-  placeholders** (`values_status`) pending data entry from manufacturer dimension
-  tables. Do not ship user-facing size claims until records are `verified`.
+- Implant dimensions are **verified against official manufacturer documents**
+  (see per-record `source`); catalog footnote: individual units may vary
+  slightly from printed dimensions. Motiva TrueFixation is not FDA-approved
+  (international market); flagged per-record.
 - v1 scope: frontal morphology, symmetric placement, average tissue model.
   Ptosis/asymmetry/tissue-thickness modifiers are v2.
 - Units: cm / cc. Coordinates: +x patient-left, +y up, +z anterior.
