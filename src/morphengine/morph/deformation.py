@@ -94,9 +94,9 @@ def radial_falloff(r_norm: np.ndarray, kind: str = "cosine") -> np.ndarray:
     """1.0 at center → 0.0 at r_norm=1 (SPEC §2.4, rev.1).
 
     'cosine': 0.5*(1+cos(pi r)) — smooth, low volume-per-apex.
-    'dome':   sqrt(1 - r²) — hemi-ellipsoid profile; matches breast-implant
-              dome geometry, so volume closure lands near the implant's
-              rated projection. Used by MorphEngine.
+    'dome':   sqrt(1 - r²) — hemi-ellipsoid profile. (MorphEngine inlines
+              its own (1−r²)^β fullness profile; this kind is kept for
+              standalone use.)
     """
     r = np.clip(np.asarray(r_norm, dtype=float), 0.0, 1.0)
     if kind == "cosine":

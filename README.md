@@ -36,16 +36,16 @@ python -m morphengine.cli --sku mentor-memorygel-350-hp \
 | `morph.engine` | `MorphEngine.morph()` — delta morph with volume closure (bisection) |
 | `implants.db` | `ImplantDB` — SKU store → `ImplantParams` |
 
-**Algorithm** (per breast, SPEC rev.3): guardrail check → landmark-anchored local
+**Algorithm** (per breast, SPEC rev.4): guardrail check → landmark-anchored local
 frame → in-plane base-width scaling → dome field `h·(1−r²)^β` (per-implant
 fullness β from the rated volume/width/projection triple) along local surface
-normals, with volume-neutral placement and anatomical multipliers → volume
-closure (uniform multiplier, bisection, ±2 cc / ±1.5%).
+normals, with volume-neutral placement and anatomical multipliers → slide-share
+guardrail → volume closure (uniform multiplier, bisection, ±2 cc / ±1.5%).
 
 **Semantics:** volume and base width are hard constraints; measured projection
 is the volume-consistent output (rated projection ≠ in-vivo projection gain).
 
-## Validation gates (pytest, 54 tests)
+## Validation gates (pytest, 55 tests)
 
 - Achieved added volume within ±2 cc / ±1.5% of rated, per side
 - Base width within ±5% of rated

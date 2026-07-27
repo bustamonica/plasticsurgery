@@ -94,7 +94,13 @@ def displaced_volume_cc(mesh_before: trimesh.Trimesh, mesh_after: trimesh.Trimes
     if mesh_before.is_watertight and mesh_after.is_watertight:
         return _half_volume(mesh_after, side) - _half_volume(mesh_before, side)
 
-    # First-order fallback: mean normal displacement × region surface area.
+    # First-order fallback (rough estimate only — ignores h²·H curvature
+    # terms, which are large on convex mounds; NOT used by the engine, which
+    # requires watertight meshes). SPEC §2.3 rev.4.
+    import warnings
+    warnings.warn("displaced_volume_cc: non-watertight input — first-order "
+                  "estimate only (large error possible)", RuntimeWarning,
+                  stacklevel=2)
     mask = breast_region(mesh_before, lm, side, margin=1.0)
     disp = mesh_after.vertices[mask] - mesh_before.vertices[mask]
     normals = mesh_before.vertex_normals[mask]

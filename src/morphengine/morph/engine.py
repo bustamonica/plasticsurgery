@@ -1,16 +1,18 @@
-"""MorphEngine: implant params → deformed mesh (SPEC §2.6, rev.2).
+"""MorphEngine: implant params → deformed mesh (SPEC §2.6, rev.3/4).
 
 Per-breast algorithm:
   1. guardrail check (once, params-level)
-  2. landmark-anchored local frame + region selection (margin=1.0)
+  2. landmark-anchored local frame + region selection (margin ≥ s_bw)
   3. in-plane base-width scaling about the nipple (clamped [0.8, 1.5])
-  4. dome field: h·(1−r²)^β with per-implant fullness β = πa²h/V − 1, so
-     rated volume / base width / projection are consistent by construction;
-     placement + anatomical multipliers redistribute (volume-neutral,
-     apex-preserving)
-  5. volume closure on λ in field·(1+λr²) — adjusts mid/rim fullness, never
-     the apex, so closure cannot distort rated projection
-  6. both sides independently, symmetric params (v0); one implant of
+  4. dome field: h·(1−r²)^β with per-implant fullness β = πa²h/V − 1 along
+     local surface normals; placement + anatomical multipliers redistribute
+     (volume-neutral, apex-preserving)
+  5. slide-share guardrail (rev.4): if the in-plane expansion alone accounts
+     for the requested volume, warn (implant/chest mismatch) and skip the dome
+  6. volume closure on a uniform field multiplier m (bisection); volume is
+     the hard constraint — measured projection is the volume-consistent
+     output (rated projection ≠ in-vivo projection gain)
+  7. both sides independently, symmetric params (v0); one implant of
      `volume_cc` per breast
 """
 
@@ -22,8 +24,7 @@ import numpy as np
 import trimesh
 
 from ..geometry.landmarks import ChestLandmarks
-from ..geometry.measure import (displaced_volume_cc, measure_base_width_cm,
-                                measure_projection_cm)
+from ..geometry.measure import displaced_volume_cc, measure_projection_cm
 from ..implants.schema import ImplantParams, Shape
 from .deformation import (anatomical_weight, breast_region, local_frame,
                           placement_falloff, region_axes)
@@ -114,26 +115,28 @@ class MorphEngine:
             if err < best_err:
                 best_m, best_err = mid, err
             if err <= self.volume_tol_cc:
-                return mid
-        return best_m
+                return mid, err
+        return best_m, best_err
 
     def _measure_base_width(self, mesh_orig, lm, side, m, normal_field, mask):
         """Base width from the applied normal-field support (SPEC §2.3 rev.3):
         reference-frame u-extent of region verts with applied normal
-        displacement > 0.25 cm, ±1 cm slice at nipple height, hemithorax clip.
-        (Absolute-elevation measurement catches the torso's natural slope and
-        the in-plane slide along it; the dome footprint is the honest metric
-        for the scaling machinery. Volume + projection stay independently
-        plane/slice-measured.)"""
+        displacement above threshold, ±1 cm slice at nipple height,
+        hemithorax clip. Degrades gracefully (rev.4): relaxes the threshold
+        rather than raising when the dome is negligible."""
         frame = local_frame(mesh_orig, lm, side)
         u, w, _ = frame.coords(mesh_orig.vertices)
         applied = m * np.linalg.norm(normal_field, axis=1)
-        sel = mask & (applied > 0.25) & (np.abs(w) <= 1.0)
         midline = (mesh_orig.vertices[:, 0] > 0.0 if side == "left"
                    else mesh_orig.vertices[:, 0] < 0.0)
-        sel &= midline
+        slice_mask = np.abs(w) <= 1.0
+        for thresh in (0.25, 0.05, 1e-4):
+            sel = mask & (applied > thresh) & slice_mask & midline
+            if sel.any():
+                return float(u[sel].max() - u[sel].min())
+        sel = mask & slice_mask & midline
         if not sel.any():
-            raise ValueError(f"no dome support near nipple height for side {side!r}")
+            raise ValueError(f"empty region near nipple height for side {side!r}")
         return float(u[sel].max() - u[sel].min())
 
     # -- public -----------------------------------------------------------
@@ -149,8 +152,32 @@ class MorphEngine:
         for side in ("left", "right"):
             inplane, normal_field, mask = self._side_field(work, lm, side,
                                                            effective)
-            m = self._close_volume(mesh, work.faces, inplane, normal_field,
-                                   lm, side, effective.volume_cc)
+            # rev.4 slide-share guardrail: in-plane expansion itself adds
+            # volume; if it dominates the request, the implant/chest pairing
+            # is a mismatch — warn instead of silently crushing the dome
+            slid = trimesh.Trimesh(vertices=mesh.vertices + inplane,
+                                   faces=work.faces, process=False)
+            slide_v = displaced_volume_cc(mesh, slid, lm, side)
+            if slide_v >= effective.volume_cc:
+                guardrails.warnings.append(
+                    f"{side}: base-width expansion alone accounts for the "
+                    f"requested volume — implant/chest mismatch; dome skipped")
+                guardrails.ok = False
+                m, err = 0.0, 0.0
+            else:
+                if slide_v > 0.8 * effective.volume_cc:
+                    guardrails.warnings.append(
+                        f"{side}: base-width expansion dominates the volume "
+                        f"change ({slide_v:.0f} cc of {effective.volume_cc:.0f})")
+                    guardrails.ok = False
+                m, err = self._close_volume(mesh, work.faces, inplane,
+                                            normal_field, lm, side,
+                                            effective.volume_cc)
+                if err > self.volume_tol_cc:
+                    guardrails.warnings.append(
+                        f"{side}: volume closure did not converge "
+                        f"(residual {err:.1f} cc)")
+                    guardrails.ok = False
             work.vertices = work.vertices + inplane + m * normal_field
             achieved[side] = displaced_volume_cc(mesh, work, lm, side)
             applied_bw[side] = self._measure_base_width(mesh, lm, side, m,

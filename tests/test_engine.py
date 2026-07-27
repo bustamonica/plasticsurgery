@@ -57,6 +57,21 @@ class TestGuardrails:
         assert not g.ok and any("volume" in w for w in g.warnings)
 
 
+class TestSlideGuardrail:
+    def test_extreme_expansion_warns_and_does_not_crash(self):
+        # 100 cc with 15 cm base width on a 12 cm base: the in-plane
+        # expansion alone exceeds the requested volume (verifier crash case)
+        extreme = ImplantParams(volume_cc=100, base_width_cm=15.0,
+                                projection_cm=2.0, shape=Shape.ROUND,
+                                placement=Placement.SUBMUSCULAR)
+        r = run(synthetic_torso(), extreme)
+        assert not r.guardrails.ok
+        assert any("mismatch" in w or "dominates" in w or "skipped" in w
+                   for w in r.guardrails.warnings)
+        assert np.isfinite(r.deformation).all()
+        assert r.measurements["left"]["base_width_cm"] > 0
+
+
 class TestPlacement:
     def test_submuscular_emptier_upper_pole(self):
         # upper_pole_slope measures drop-off from the apex: submuscular

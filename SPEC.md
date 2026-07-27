@@ -160,6 +160,18 @@ quantization was the bw accuracy floor); volume tolerance ±max(2 cc, 1.5%)
 Known v0 limitation: wide-footprint domes spread volume into the skirt, so
 projection gain can dip slightly for very large implants (v1: skirted dome).
 
+**rev.4** — slide-share guardrail: in-plane base-width expansion itself adds
+volume; when it exceeds the requested volume the engine warns
+("implant/chest mismatch") and skips the dome instead of crashing
+(verifier-found crash: 100 cc + 15 cm base). Base-width measurement degrades
+gracefully instead of raising. Volume-closure non-convergence now surfaces
+as a guardrail warning. The non-watertight volume fallback is a rough
+first-order estimate (emits RuntimeWarning; the earlier ±10% claim is
+withdrawn — curvature terms dominate on convex mounds; the engine only runs
+on watertight meshes). Note: `measurements['base_width_cm']` is the applied
+dome footprint; final visible extent runs ~1–1.5 cm wider from rim drape
+(v1 metric refinement).
+
 ### 2.5 morph.guardrails  [core]
 
 ```python
@@ -257,7 +269,9 @@ Each agent tests only its own modules. Required:
 - volume closure: achieved per side within tol (default 2 cc) of target on ≥3
   implant sizes (e.g., 250/350/550 cc) — `test_validation.py`
 - projection & base width within **±5%** of (existing + delta) target — `test_validation.py`
-- placement: upper_pole_slope(submuscular) < upper_pole_slope(subglandular)
+- placement: upper_pole_slope(submuscular) > upper_pole_slope(subglandular) —
+  the metric measures drop-off from the apex; submuscular's compressed upper
+  pole drops FASTER (rev.4 text fix; original text had the semantics inverted)
 - anatomical: inferior-pole mean displacement > superior-pole (vs round control)
 - symmetry: left/right achieved volumes within 5% of each other
 - guardrails: oversized base width clamps + warns; ok flag semantics
