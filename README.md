@@ -36,19 +36,31 @@ python -m morphengine.cli --sku mentor-memorygel-350-hp \
 | `morph.engine` | `MorphEngine.morph()` — delta morph with volume closure (bisection) |
 | `implants.db` | `ImplantDB` — SKU store → `ImplantParams` |
 
-**Algorithm** (per breast): guardrail check → region selection in a local frame at
-the nipple → normal-direction displacement field (apex = target projection −
-existing, radial cosine falloff, placement-specific upper-pole modulation,
-teardrop weighting for anatomical shapes) → in-plane base-width scaling →
-volume-closure iteration until added volume matches implant volume ±2 cc.
+**Algorithm** (per breast, SPEC rev.3): guardrail check → landmark-anchored local
+frame → in-plane base-width scaling → dome field `h·(1−r²)^β` (per-implant
+fullness β from the rated volume/width/projection triple) along local surface
+normals, with volume-neutral placement and anatomical multipliers → volume
+closure (uniform multiplier, bisection, ±2 cc / ±1.5%).
 
-## Validation gates (pytest)
+**Semantics:** volume and base width are hard constraints; measured projection
+is the volume-consistent output (rated projection ≠ in-vivo projection gain).
 
-- Achieved volume within ±2 cc of target per side
-- Projection and base width within ±5% of target
-- Submuscular upper-pole slope < subglandular (placement realism)
+## Validation gates (pytest, 54 tests)
+
+- Achieved added volume within ±2 cc / ±1.5% of rated, per side
+- Base width within ±5% of rated
+- Projection gain within sanity bounds (tracks volume)
+- Submuscular upper pole emptier than subglandular (placement realism)
 - Anatomical shapes skew inferior (teardrop)
-- Determinism, symmetry, guardrail semantics
+- Determinism, symmetry, guardrail clamp/warn semantics
+
+## Known limitations (v0)
+
+- Wide-footprint domes spread volume into the skirt, so projection gain can
+  dip slightly for very large implants (v1: skirted-dome profile).
+- Fixture-based validation only; real-body landmark providers (Anny/MHR)
+  are the next milestone.
+- Implant dimensions are illustrative placeholders pending manufacturer data.
 
 ## Status & disclaimers
 

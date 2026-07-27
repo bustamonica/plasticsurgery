@@ -7,7 +7,8 @@ name = "morphengine"
 version = "0.1.0"
 description = "Implant-parameterized chest morph engine for augmentation visualization (M0)"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.26", "scipy>=1.11", "trimesh>=4.0", "pydantic>=2.6"]
+dependencies = ["numpy>=1.26", "scipy>=1.11", "trimesh>=4.0", "pydantic>=2.6",
+                "manifold3d>=2.3", "mapbox-earcut>=1.0", "rtree>=1.2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

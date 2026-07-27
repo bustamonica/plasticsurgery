@@ -118,26 +118,47 @@ def upper_pole_slope(mesh, lm, side) -> float:
 ### 2.4 morph.deformation  [core]
 
 ```python
-def breast_region(mesh, lm, side, margin: float = 1.15) -> np.ndarray:
-    """Boolean vertex mask (N,). Local frame at nipple: anterior axis = smoothed
-    vertex normal; in-plane axes = mediolateral (x) and superoinferior (y).
-    Region = vertices inside elliptical cylinder: in-plane ellipse with
-    semi-axes (a = dist(nipple→lateral or medial, max) * margin,
-    b = dist(nipple→superior-boundary or imf, max) * margin), anterior of
-    chest-wall plane."""
-def radial_falloff(r_norm: np.ndarray, kind: str = "cosine") -> np.ndarray:
-    """Smooth falloff from 1.0 at center (r_norm=0) to 0.0 at r_norm=1.
-    'cosine': 0.5*(1+cos(pi*r)). Values clamped to [0,1] outside."""
-def placement_falloff(theta: np.ndarray, placement: str, base: np.ndarray) -> np.ndarray:
-    """Modulates falloff by polar angle theta around nipple (theta=pi/2 is
-    straight up/superior). submuscular: extra smoothing on superior half
-    (multiply base by smoother falloff where theta>0). subglandular: fuller
-    upper pole (boost superior falloff, e.g. power < 1). dual-plane: midpoint.
-    Must be monotonic-deforming, bounded [0, 1.3], continuous at theta=0."""
-def anatomical_weight(theta: np.ndarray) -> np.ndarray:
-    """Teardrop weighting: shifts deformation center of mass toward inferior
-    pole (theta<0). Weight in [0.7, 1.3], integrates ~1 over the region."""
+def breast_region(mesh, lm, side, margin: float = 1.15) -> np.ndarray: ...
+def radial_falloff(r_norm: np.ndarray, kind: str = "cosine") -> np.ndarray: ...
+def placement_falloff(theta: np.ndarray, r_norm: np.ndarray,
+                      placement: str, base: np.ndarray) -> np.ndarray: ...
+def anatomical_weight(theta: np.ndarray) -> np.ndarray: ...
 ```
+
+### 2.6 morph.engine  [core]
+
+```python
+class MorphEngine:
+    def __init__(self, volume_tol_cc: float = 2.0, max_iters: int = 25): ...
+    def morph(self, mesh, lm, params) -> MorphResult: ...
+```
+
+## Revision log (authoritative — supersedes prose above where they conflict)
+
+**rev.1** — local_frame is landmark-anchored (chest-wall plane through
+imf/lateral/medial), not mesh-normal-derived: smoothed normals tilt on
+deformed meshes and made region selection non-deterministic.
+
+**rev.2** — displacement is along LOCAL surface normals, not the global
+anterior axis (anterior displacement lost up to ~30% enclosed volume on the
+steep mound slope). placement_falloff is volume-neutral against its `base`
+and apex-preserving (placement redistributes tissue superior↔inferior; it
+never changes enclosed volume or apex height).
+
+**rev.3** — dome profile (1−r²)^β with per-implant fullness β = πa²h/V − 1;
+volume closure via bisection on a UNIFORM field multiplier m. Semantics:
+**volume and base width are hard constraints; measured projection is the
+volume-consistent OUTPUT** (rated projection ≠ in-vivo projection — the
+implant dome height is not what a patient gains). Projection gates are
+sanity bounds + regression band, not ±5%. Also: region mask margin ≥ s_bw
+(scaled dome must fit the mask); base width measured from the applied
+normal-field support (absolute elevation caught torso slope + in-plane
+slide); hemithorax midline clip; fixture resolution 6 (~40k verts, mesh
+quantization was the bw accuracy floor); volume tolerance ±max(2 cc, 1.5%)
+(icosphere base is not x-mirror-symmetric). Constructor dropped
+`volume_split` — each breast receives one implant of `volume_cc`.
+Known v0 limitation: wide-footprint domes spread volume into the skirt, so
+projection gain can dip slightly for very large implants (v1: skirted dome).
 
 ### 2.5 morph.guardrails  [core]
 
@@ -167,33 +188,16 @@ class MorphResult:
     mesh: trimesh.Trimesh
     deformation: np.ndarray          # (N,3) per-vertex displacement applied
     achieved_volume_cc: dict         # {"left": float, "right": float}
-    measurements: dict               # {"left": {"projection_cm":..,"base_width_cm":..},
-                                     #  "right": {...}}
+    measurements: dict               # per side: projection_cm, base_width_cm
     guardrails: GuardrailResult
-
-class MorphEngine:
-    def __init__(self, volume_tol_cc: float = 2.0, max_iters: int = 25,
-                 volume_split: float = 0.5): ...
-        # volume_split: fraction of implant volume assigned to left side;
-        # 0.5 = symmetric (v0). Asymmetry is v2.
-    def morph(self, mesh: trimesh.Trimesh, lm: ChestLandmarks,
-              params: "ImplantParams") -> MorphResult: ...
 ```
 
-**Algorithm (per design doc §3.3), per breast:**
-1. Guardrail check first (`check_compatibility`); use `clamped_params` if clamped.
-2. Region via `breast_region`. Local frame at nipple.
-3. Target apex displacement along normal ≈ implant `projection_cm` **minus existing**
-   `measure_projection_cm` (delta morph — implant adds to existing tissue).
-4. In-plane: scale region vertices about nipple (in local x/y) so region base
-   width targets implant `base_width_cm` (scale = target/measured, clamped [0.8, 1.5]).
-5. Normal displacement field = apex_delta * radial_falloff(r_norm) *
-   placement_falloff(theta, placement) [* anatomical_weight(theta) if shape=="anatomical"].
-6. **Volume closure:** measure `displaced_volume_cc`; iterate a scalar multiplier
-   on the normal field until |achieved − target_side_volume| ≤ `volume_tol_cc`
-   or `max_iters` (bisection on multiplier). target_side_volume = volume_cc * volume_split.
-7. Both breasts symmetric in v0 (mirror same field; meshes may not be perfectly
-   symmetric — apply independently with same params).
+**Algorithm (rev.3 — authoritative):** guardrail check (clamped params used if
+clamped) → per breast: landmark-anchored frame → in-plane base-width scaling
+(clamped [0.8, 1.5]) → dome field h·(1−r²)^β along local surface normals,
+with volume-neutral placement multiplier (× anatomical weight for teardrop)
+→ volume closure: uniform multiplier m via bisection until added volume =
+`volume_cc` (one implant per breast) within tolerance. Asymmetry is v2.
 
 ### 2.7 implants.schema  [db]
 
