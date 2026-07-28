@@ -8,7 +8,8 @@ src/morphengine.egg-info/dependency_links.txt
 src/morphengine.egg-info/requires.txt
 src/morphengine.egg-info/top_level.txt
 src/morphengine/datafactory/__init__.py
-src/morphengine/datafactory/render.py
+src/morphengine/datafactory/bodies.py
+src/morphengine/datafactory/factory.py
 src/morphengine/geometry/__init__.py
 src/morphengine/geometry/fixtures.py
 src/morphengine/geometry/landmarks.py
@@ -21,8 +22,9 @@ src/morphengine/morph/__init__.py
 src/morphengine/morph/deformation.py
 src/morphengine/morph/engine.py
 src/morphengine/morph/guardrails.py
+tests/test_bodies.py
 tests/test_deformation.py
 tests/test_engine.py
+tests/test_factory.py
 tests/test_implant_db.py
-tests/test_render.py
 tests/test_validation.py
