@@ -19,7 +19,12 @@ src/morphengine/morph/__init__.py
 src/morphengine/morph/deformation.py
 src/morphengine/morph/engine.py
 src/morphengine/morph/guardrails.py
+src/morphengine/painter/__init__.py
+src/morphengine/painter/dataset.py
+src/morphengine/painter/train.py
 tests/test_deformation.py
 tests/test_engine.py
 tests/test_implant_db.py
+tests/test_painter_data.py
+tests/test_painter_train.py
 tests/test_validation.py

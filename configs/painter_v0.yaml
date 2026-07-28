@@ -1,0 +1,31 @@
+# Painter v0 — GPU training config (SPEC M1.5, design-doc Stage-1 plan)
+# SDXL base + LoRA adapters, geometry conditioning concatenated into the UNet
+# input latent (input-conv extension, see painter/train.py::_train_sdxl_lora).
+# Launch: see src/morphengine/painter/README.md.
+
+model: sdxl-lora
+base_model: stabilityai/stable-diffusion-xl-base-1.0
+
+# LoRA adapters on the SDXL UNet attention projections.
+lora_rank: 16
+lora_alpha: 32
+
+# Data
+# TODO: point at a generated dataset root (scripts/generate_dataset.py output).
+data_manifest: data/painter_v0/manifest.jsonl
+image_size: 512
+
+# Optimization
+batch_size: 8
+steps: 20000
+lr: 1.0e-4
+lr_schedule: cosine        # CosineAnnealingLR, eta_min = 1% of peak lr
+optimizer: adamw
+precision: bf16            # mixed-precision bf16 on GPU
+ema_decay: 0.999           # EMA of trainable weights, exported at save time
+grad_clip: 1.0
+log_every: 10
+save_every: 2000
+
+seed: 0
+out_dir: painter_runs/sdxl-lora-v0
