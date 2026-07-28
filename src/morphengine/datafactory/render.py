@@ -11,8 +11,9 @@ Conventions
   camera and equals the camera-space z coordinate (cm).
 - Projection: perspective, square image, vertical fov = Camera.fov_deg,
   principal point at the image center, pixel centers at (col+0.5, row+0.5).
-- Shading: flat per-face normals (face normals are exactly what the normal
-  channel stores, so rgb and normal maps are consistent):
+- Shading: smooth per-pixel normals (perspective-correct vertex-normal
+  interpolation; the normal channel stores the same smooth normals, so rgb
+  and normal maps are consistent):
       rgb = albedo * (AMBIENT + max(n.l, 0)) + SPECULAR * max(n.h, 0)**SHININESS
   with the key light from upper-left-front in camera space
   (l = normalize((-0.5, 0.7, -1.0))) and view direction (0, 0, -1)
@@ -134,6 +135,7 @@ class SoftwareRenderer:
         cam = (verts - self._pos) @ self._R.T            # (N,3) camera space
         z = cam[:, 2]
         ncam = np.asarray(mesh.face_normals, dtype=np.float64) @ self._R.T
+        vncam = np.asarray(mesh.vertex_normals, dtype=np.float64) @ self._R.T
 
         f0, f1, f2 = faces[:, 0], faces[:, 1], faces[:, 2]
         iz = np.where(z > _MIN_Z, 1.0 / np.maximum(z, _MIN_Z), 0.0)
@@ -169,6 +171,7 @@ class SoftwareRenderer:
         lin_parts: list[np.ndarray] = []
         dep_parts: list[np.ndarray] = []
         tri_parts: list[np.ndarray] = []
+        bary_parts: list[np.ndarray] = []
         heights = rmax - rmin + 1
         widths = cmax - cmin + 1
         tri_ids = np.arange(idx.size, dtype=np.int64)
@@ -210,6 +213,8 @@ class SoftwareRenderer:
             dep_parts.append(dep[inside])
             tri_parts.append(
                 np.broadcast_to(tri_ids[sl][:, None, None], dep.shape)[inside])
+            bary_parts.append(
+                np.stack([b0[inside], b1[inside], b2[inside]], axis=1))
 
         if not lin_parts:
             return self._background_result()
@@ -217,6 +222,7 @@ class SoftwareRenderer:
         lin = np.concatenate(lin_parts)
         dep = np.concatenate(dep_parts)
         tri = np.concatenate(tri_parts)
+        bary = np.concatenate(bary_parts)
 
         # --- z-buffer resolve: stable sort by (pixel, depth) -----------------
         order = np.lexsort((dep, lin))       # primary lin, secondary dep
@@ -226,10 +232,21 @@ class SoftwareRenderer:
         lin_u = lin_s[first]
         dep_u = dep[win]
         tri_u = tri[win]
+        bary_u = bary[win]
 
-        # --- shade winning triangles (flat face normals) ---------------------
-        ndl = np.maximum(ncam @ self._light, 0.0)
-        ndh = np.maximum(ncam @ self._half, 0.0)
+        # --- per-pixel normals: perspective-correct vertex-normal interp -----
+        # (smooth shading; isolated triangles reduce exactly to face normals)
+        f_win = faces[idx[tri_u]]                        # (W,3) vertex ids
+        iz_win = izt[tri_u]                              # (W,3) per-vertex 1/z (valid-tri space)
+        n_win = (bary_u[:, 0:1] * vncam[f_win[:, 0]] * iz_win[:, 0:1]
+                 + bary_u[:, 1:2] * vncam[f_win[:, 1]] * iz_win[:, 1:2]
+                 + bary_u[:, 2:3] * vncam[f_win[:, 2]] * iz_win[:, 2:3])
+        n_win *= dep_u[:, None]                          # divide by interp 1/z
+        n_win /= np.linalg.norm(n_win, axis=1, keepdims=True)
+
+        # --- shade winning pixels --------------------------------------------
+        ndl = np.maximum(n_win @ self._light, 0.0)
+        ndh = np.maximum(n_win @ self._half, 0.0)
         shade = ALBEDO * (AMBIENT + ndl)[:, None] + SPECULAR * ndh[:, None] ** SHININESS
         shade_u8 = np.rint(np.clip(shade, 0.0, 1.0) * 255.0).astype(np.uint8)
 
@@ -237,10 +254,10 @@ class SoftwareRenderer:
         depth_flat = np.full(s * s, np.nan, dtype=np.float64)
         depth_flat[lin_u] = dep_u
         normal_flat = np.zeros((s * s, 3), dtype=np.float64)
-        normal_flat[lin_u] = ncam[tri_u]
+        normal_flat[lin_u] = n_win
         rgb_flat = np.empty((s * s, 3), dtype=np.uint8)
         rgb_flat[:] = np.asarray(BACKGROUND_RGB, dtype=np.uint8)
-        rgb_flat[lin_u] = shade_u8[tri_u]
+        rgb_flat[lin_u] = shade_u8
         mask_flat = np.zeros(s * s, dtype=bool)
         mask_flat[lin_u] = True
 
