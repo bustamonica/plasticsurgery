@@ -363,6 +363,19 @@ Reference renderer is a pure-numpy z-buffer (deterministic, dependency-free);
 GPU training configs are provided but weight training is out of sandbox scope.
 New packages: `morphengine.datafactory`, `morphengine.painter`.
 
+**rev.7** — **nipple-areola holdout** (morph.engine): within `NIPPLE_HOLD_CM`
+(2.0 cm) of the nipple the patch translates rigidly by the apex
+displacement — the NAC keeps its exact size/shape and rides forward on the
+new mound; C1 smoothstep blend annulus out to `NIPPLE_BLEND_CM` (4.0 cm);
+in-plane base-width scaling fades to zero over the same zone so the areola
+is never stretched. Volume closure absorbs the small holdout delta
+automatically (achieved volumes stay within ±2 cc / ±1.5%). Also fixed a
+pre-existing **order artifact** exposed by this change: `morph()` previously
+built the second side's field on the first-deformed mesh and measured
+`achieved[left]` before the right side existed; both fields are now computed
+from the ORIGINAL mesh and applied together (achieved volumes are symmetric
+by construction).
+
 ### M1.1 datafactory.bodies  [factory]
 
 ```python

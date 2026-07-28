@@ -32,6 +32,11 @@ from .guardrails import GuardrailResult, check_compatibility
 
 REGION_MARGIN = 1.0
 _INPLANE_SCALE_BOUNDS = (0.8, 1.5)
+# Nipple-areola complex (rev.7): the NAC keeps its size/shape — within
+# NIPPLE_HOLD_CM of the nipple the patch translates rigidly; smoothstep
+# blend annulus out to NIPPLE_BLEND_CM (~4 cm areola diameter is typical).
+NIPPLE_HOLD_CM = 2.0
+NIPPLE_BLEND_CM = 4.0
 
 
 @dataclass
@@ -87,6 +92,26 @@ class MorphEngine:
         inplane = np.zeros_like(mesh.vertices)
         inplane[mask] = ((s_bw - 1.0) * u[mask, None] * frame.x_hat
                          + (s_bw - 1.0) * w[mask, None] * frame.y_hat)
+
+        # --- nipple-areola holdout (rev.7) ---------------------------------
+        # The NAC keeps its size/shape: within NIPPLE_HOLD_CM the patch
+        # translates RIGIDLY by the apex displacement (riding forward on the
+        # new mound), smoothstep blend out to NIPPLE_BLEND_CM; in-plane
+        # scaling fades to zero over the same zone so the areola is never
+        # stretched. Volume closure absorbs the small holdout delta.
+        r_cm = r_norm * a
+        t = np.clip((r_cm - NIPPLE_HOLD_CM)
+                    / (NIPPLE_BLEND_CM - NIPPLE_HOLD_CM), 0.0, 1.0)
+        s = 1.0 - t
+        w_hold = s * s * (3.0 - 2.0 * s)          # C1 smoothstep, 1 inside -> 0 outside
+        if np.any(w_hold > 0.0):
+            apex_idx = int(np.argmin(
+                np.linalg.norm(mesh.vertices - half.nipple[None, :], axis=1)))
+            rigid_vec = field[apex_idx] * mesh.vertex_normals[apex_idx]
+            wh = w_hold[mask][:, None]
+            normal_field[mask] = ((1.0 - wh) * normal_field[mask]
+                                  + wh * rigid_vec[None, :])
+            inplane[mask] = inplane[mask] * (1.0 - wh)
         return inplane, normal_field, mask
 
     def _close_volume(self, mesh_orig, faces, inplane, normal_field,
@@ -149,28 +174,33 @@ class MorphEngine:
         work = mesh.copy()
         achieved: dict[str, float] = {}
         applied_bw: dict[str, float] = {}
+        # rev.7: BOTH side fields are computed from the ORIGINAL mesh, then
+        # both applied — previously the second field was built on the
+        # first-deformed mesh and achieved[left] measured before the right
+        # side existed, an order artifact that made volumes asymmetric.
+        pending: dict[str, tuple] = {}
         for side in ("left", "right"):
-            inplane, normal_field, mask = self._side_field(work, lm, side,
+            inplane, normal_field, mask = self._side_field(mesh, lm, side,
                                                            effective)
             # rev.4 slide-share guardrail: in-plane expansion itself adds
             # volume; if it dominates the request, the implant/chest pairing
             # is a mismatch — warn instead of silently crushing the dome
             slid = trimesh.Trimesh(vertices=mesh.vertices + inplane,
-                                   faces=work.faces, process=False)
+                                   faces=mesh.faces, process=False)
             slide_v = displaced_volume_cc(mesh, slid, lm, side)
+            m = 0.0
             if slide_v >= effective.volume_cc:
                 guardrails.warnings.append(
                     f"{side}: base-width expansion alone accounts for the "
                     f"requested volume — implant/chest mismatch; dome skipped")
                 guardrails.ok = False
-                m, err = 0.0, 0.0
             else:
                 if slide_v > 0.8 * effective.volume_cc:
                     guardrails.warnings.append(
                         f"{side}: base-width expansion dominates the volume "
                         f"change ({slide_v:.0f} cc of {effective.volume_cc:.0f})")
                     guardrails.ok = False
-                m, err = self._close_volume(mesh, work.faces, inplane,
+                m, err = self._close_volume(mesh, mesh.faces, inplane,
                                             normal_field, lm, side,
                                             effective.volume_cc)
                 if err > self.volume_tol_cc:
@@ -178,7 +208,13 @@ class MorphEngine:
                         f"{side}: volume closure did not converge "
                         f"(residual {err:.1f} cc)")
                     guardrails.ok = False
+            pending[side] = (inplane, m, normal_field, mask)
+
+        for side in ("left", "right"):
+            inplane, m, normal_field, mask = pending[side]
             work.vertices = work.vertices + inplane + m * normal_field
+        for side in ("left", "right"):
+            inplane, m, normal_field, mask = pending[side]
             achieved[side] = displaced_volume_cc(mesh, work, lm, side)
             applied_bw[side] = self._measure_base_width(mesh, lm, side, m,
                                                         normal_field, mask)

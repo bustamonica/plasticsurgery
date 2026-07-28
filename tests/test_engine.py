@@ -102,3 +102,49 @@ class TestAnatomical:
         r_round = MorphEngine().morph(synthetic_torso(), lm, ROUND_350)
         r_anat = MorphEngine().morph(synthetic_torso(), lm, anat)
         assert inf_minus_sup(r_anat) > inf_minus_sup(r_round)
+
+
+class TestNippleHoldout:
+    """SPEC rev.7: the nipple-areola complex keeps its size/shape — the patch
+    within NIPPLE_HOLD_CM of the nipple translates rigidly forward."""
+
+    def test_nipple_patch_moves_rigidly(self):
+        from morphengine.morph.deformation import breast_region, local_frame
+        from morphengine.morph.engine import NIPPLE_HOLD_CM
+
+        mesh = synthetic_torso()
+        lm = FixtureLandmarkProvider().locate(mesh)
+        params = ImplantParams(volume_cc=300, base_width_cm=11.1,
+                               projection_cm=4.5, shape=Shape.ROUND,
+                               placement=Placement.DUAL_PLANE)
+        res = MorphEngine().morph(mesh, lm, params)
+
+        frame = local_frame(mesh, lm, "left")
+        u, w, _ = frame.coords(mesh.vertices)
+        r_cm = np.sqrt(u * u + w * w)
+        # planar radius alone defines a cylinder through the torso — intersect
+        # with the side's facing region mask (as the engine does)
+        idx = np.nonzero(breast_region(mesh, lm, "left")
+                         & (r_cm <= NIPPLE_HOLD_CM))[0]
+        assert idx.size >= 8
+
+        # rigidity: pairwise distances inside the patch are preserved
+        sel = idx[np.linspace(0, idx.size - 1, min(40, idx.size)).astype(int)]
+        p0, p1 = mesh.vertices[sel], res.mesh.vertices[sel]
+        d0 = np.linalg.norm(p0[:, None, :] - p0[None, :, :], axis=-1)
+        d1 = np.linalg.norm(p1[:, None, :] - p1[None, :, :], axis=-1)
+        assert np.abs(d0 - d1).max() < 2e-3
+
+        # ...but the patch did ride forward substantially (not frozen in place)
+        moved = (res.mesh.vertices - mesh.vertices)[idx].mean(axis=0)
+        assert np.linalg.norm(moved) > 1.0
+
+    def test_volume_still_closed_with_holdout(self):
+        mesh = synthetic_torso()
+        lm = FixtureLandmarkProvider().locate(mesh)
+        params = ImplantParams(volume_cc=300, base_width_cm=11.1,
+                               projection_cm=4.5, shape=Shape.ROUND,
+                               placement=Placement.DUAL_PLANE)
+        res = MorphEngine().morph(mesh, lm, params)
+        for side in ("left", "right"):
+            assert abs(res.achieved_volume_cc[side] - 300.0) <= max(2.0, 0.015 * 300)
