@@ -351,3 +351,162 @@ Each agent tests only its own modules. Required:
 2. `ImplantDB.from_json().to_params(...)` feeds `MorphEngine.morph()` on
    `synthetic_torso()` with `FixtureLandmarkProvider` — integration by main agent.
 3. Validation gates (±5% projection/base width, ±2 cc volume) pass on fixture.
+
+---
+
+## M1 — Synthetic Data Factory + Painter v0 (rev.6)
+
+**rev.6** — M1 scope: generate synthetic before/after conditioning quadruplets
+(before render, after render, geometry conditioning maps, metadata) from the M0
+engine, plus the painter training pipeline (dataset loader + train script).
+Reference renderer is a pure-numpy z-buffer (deterministic, dependency-free);
+GPU training configs are provided but weight training is out of sandbox scope.
+New packages: `morphengine.datafactory`, `morphengine.painter`.
+
+### M1.1 datafactory.bodies  [factory]
+
+```python
+class BodySampler:
+    def __init__(self, seed: int = 0, resolution: int = 5): ...
+    def sample(self) -> tuple[trimesh.Trimesh, ChestLandmarks, dict]:
+        """(mesh, landmarks, body_params) via geometry.fixtures.synthetic_torso.
+        Uniform draws: chest_width 30-42, breast_radius 4.5-7.0,
+        breast_projection 2.0-4.5, breast_x 5.5-8.5, breast_y 1.0-3.5,
+        torso_depth 17-24. body_params = the exact kwargs used (for manifest).
+        Seeded numpy Generator; reproducible."""
+    def sample_n(self, n: int) -> list[tuple[trimesh.Trimesh, ChestLandmarks, dict]]
+```
+
+### M1.2 datafactory.render  [render]
+
+```python
+@dataclass(frozen=True)
+class Camera:
+    position: tuple[float, float, float]   # cm
+    target: tuple[float, float, float]
+    up: tuple[float, float, float]
+    fov_deg: float
+    image_size: int                        # square
+
+@dataclass
+class RenderResult:
+    rgb: np.ndarray      # (H,W,3) uint8 — Lambert+Blinn shaded
+    depth: np.ndarray    # (H,W) float32 camera-space z (cm); bg = np.nan
+    normal: np.ndarray   # (H,W,3) float32 camera-space unit normals; bg = 0
+    mask: np.ndarray     # (H,W) bool
+
+class SoftwareRenderer:
+    """Pure-numpy z-buffer rasterizer. Deterministic; no GL/GPU deps.
+    Perspective projection; backface-cull optional (keep for closed meshes).
+    Shading: albedo (0.72,0.57,0.48), ambient 0.15, Lambert key light
+    from upper-left-front, Blinn specular 0.2/shininess 32, bg (245,242,238).
+    Perf budget: <=20 s per 256x256 render of a ~40k-triangle mesh."""
+    def __init__(self, camera: Camera): ...
+    def render(self, mesh: trimesh.Trimesh) -> RenderResult: ...
+
+def front_camera(mesh_bbox: np.ndarray, image_size: int = 256) -> Camera
+    # centered, +z viewing distance ~3x bbox diagonal, fit-to-bbox 1.15 margin
+def oblique_camera(mesh_bbox: np.ndarray, azimuth_deg: float = 40.0,
+                   image_size: int = 256) -> Camera
+```
+
+### M1.3 datafactory.factory  [factory]
+
+```python
+class DatasetFactory:
+    def __init__(self, out_dir: str | Path, db: ImplantDB | None = None,
+                 engine: MorphEngine | None = None,
+                 renderer_cls=SoftwareRenderer): ...
+    def make_pair(self, mesh, lm, body_params: dict, sku: ImplantSKU,
+                  placement: Placement, camera_kind: str) -> dict | None:
+        """Morph + render both states. Returns manifest row, or None when
+        engine guardrails clamp/warn mismatch (data-cleanliness gate;
+        skip, never emit a clamped pair)."""
+    def generate(self, n_pairs: int, seed: int = 0,
+                 image_size: int = 256) -> list[dict]:
+        """Full run: BodySampler(seed) bodies, weighted sampling, writes
+        images + manifest.jsonl, returns rows."""
+```
+
+Sampling weights (seeded): volume 200-500 cc 80% / 500-700 15% / else 5%;
+profile moderate 25 / moderate plus 25 / high 35 / ultra high 15 (within the
+chosen volume's available profiles); placement submuscular 55 / dual-plane 30 /
+subglandular 15; shape round 80 / anatomical 20; camera front 60 / oblique 40.
+
+Output layout + channels:
+```
+{out_dir}/manifest.jsonl            # one JSON object per pair
+{out_dir}/images/{pair_id}_before.png        # RGB uint8
+{out_dir}/images/{pair_id}_after.png
+{out_dir}/cond/{pair_id}_depth_before.npy    # float32 cm, bg NaN
+{out_dir}/cond/{pair_id}_depth_after.npy
+{out_dir}/cond/{pair_id}_normal_after.npy    # (H,W,3) float32
+{out_dir}/cond/{pair_id}_mask_before.npy     # bool
+```
+pair_id = f"{seeded_index:05d}_{sku_id}_{placement}_{camera_kind}".
+
+Manifest row keys: pair_id, sku_id, brand, product_line, profile_class,
+profile_label, volume_cc, base_width_cm, projection_cm, shape, placement,
+camera_kind, image_size, body_params, engine {achieved_volume_cc{left,right},
+ok, warnings}, files {before, after, depth_before, depth_after, normal_after,
+mask_before} (paths relative to out_dir), prompt, seed.
+
+prompt = f"photorealistic breast augmentation result, {volume_cc} cc
+{profile_label} {shape} implant, {placement} placement, {camera_kind} view,
+same person, natural skin tone".
+
+### M1.4 painter.dataset  [painter]
+
+```python
+class PairDataset(torch.utils.data.Dataset):
+    def __init__(self, manifest: str | Path, image_size: int = 256): ...
+        # loads + center-resizes to image_size
+    def __len__(self) -> int
+    def __getitem__(self, i) -> dict:
+        # before: (3,H,W) float32 in [-1,1]; after: (3,H,W) in [-1,1]
+        # cond:   (6,H,W) float32 in [0,1] = [depth_before, depth_after,
+        #          normal_after_x, normal_after_y, normal_after_z, mask_before]
+        #          depths normalized per-pair by the 1-99 percentile body range
+        # prompt: str (from manifest)
+```
+
+### M1.5 painter.train  [painter]
+
+```python
+@dataclass
+class TrainConfig:
+    model: str            # "tiny" (CPU smoke) | "sdxl-lora" (GPU runbook)
+    image_size: int = 256
+    lr: float = 1e-4; batch_size: int = 4; steps: int = 100
+    lora_rank: int = 16; lora_alpha: int = 32
+    base_model: str = "stabilityai/stable-diffusion-xl-base-1.0"
+    out_dir: str = "painter_runs/run0"
+    seed: int = 0
+
+def build_tiny_unet(in_ch: int = 9, out_ch: int = 3, base: int = 32) -> torch.nn.Module
+    # small UNet: concat(before 3ch, cond 6ch) -> after 3ch; ~1M params
+def train(cfg: TrainConfig, manifest: str | Path) -> dict:
+    # returns {"final_loss": float, "steps": int, "ckpt": path}
+    # model="tiny": pure-torch loop (L1 + 0.5*MSE), CPU-capable
+    # model="sdxl-lora": requires diffusers/peft (declared in painter extra,
+    # NOT imported in tiny mode); see painter/README.md runbook
+```
+
+`configs/painter_v0.yaml`: the GPU config (sdxl-lora, 512px, 20k steps,
+bf16, batch 8, cosine schedule, EMA) matching the design-doc Stage-1 plan.
+
+### M1.6 tests
+
+- `tests/test_render.py` — shapes/dtypes; NaN bg; z-buffer correctness
+  (two overlapping known triangles, nearer wins); determinism (same mesh →
+  identical arrays); mask bbox sanity on the fixture torso.
+- `tests/test_bodies.py` — sample_n count; all watertight; params in ranges;
+  landmark roundtrip; seed reproducibility.
+- `tests/test_factory.py` — generate 3 pairs (image_size=128, resolution=4
+  bodies) → all files exist; manifest rows have every required key; engine.ok
+  true; volume closure within tol; determinism (two runs → identical manifest).
+- `tests/test_painter_data.py` — torch = pytest.importorskip; len; tensor
+  shapes/ranges; prompt contains the volume.
+- `tests/test_painter_train.py` — importorskip torch; tiny UNet forward shape;
+  train(steps=3, batch_size=2) on 4 synthetic pairs → finite final_loss,
+  ckpt written.
