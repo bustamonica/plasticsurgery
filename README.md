@@ -63,7 +63,30 @@ Real manufacturer dimension tables — transcribed programmatically by
 Exclusions documented in SPEC §2.9: Natrelle 410 (US withdrawal 2019),
 Motiva Round (identical to Ergonomix), delisted/uncertain sizes.
 
-## Validation gates (pytest, 55 tests)
+## Synthetic data factory (M1)
+
+`morphengine.datafactory` turns the engine into painter-training quadruplets:
+**BodySampler** (diverse watertight fixture torsos) → morph with weighted
+real-SKU sampling → **SoftwareRenderer** (pure-numpy z-buffer: shaded RGB +
+depth + smooth normal maps + mask, deterministic, ~0.03 s/img) →
+`manifest.jsonl` with full implant/engine metadata. Guardrail-gated: clamped
+or mismatch pairs are skipped and resampled, never emitted.
+
+```bash
+python3 scripts/generate_dataset.py --n 20000 --seed 0 --size 256 --out dataset/  # --resolution 6 for production
+python3 scripts/contact_sheet.py --manifest dataset/manifest.jsonl --out sheet.png
+```
+
+## Painter v0 (M1)
+
+`morphengine.painter`: **PairDataset** (before RGB in [-1,1] + 6-channel
+geometry cond [depth_before, depth_after, normal_after xyz, mask] + prompt) →
+**train()** with a pure-torch tiny-UNet smoke mode (CPU, ~1M params) and an
+SDXL+LoRA GPU path (`configs/painter_v0.yaml`). Setup, scaling, and launch
+instructions: `src/morphengine/painter/README.md`. Install:
+`pip install -e ".[painter]"`.
+
+## Validation gates (pytest, 92 tests)
 
 - Achieved added volume within ±2 cc / ±1.5% of rated, per side
 - Base width within ±5% of rated
@@ -90,4 +113,9 @@ Motiva Round (identical to Ergonomix), delisted/uncertain sizes.
   (international market); flagged per-record.
 - v1 scope: frontal morphology, symmetric placement, average tissue model.
   Ptosis/asymmetry/tissue-thickness modifiers are v2.
+- Factory renders are stylized (ellipsoid torso fixture): correct for
+  geometry bootstrap; real-body diversity (Anny/MHR) + photorealism arrive
+  with the painter's real-pair fine-tune (M3). Dome-rim C0 crease on
+  high-profile small-base implants is a known v0 artifact; use resolution 6
+  bodies for production data (v1: skirted dome with C1 rim).
 - Units: cm / cc. Coordinates: +x patient-left, +y up, +z anterior.

@@ -1,0 +1,23 @@
+
+[notice] A new release of pip is available: 25.0.1 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+
+[notice] A new release of pip is available: 25.0.1 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+pairs written: 2 / 2 requested
+guardrail skips (resampled): 0
+per-brand counts:
+  Mentor: 2
+manifest: /tmp/m1_repair/manifest.jsonl
+'/tmp/m1_repair/images/00000_mentor-memorygel-300-hp_dual-plane_oblique_after.png' -> '/mnt/agents/output/m1_dataset_demo/images/00000_mentor-memorygel-300-hp_dual-plane_oblique_after.png'
+'/tmp/m1_repair/images/00000_mentor-memorygel-300-hp_dual-plane_oblique_before.png' -> '/mnt/agents/output/m1_dataset_demo/images/00000_mentor-memorygel-300-hp_dual-plane_oblique_before.png'
+'/tmp/m1_repair/images/00001_mentor-memorygel-200-modplus_dual-plane_oblique_after.png' -> '/mnt/agents/output/m1_dataset_demo/images/00001_mentor-memorygel-200-modplus_dual-plane_oblique_after.png'
+'/tmp/m1_repair/images/00001_mentor-memorygel-200-modplus_dual-plane_oblique_before.png' -> '/mnt/agents/output/m1_dataset_demo/images/00001_mentor-memorygel-200-modplus_dual-plane_oblique_before.png'
+'/tmp/m1_repair/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_depth_after.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_depth_after.npy'
+'/tmp/m1_repair/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_depth_before.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_depth_before.npy'
+'/tmp/m1_repair/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_mask_before.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_mask_before.npy'
+'/tmp/m1_repair/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_normal_after.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00000_mentor-memorygel-300-hp_dual-plane_oblique_normal_after.npy'
+'/tmp/m1_repair/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_depth_after.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_depth_after.npy'
+'/tmp/m1_repair/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_depth_before.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_depth_before.npy'
+'/tmp/m1_repair/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_mask_before.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_mask_before.npy'
+'/tmp/m1_repair/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_normal_after.npy' -> '/mnt/agents/output/m1_dataset_demo/cond/00001_mentor-memorygel-200-modplus_dual-plane_oblique_normal_after.npy'
