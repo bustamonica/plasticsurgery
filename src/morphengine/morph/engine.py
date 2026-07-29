@@ -27,7 +27,7 @@ from ..geometry.landmarks import ChestLandmarks
 from ..geometry.measure import displaced_volume_cc, measure_projection_cm
 from ..implants.schema import ImplantParams, Shape
 from .deformation import (anatomical_weight, breast_region, local_frame,
-                          placement_falloff, region_axes)
+                          placement_falloff, region_axes, skirted_cap)
 from .guardrails import GuardrailResult, check_compatibility
 
 REGION_MARGIN = 1.0
@@ -76,7 +76,7 @@ class MorphEngine:
         a = a_e * s_bw
         h = params.projection_cm
         beta = max(np.pi * a * a * h / params.volume_cc - 1.0, 0.05)
-        cap = np.clip(1.0 - r_norm**2, 0.0, None) ** beta
+        cap = skirted_cap(r_norm, beta)  # rev.8: C1 rim, no ring crease
 
         field = h * placement_falloff(theta, r_norm, params.placement.value, cap)
         if params.shape == Shape.ANATOMICAL:
@@ -148,14 +148,18 @@ class MorphEngine:
         reference-frame u-extent of region verts with applied normal
         displacement above threshold, ±1 cm slice at nipple height,
         hemithorax clip. Degrades gracefully (rev.4): relaxes the threshold
-        rather than raising when the dome is negligible."""
+        rather than raising when the dome is negligible. Thresholds are
+        apex-relative (rev.8): the skirted rim tapers to zero, so an
+        absolute cm threshold read ~8% under on high-profile domes; 2% of
+        apex lands at r≈0.97 of the footprint across the beta range."""
         frame = local_frame(mesh_orig, lm, side)
         u, w, _ = frame.coords(mesh_orig.vertices)
         applied = m * np.linalg.norm(normal_field, axis=1)
+        apex = float(applied[mask].max()) if mask.any() else 0.0
         midline = (mesh_orig.vertices[:, 0] > 0.0 if side == "left"
                    else mesh_orig.vertices[:, 0] < 0.0)
         slice_mask = np.abs(w) <= 1.0
-        for thresh in (0.25, 0.05, 1e-4):
+        for thresh in (0.02 * apex, 0.05 * apex, 1e-4):
             sel = mask & (applied > thresh) & slice_mask & midline
             if sel.any():
                 return float(u[sel].max() - u[sel].min())

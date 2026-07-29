@@ -109,6 +109,35 @@ def radial_falloff(r_norm: np.ndarray, kind: str = "cosine") -> np.ndarray:
 _PLACEMENT_K = {"submuscular": -0.55, "dual-plane": -0.10, "subglandular": 0.30}
 
 
+SKIRT_RC = 0.75
+
+
+def skirted_cap(r_norm: np.ndarray, beta: float, r_c: float = SKIRT_RC) -> np.ndarray:
+    """(1−r²)^β dome with a C1-smooth rim (SPEC rev.8).
+
+    For beta >= 1 the raw profile already flattens to zero slope at r=1 and
+    is returned unchanged. For beta < 1 (high-profile triples) the raw
+    profile's rim slope diverges — visible as a ring crease at the footprint
+    edge — so the beta-dome core on [0, r_c] is extended with a cubic Hermite
+    skirt on [r_c, 1] matching value AND slope at r_c and ending at
+    p(1) = p'(1) = 0. Apex anchor p(0) = 1 is preserved either way.
+    """
+    r = np.clip(np.asarray(r_norm, dtype=float), 0.0, 1.0)
+    base = np.clip(1.0 - r * r, 0.0, None) ** beta
+    if beta >= 1.0:
+        return base
+    out = base.copy()
+    sk = r > r_c
+    if np.any(sk):
+        p_c = (1.0 - r_c * r_c) ** beta
+        dp_c = -2.0 * beta * r_c * (1.0 - r_c * r_c) ** (beta - 1.0)
+        t = (r[sk] - r_c) / (1.0 - r_c)
+        h00 = 2.0 * t**3 - 3.0 * t**2 + 1.0
+        h10 = t**3 - 2.0 * t**2 + t
+        out[sk] = h00 * p_c + h10 * (1.0 - r_c) * dp_c
+    return np.clip(out, 0.0, None)
+
+
 def placement_falloff(theta: np.ndarray, r_norm: np.ndarray, placement: str,
                       base: np.ndarray) -> np.ndarray:
     """Placement-specific upper-pole modulation (SPEC §2.4, rev.2).

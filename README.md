@@ -97,9 +97,9 @@ instructions: `src/morphengine/painter/README.md`. Install:
 
 ## Known limitations (v0)
 
-- Wide-footprint domes spread volume into the skirt, so apex retention
-  (projection gain / rated projection) falls with footprint width — ~0.94 at
-  230 cc down to ~0.46 at 550 cc on the fixture (v1: skirted-dome profile).
+- Apex retention (projection gain / rated projection) still falls with
+  footprint width — ~1.0 at 230 cc down to ~0.47 at 550 cc on the fixture —
+  though the rev.8 skirted dome improved it across the board (was ~0.94/0.46).
 - Fixture-based validation only; real-body landmark providers (Anny/MHR)
   are the next milestone.
 - Smooth-shell dimensions cataloged; textured variants differ ≤0.2 cm
@@ -115,7 +115,7 @@ instructions: `src/morphengine/painter/README.md`. Install:
   Ptosis/asymmetry/tissue-thickness modifiers are v2.
 - Factory renders are stylized (ellipsoid torso fixture): correct for
   geometry bootstrap; real-body diversity (Anny/MHR) + photorealism arrive
-  with the painter's real-pair fine-tune (M3). Dome-rim C0 crease on
-  high-profile small-base implants is a known v0 artifact; use resolution 6
-  bodies for production data (v1: skirted dome with C1 rim).
+  with the painter's real-pair fine-tune (M3). The dome-rim ring crease was
+  fixed in rev.8 (skirted dome with C1 rim); use resolution 6 bodies for
+  production data.
 - Units: cm / cc. Coordinates: +x patient-left, +y up, +z anterior.

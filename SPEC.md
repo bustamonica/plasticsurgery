@@ -376,6 +376,20 @@ built the second side's field on the first-deformed mesh and measured
 from the ORIGINAL mesh and applied together (achieved volumes are symmetric
 by construction).
 
+**rev.8** — **skirted dome: C1 rim eliminates the ring crease**
+(morph.deformation/engine). New `skirted_cap()`: for β<1 (moderate/low
+fullness) the raw `(1−r²)^β` rim slope diverges, rendering as a visible
+circular ridge ("ring crease") at the footprint edge. β<1 profiles now keep
+the exact β-dome core out to r=0.75, then a cubic Hermite skirt matching
+value AND slope at the join, ending p(1)=p′(1)=0. β≥1 (high/extra-full)
+already had a smooth rim and is unchanged. Apex anchor unaffected (skirt
+region only; p(0)=1). `_measure_base_width` thresholds are now apex-relative
+(2%/5% of apex height) so the ±5% gate reads the skirted rim consistently
+across β. Side benefit: apex retention improved across the board (350-hp
+triple: 65% vs ~50% before) — volume no longer dumps into the rim cliff.
+Tests: `TestSkirtedCap` (7); band bound recalibrated to the improved
+retentions (≤1.2 cm spread). Total 101 tests.
+
 ### M1.1 datafactory.bodies  [factory]
 
 ```python

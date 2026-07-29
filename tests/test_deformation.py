@@ -96,3 +96,61 @@ class TestBreastRegion:
         assert not mask[back_idx]
         # region size sane
         assert 50 < mask.sum() < len(mesh.vertices) // 3
+
+
+class TestSkirtedCap:
+    """SPEC rev.8: (1-r^2)^beta dome with C1-smooth skirt rim (no ring crease)."""
+
+    def test_apex_anchor_and_rim_zero(self):
+        from morphengine.morph.deformation import skirted_cap
+        r = np.linspace(0.0, 1.0, 501)
+        for beta in (0.05, 0.3, 0.57, 0.9, 1.0, 1.6):
+            p = skirted_cap(r, beta)
+            assert p[0] == pytest.approx(1.0)
+            assert p[-1] == pytest.approx(0.0, abs=1e-12)
+
+    def test_beta_ge_1_unchanged(self):
+        from morphengine.morph.deformation import skirted_cap
+        r = np.linspace(0.0, 1.0, 301)
+        assert np.allclose(skirted_cap(r, 1.4), np.clip(1 - r * r, 0, None) ** 1.4)
+
+    def test_core_matches_beta_dome(self):
+        from morphengine.morph.deformation import SKIRT_RC, skirted_cap
+        r = np.linspace(0.0, SKIRT_RC, 200)
+        assert np.allclose(skirted_cap(r, 0.5), (1 - r * r) ** 0.5)
+
+    def test_rim_cliff_eliminated(self):
+        """Value 1% inside the rim: new profile ~0, old profile a visible cliff."""
+        from morphengine.morph.deformation import skirted_cap
+        r_edge = np.array([0.99])
+        for beta in (0.05, 0.3, 0.57, 0.9):
+            new = skirted_cap(r_edge, beta)[0]
+            old = (1 - r_edge[0] ** 2) ** beta
+            assert new < 0.01, f"beta={beta}: residual rim value {new}"
+            assert new < 0.1 * old, f"beta={beta}: {new} vs old {old}"
+
+    def test_rim_slope_smooth_vs_old(self):
+        from morphengine.morph.deformation import skirted_cap
+        r = np.linspace(0.995, 1.0, 51)
+        for beta in (0.05, 0.3, 0.57, 0.9):
+            new_slope = np.abs(np.gradient(skirted_cap(r, beta), r)).max()
+            old_slope = np.abs(np.gradient(np.clip(1 - r * r, 0, None) ** beta, r)).max()
+            assert new_slope < 0.1 * old_slope
+
+    def test_monotone_and_positive(self):
+        from morphengine.morph.deformation import skirted_cap
+        r = np.linspace(0.0, 1.0, 2001)
+        for beta in (0.05, 0.3, 0.57, 0.9):
+            p = skirted_cap(r, beta)
+            assert (p >= 0).all()
+            assert np.diff(p).max() <= 1e-9
+
+    def test_c1_continuity_at_rc(self):
+        from morphengine.morph.deformation import SKIRT_RC, skirted_cap
+        eps = 1e-4
+        for beta in (0.05, 0.3, 0.57, 0.9):
+            d_left = (skirted_cap(np.array([SKIRT_RC]), beta)[0]
+                      - skirted_cap(np.array([SKIRT_RC - eps]), beta)[0]) / eps
+            d_right = (skirted_cap(np.array([SKIRT_RC + eps]), beta)[0]
+                       - skirted_cap(np.array([SKIRT_RC]), beta)[0]) / eps
+            assert d_left == pytest.approx(d_right, rel=0.05, abs=1e-3)
