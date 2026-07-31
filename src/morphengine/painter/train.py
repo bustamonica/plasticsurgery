@@ -245,6 +245,12 @@ def _train_sdxl_lora(cfg: TrainConfig, manifest: str | Path) -> dict:
         lora_alpha=cfg.lora_alpha,
         init_lora_weights="gaussian",
         target_modules=["to_q", "to_k", "to_v", "to_out.0"],
+        # conv_in carries the extended conditioning channels (zero-init).
+        # peft freezes every non-LoRA param by default, which would keep the
+        # new channels at exactly zero — geometry conditioning dead on arrival.
+        # modules_to_save keeps conv_in fully trainable (and in the optimizer
+        # and EMA, both of which filter on requires_grad).
+        modules_to_save=["conv_in"],
     )
     unet = get_peft_model(unet, lora_cfg)
     unet.print_trainable_parameters()
