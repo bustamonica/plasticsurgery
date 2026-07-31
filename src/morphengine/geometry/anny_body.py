@@ -138,6 +138,22 @@ def derive_chest_landmarks(mesh: trimesh.Trimesh) -> ChestLandmarks:
                 break
         R = float(np.clip(R_est, 3.5, 9.0))
 
+        # midline clearance: on fuller phenotypes the most-anterior surface
+        # sits near the cleavage (x~2), and an R-sized footprint there crosses
+        # the midline — left/right domes overlap, double-counted volume, and
+        # closure fails (+34%/+100% observed). Enforce medial >= 1 cm from
+        # the midline: shrink R if possible, else re-anchor the apex laterally.
+        clear = 1.0
+        x_side = abs(nip[0])
+        if x_side - R < clear:
+            R = float(np.clip(min(R, x_side - clear), 3.5, 9.0)) if x_side - clear >= 3.5 else 3.5
+        if x_side - R < clear:
+            new_x = R + clear
+            nip = _surface_vertex(mesh, sgn * new_x, nip[1])
+            proj = max(0.5, float(nip[2] - wall_z))
+            # the returned vertex may sit medial of the request — final clamp
+            R = max(3.0, min(R, abs(nip[0]) - clear))
+
         nipples[side] = nip
         centers[side] = np.array([nip[0], nip[1], nip[2] - proj])
         radii[side] = R

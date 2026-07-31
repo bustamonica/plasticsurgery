@@ -419,6 +419,35 @@ there; clipped 24–44 cm), clavicle at nipple + 1.6·R above the midline.
 Verified: watertight main component 13,348 verts; R and chest_width
 physiological; inner-shell displacement = 0 with rev.9.
 
+**rev.10** — **midplane discipline: domes never cross x = 0**
+(morph.engine + geometry.anny_body). On fuller real phenotypes the apex
+estimate sits near the cleavage (x≈2–3 cm); an R-sized footprint there
+crossed the midline, the two domes overlapped, and inplane slide carried
+verts into the contralateral half — midplane-split half-volumes counted
+displacement twice and per-side closure missed by +34 %/+44 %. Three
+defences, each tested: (1) `_side_field` mask requires strict `x·sgn > 0`
+(same convention as `_half_volume`'s slice; seam verts join neither dome);
+(2) `_apply_side` position-clamps `inplane + m·normal_field` so no active
+vert crosses x = 0 — closure bisection, slide-share guardrail, and final
+application all use this one helper, keeping measurement and mesh
+consistent; (3) the anny landmark estimator enforces midline clearance:
+R shrinks (floor 3.0 cm) or the apex re-anchors laterally so medial ≥ 1 cm
+from the midline. Result: default body 348.3/350 unchanged; fitted heavy
+body 350.1/350.2. Known limitation: DIRECT heavy-body landmarks (merged
+cleavage defeats the surface nipple heuristic) still overshoot ~+6 % — the
+product path always goes through the M3 fit, where closure is exact.
+
+**geometry.anny_fit** (new module, M3): `AnnyMeshFitter` fits the Anny body
+to an arbitrary target mesh via `anny.ParametersRegressor` (correspondence-
+free ICP, point-to-mesh on 5k samples, ~6 s CPU). Gender and age are
+optimized OUT (fixed gender=1.0 + adult age-anchor search over {0.2, 0.35,
+0.55}) — free fits trade gender/age against weight/height (gender drifted
+to 0.54 in probes). Model is built float32 (regressor's internal dtype).
+`fit()` takes anny-frame meters; `fit_engine_mesh()` converts cm both ways
+and derives landmarks. Validated: roundtrip PVE 1.6–4.6 mm, weight/height
+recovered ±0.2, robust to 1.5 mm noise, full path fit→landmarks→morph
+closes 350 ± 2 cc. Tests: `test_anny_fit.py` (4). Suite total: 127.
+
 **factory v2 + service integration (post-GATE 1)** —
 `datafactory.bodies.AnnyBodySampler(seed)` draws seeded Anny phenotypes
 (gender fixed 1.0; age/weight/height/muscle within candidate-plausible

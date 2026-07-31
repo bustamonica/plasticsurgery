@@ -77,6 +77,14 @@ class MorphEngine:
         _, _, t_depth = frame.coords(mesh.vertices)
         depth_limit = -min(2.0 * params.projection_cm + 3.0, 14.0)
         mask = mask & (t_depth > depth_limit)
+        # sagittal guard (rev.10): a breast dome never crosses the midline.
+        # On fuller real bodies the apex estimate can sit near the cleavage,
+        # letting the region ellipse straddle x=0 — cross-midplane displacement
+        # is counted in BOTH midplane-split half-volumes and closure fails
+        # (+44% observed). Strict inequality matches _half_volume's x=0 slice
+        # and keeps seam verts out of both domes (no double displacement).
+        sgn = 1.0 if side == "left" else -1.0
+        mask = mask & (mesh.vertices[:, 0] * sgn > 0.0)
         a_e, b_e = region_axes(lm, side, frame, REGION_MARGIN)
         u, w, _ = frame.coords(mesh.vertices)
 
@@ -124,6 +132,25 @@ class MorphEngine:
             inplane[mask] = inplane[mask] * (1.0 - wh)
         return inplane, normal_field, mask
 
+    @staticmethod
+    def _apply_side(vertices, inplane, m, normal_field, side):
+        """inplane + m·normal_field, position-clamped at the midplane (rev.10).
+
+        The mask guard keeps cross-side verts out of the FIELD, but inplane
+        slide and steep-slope normals can still push same-side verts ACROSS
+        x=0; midplane-split half-volumes then count that displacement in both
+        sides and per-side closure misses by ±20 cc. Clamping to the vert's
+        own hemisphere keeps the closure measurement and the final mesh
+        consistent.
+        """
+        disp = inplane + m * normal_field
+        active = np.linalg.norm(disp, axis=1) > 0.0
+        if side == "left":
+            disp[active, 0] = np.maximum(disp[active, 0], -vertices[active, 0])
+        else:
+            disp[active, 0] = np.minimum(disp[active, 0], -vertices[active, 0])
+        return vertices + disp
+
     def _close_volume(self, mesh_orig, faces, inplane, normal_field,
                       lm, side, target_cc):
         """Bisection on a uniform field multiplier to hit target added volume
@@ -131,7 +158,8 @@ class MorphEngine:
         the multiplier, yielding the volume-consistent in-vivo projection
         (rated projection ≠ in-vivo projection — SPEC §2.6 rev.3)."""
         def added(m):
-            verts = mesh_orig.vertices + inplane + m * normal_field
+            verts = MorphEngine._apply_side(mesh_orig.vertices, inplane, m,
+                                            normal_field, side)
             cand = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
             return displaced_volume_cc(mesh_orig, cand, lm, side)
 
@@ -199,7 +227,9 @@ class MorphEngine:
             # rev.4 slide-share guardrail: in-plane expansion itself adds
             # volume; if it dominates the request, the implant/chest pairing
             # is a mismatch — warn instead of silently crushing the dome
-            slid = trimesh.Trimesh(vertices=mesh.vertices + inplane,
+            slid_verts = MorphEngine._apply_side(mesh.vertices, inplane, 0.0,
+                                                 normal_field, side)
+            slid = trimesh.Trimesh(vertices=slid_verts,
                                    faces=mesh.faces, process=False)
             slide_v = displaced_volume_cc(mesh, slid, lm, side)
             m = 0.0
@@ -226,7 +256,8 @@ class MorphEngine:
 
         for side in ("left", "right"):
             inplane, m, normal_field, mask = pending[side]
-            work.vertices = work.vertices + inplane + m * normal_field
+            work.vertices = self._apply_side(work.vertices, inplane, m,
+                                             normal_field, side)
         for side in ("left", "right"):
             inplane, m, normal_field, mask = pending[side]
             achieved[side] = displaced_volume_cc(mesh, work, lm, side)
