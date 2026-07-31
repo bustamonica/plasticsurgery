@@ -227,31 +227,46 @@ class DatasetFactory:
     # -- full run -------------------------------------------------------------
 
     def generate(self, n_pairs: int, seed: int = 0,
-                 image_size: int = 256) -> list[dict]:
+                 image_size: int = 256, body_sampler=None,
+                 append: bool = False) -> list[dict]:
         """Full run: seeded bodies + weighted sampling; writes images and an
         atomically-replaced ``manifest.jsonl``; returns the manifest rows.
 
         Every random draw comes from one seeded numpy Generator (plus the
-        BodySampler's own generator, seeded identically), so two runs with
+        sampler's own generator, seeded identically), so two runs with
         the same seed produce byte-identical manifests. Guardrail-gated
         pairs are skipped and resampled (max 5 attempts per pair); any
         remaining shortfall is counted in ``self.report_``.
+
+        ``body_sampler`` injects an alternative body source with the
+        ``BodySampler.sample()`` contract — e.g. ``AnnyBodySampler`` for
+        real-body datasets (factory v2). Default: fixture ``BodySampler``.
+        ``append=True`` continues an existing dataset: pair indices and the
+        manifest carry on from the current contents instead of restarting
+        (lets long real-body runs be split across sessions).
         """
         n_pairs = int(n_pairs)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self._seed = int(seed)
         self._image_size = int(image_size)
-        self._next_index = 0
+        manifest = self.out_dir / "manifest.jsonl"
+
+        prior: list[dict] = []
+        if append and manifest.exists():
+            with open(manifest, encoding="utf-8") as f:
+                prior = [json.loads(line) for line in f if line.strip()]
+        self._next_index = len(prior)
 
         rng = np.random.default_rng(self._seed)
-        sampler = BodySampler(seed=self._seed, resolution=self.resolution)
+        if body_sampler is None:
+            body_sampler = BodySampler(seed=self._seed, resolution=self.resolution)
 
         rows: list[dict] = []
         skips = 0
         while len(rows) < n_pairs:
             row = None
             for _ in range(MAX_ATTEMPTS_PER_PAIR):
-                mesh, lm, body_params = sampler.sample()
+                mesh, lm, body_params = body_sampler.sample()
                 sku, placement, camera_kind = self._draw_candidate(rng)
                 row = self.make_pair(mesh, lm, body_params, sku, placement,
                                      camera_kind)
@@ -264,18 +279,19 @@ class DatasetFactory:
                 break  # avoid unbounded loops if the DB/config gates everything
             rows.append(row)
 
-        manifest = self.out_dir / "manifest.jsonl"
+        all_rows = prior + rows
         tmp = self.out_dir / "manifest.jsonl.tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            for row in rows:
+            for row in all_rows:
                 f.write(json.dumps(row) + "\n")
         os.replace(tmp, manifest)  # atomic publish
 
         self.report_ = {
             "requested": n_pairs,
             "written": len(rows),
+            "total": len(all_rows),
             "skips": skips,
             "shortfall": n_pairs - len(rows),
-            "by_brand": dict(sorted(Counter(r["brand"] for r in rows).items())),
+            "by_brand": dict(sorted(Counter(r["brand"] for r in all_rows).items())),
         }
         return rows

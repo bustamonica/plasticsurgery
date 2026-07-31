@@ -173,3 +173,60 @@ def test_guardrail_clamp_gates_pair(tmp_path):
                             wide.placement_options[0], "front")
     assert row is None  # clamped pair skipped, never emitted
     assert not list((tmp_path / "gated").rglob("*.png"))
+
+
+def test_append_continues_dataset(tmp_path):
+    """append=True continues indices and manifest instead of restarting."""
+    out = tmp_path / "ds"
+    f = make_factory(out)
+    rows1 = f.generate(2, seed=42, image_size=128)
+    rows2 = f.generate(1, seed=43, image_size=128, append=True)
+    manifest = (out / "manifest.jsonl").read_text().strip().split("\n")
+    assert len(manifest) == 3
+    ids = [json.loads(line)["pair_id"] for line in manifest]
+    assert ids[0].startswith("00000_") and ids[1].startswith("00001_")
+    assert ids[2].startswith("00002_")  # index continues, no collision
+    assert len(set(ids)) == 3
+    assert f.report_["total"] == 3 and f.report_["written"] == 1
+
+
+def test_append_without_prior_is_plain_run(tmp_path):
+    out = tmp_path / "ds"
+    f = make_factory(out)
+    f.generate(2, seed=42, image_size=128, append=True)
+    assert len((out / "manifest.jsonl").read_text().strip().split("\n")) == 2
+
+
+def test_custom_body_sampler_injection(tmp_path):
+    """generate() accepts any object with the BodySampler.sample() contract."""
+    class ConstantSampler:
+        def __init__(self):
+            self.calls = 0
+
+        def sample(self):
+            self.calls += 1
+            mesh = synthetic_torso(resolution=4)
+            lm = FixtureLandmarkProvider().locate(mesh)
+            return mesh, lm, {"provider": "constant"}
+
+    sampler = ConstantSampler()
+    rows = make_factory(tmp_path / "ds").generate(
+        2, seed=42, image_size=128, body_sampler=sampler)
+    assert len(rows) == 2
+    assert sampler.calls >= 2
+    assert all(r["pair_id"] for r in rows)
+
+
+@pytest.mark.skipif(
+    not __import__("morphengine.geometry.anny_body", fromlist=["anny_available"]).anny_available(),
+    reason="anny not installed")
+def test_anny_sampler_end_to_end(tmp_path):
+    """Factory v2: one real-body pair through the full pipeline."""
+    from morphengine.datafactory.bodies import AnnyBodySampler
+    rows = make_factory(tmp_path / "ds").generate(
+        1, seed=42, image_size=128, body_sampler=AnnyBodySampler(seed=42))
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["body_params"]["provider"] == "anny"
+    tol = max(2.0, 0.03 * row["volume_cc"])
+    assert abs(row["engine"]["achieved_volume_cc"]["left"] - row["volume_cc"]) <= tol
