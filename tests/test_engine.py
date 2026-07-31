@@ -148,3 +148,77 @@ class TestNippleHoldout:
         res = MorphEngine().morph(mesh, lm, params)
         for side in ("left", "right"):
             assert abs(res.achieved_volume_cc[side] - 300.0) <= max(2.0, 0.015 * 300)
+
+
+class TestPosteriorDepthGate:
+    """rev.9: inner cavity shells (anterior-facing normals, far behind the
+    chest wall) must not be displaced — they corrupted volume closure on real
+    mpfb2/Anny bodies (+5.7%)."""
+
+    def _mesh_with_inner_shell(self):
+        """Fixture torso + fake inner shell: breast-area verts pushed 17 cm
+        back (normals recomputed anterior-facing, like mpfb2's cavity cap)."""
+        mesh = synthetic_torso()
+        lm = FixtureLandmarkProvider().locate(mesh)
+        half = lm.breast_half("left")
+        d = np.linalg.norm(mesh.vertices - half.nipple[None, :], axis=1)
+        near = np.where(d < 6.0)[0]
+        shell_v = mesh.vertices[near].copy()
+        shell_v[:, 2] -= 17.0                      # 17 cm behind the wall
+        # keep only faces whose three verts are ALL inside the ball, then
+        # retarget them to the new (appended) vertices
+        in_ball = np.zeros(len(mesh.vertices), dtype=bool)
+        in_ball[near] = True
+        shell_f = mesh.faces[in_ball[mesh.faces].all(axis=1)].copy()
+        # local indices for the standalone shell mesh — concatenate() applies
+        # the global offset itself
+        remap = {old: i for i, old in enumerate(near)}
+        shell_f = np.vectorize(remap.get)(shell_f)
+        import trimesh as _t
+        combined = _t.util.concatenate([mesh, _t.Trimesh(shell_v, shell_f, process=False)])
+        return combined, lm
+
+    def test_inner_shell_excluded_from_mask(self):
+        mesh, lm = self._mesh_with_inner_shell()
+        params = ImplantParams(volume_cc=350, base_width_cm=10.1,
+                               projection_cm=5.2, shape=Shape.ROUND,
+                               placement=Placement.SUBMUSCULAR)
+        engine = MorphEngine()
+        _, _, mask = engine._side_field(mesh, lm, "left", params)
+        n_orig = len(mesh.vertices) - 0
+        # shell verts are the last appended ones; none may be in the mask
+        # (find them by depth: z far below the breast band)
+        shell_idx = np.where(mesh.vertices[:, 2] < lm.nipple_left[2] - 12.0)[0]
+        assert len(shell_idx) > 0
+        assert not mask[shell_idx].any()
+
+    def test_inner_shell_not_displaced_and_volume_closes(self):
+        mesh, lm = self._mesh_with_inner_shell()
+        params = ImplantParams(volume_cc=350, base_width_cm=10.1,
+                               projection_cm=5.2, shape=Shape.ROUND,
+                               placement=Placement.SUBMUSCULAR)
+        res = MorphEngine().morph(mesh, lm, params)
+        shell_idx = np.where(mesh.vertices[:, 2] < lm.nipple_left[2] - 12.0)[0]
+        disp = np.linalg.norm(
+            res.mesh.vertices[shell_idx] - mesh.vertices[shell_idx], axis=1)
+        assert disp.max() < 1e-6
+        for side in ("left", "right"):
+            assert abs(res.achieved_volume_cc[side] - 350.0) <= max(2.0, 0.015 * 350)
+
+    def test_fixture_region_unchanged_by_gate(self):
+        """Regression guard: on the clean fixture the gate excludes nothing in
+        the functional displacement zone — every vertex within 4 cm of the
+        nipple stays in the mask. (Verts nearer the imf crease are excluded by
+        the region ellipse / facing test, independent of the rev.9 gate.)"""
+        mesh = synthetic_torso()
+        lm = FixtureLandmarkProvider().locate(mesh)
+        params = ImplantParams(volume_cc=300, base_width_cm=11.1,
+                               projection_cm=4.5, shape=Shape.ROUND,
+                               placement=Placement.DUAL_PLANE)
+        engine = MorphEngine()
+        _, _, mask = engine._side_field(mesh, lm, "left", params)
+        half = lm.breast_half("left")
+        d = np.linalg.norm(mesh.vertices - half.nipple[None, :], axis=1)
+        core = np.where(d < 4.0)[0]
+        assert len(core) > 50
+        assert mask[core].all()  # entire primary displacement zone intact

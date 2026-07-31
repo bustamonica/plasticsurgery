@@ -390,6 +390,33 @@ triple: 65% vs ~50% before) — volume no longer dumps into the rim cliff.
 Tests: `TestSkirtedCap` (7); band bound recalibrated to the improved
 retentions (≤1.2 cm spread). Total 101 tests.
 
+**rev.9** — **posterior depth gate: real-body inner shells cannot move**
+(morph.engine). Real mpfb2/Anny meshes contain a sealed INNER cavity shell
+~17 cm behind the skin whose normals face anterior (into the cavity). Those
+verts pass the rev.2 facing test and were dragged forward with the dome,
+corrupting volume closure (+5.7% on the Anny body) and wasting displacement
+budget inside the torso. `_side_field` now intersects the mask with
+`t > depth_limit` in the local frame, where
+`depth_limit = −min(2·projection + 3, 14) cm` — generously behind the chest
+wall (t ≈ −projection) for any implant, far above the cavity shell. On the
+clean fixture the gate is a no-op (entire 4 cm nipple core remains masked;
+imf-crease verts were already excluded by the region ellipse/facing test, not
+the gate). Tests: `TestPosteriorDepthGate` (3) — shell verts excluded from the
+mask, shell displacement exactly 0 with 350 cc volume closure intact, fixture
+core zone unchanged. Total 104 engine tests.
+
+**geometry.anny_body** (new module, M2 Track A): `AnnyBodyProvider` wraps the
+Apache-2.0 Anny parametric body (NAVER LABS, MakeHuman/mpfb2 CC0 assets;
+13,718 verts) as a drop-in body source. Handles: frame conversion (Anny
+meters/+z-up/−y-anterior → engine cm/+y-up/+z-anterior), outer-surface
+landmark pick (inner-shell verts filtered by a `z > zmax − 6 cm` layer test),
+ring-profile base-radius estimator (median anterior depth in concentric rings
+around the nipple; wall depth = 8 cm ring, R = first ring dropping below
+0.8·projection, clipped 3.5–9.0 cm), arm-free chest width (torso slab with
+`z > 12`, connected component anchored at x≈0). Verified: watertight main
+component 13,348 verts; R and chest_width now physiological; inner-shell
+displacement = 0 with rev.9.
+
 ### M1.1 datafactory.bodies  [factory]
 
 ```python

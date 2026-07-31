@@ -67,6 +67,16 @@ class MorphEngine:
         # wider than the existing base is otherwise truncated by the mask
         mask = breast_region(mesh, lm, side,
                              margin=max(REGION_MARGIN, s_bw * 1.02))
+        # posterior depth gate (rev.9): nothing deeper than the chest wall may
+        # move. Real meshes with an inner cavity shell (mpfb2/Anny) have
+        # anterior-FACING inner verts that pass the rev.2 facing test and get
+        # dragged forward, corrupting volume closure (+5.7% on the Anny body).
+        # t = anterior coordinate from the nipple: chest wall ≈ -proj (with
+        # slope allowance), inner shell ≈ -17 cm. Gate is relative to the
+        # implant with an absolute cap: -min(2*proj + 3, 14).
+        _, _, t_depth = frame.coords(mesh.vertices)
+        depth_limit = -min(2.0 * params.projection_cm + 3.0, 14.0)
+        mask = mask & (t_depth > depth_limit)
         a_e, b_e = region_axes(lm, side, frame, REGION_MARGIN)
         u, w, _ = frame.coords(mesh.vertices)
 
