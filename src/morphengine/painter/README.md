@@ -16,6 +16,44 @@ Two modes (`TrainConfig.model`):
 
 ---
 
+## 0. Colab quickstart (free T4)
+
+The fastest way to run the sdxl-lora path with zero local setup:
+
+1. Open **`notebooks/painter_colab.ipynb`** in Google Colab
+   (*File → Open notebook → GitHub → `bustamonica/plasticsurgery`*, or
+   upload the file) and switch to a GPU runtime
+   (*Runtime → Change runtime type → T4 GPU*).
+2. Run the cells top to bottom: clone the repo → install the `[painter]`
+   extra → upload `m1_dataset_demo.zip` (or generate 300 pairs on the fly)
+   → load `configs/painter_v0.yaml` with T4-sized overrides → train via
+   `morphengine.painter.train.train(cfg, manifest)` → sample a 2×4
+   cond→output grid → download the checkpoint zip.
+
+**Expected runtime on a free T4:** the notebook defaults
+(256 px, batch 4, 2000 steps) take roughly **30–60 min** end to end,
+including SDXL download (~7 GB) and install. The full
+`configs/painter_v0.yaml` (512 px, batch 8, 20k steps) does **not** fit a
+T4 — it needs the A100/4090 boxes in §1 (or Colab Pro/Pro+ A100).
+
+**Free-tier credit/GPU notes:**
+
+- Free Colab GPUs are T4-class (16 GB), not guaranteed, and sessions cap
+  at ~12 h (often much less); idle sessions disconnect.
+- `train.py` currently checkpoints **only at the end** of training
+  (`save_every` in the yaml is not implemented), so keep `steps` small
+  enough to finish inside one session — the notebook defaults do.
+- 256 px / batch 4 / bf16 peaks around 10–12 GB VRAM on T4; 512 px /
+  batch 8 will OOM.
+- Known gaps in the sdxl-lora path, also flagged in the notebook: zero
+  prompt-embedding placeholders (model is unconditional), `grad_clip`
+  / `precision` yaml keys not read, and a suspected hard freeze of the
+  extended `conv_in` (installed before `get_peft_model`, so peft freezes
+  the new conditioning channels at zero-init — reported; fix pending in
+  `painter/train.py::_train_sdxl_lora`).
+
+---
+
 ## 1. Recommended box
 
 - **Full config (`configs/painter_v0.yaml`, 512px, batch 8, bf16):**
@@ -44,9 +82,9 @@ pip install -e .            # this repo (morphengine)
 ```bash
 # on the GPU box or any CPU worker; deterministic given --seed
 python scripts/generate_dataset.py \
-    --out_dir data/painter_v0 \
-    --n_pairs 30000 \
-    --image_size 256 \
+    --out data/painter_v0 \
+    --n 30000 \
+    --size 256 \
     --seed 0
 ```
 
