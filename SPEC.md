@@ -412,10 +412,26 @@ meters/+z-up/−y-anterior → engine cm/+y-up/+z-anterior), outer-surface
 landmark pick (inner-shell verts filtered by a `z > zmax − 6 cm` layer test),
 ring-profile base-radius estimator (median anterior depth in concentric rings
 around the nipple; wall depth = 8 cm ring, R = first ring dropping below
-0.8·projection, clipped 3.5–9.0 cm), arm-free chest width (torso slab with
-`z > 12`, connected component anchored at x≈0). Verified: watertight main
-component 13,348 verts; R and chest_width now physiological; inner-shell
-displacement = 0 with rev.9.
+0.8·projection, clipped 3.5–9.0 cm), arm-free chest width (z-span rule: the
+torso is ~20 cm deep at nipple height while arm cross-sections are ≤8 cm, so
+the torso ends at the first |x| bin whose z-span drops below 9 cm and stays
+there; clipped 24–44 cm), clavicle at nipple + 1.6·R above the midline.
+Verified: watertight main component 13,348 verts; R and chest_width
+physiological; inner-shell displacement = 0 with rev.9.
+
+**factory v2 + service integration (post-GATE 1)** —
+`datafactory.bodies.AnnyBodySampler(seed)` draws seeded Anny phenotypes
+(gender fixed 1.0; age/weight/height/muscle within candidate-plausible
+fraction ranges; cupsize/firmness stay at model defaults — the engine owns
+breast shape) with the same `sample()` contract as `BodySampler`; the anny
+model is built once per process and shared across draws.
+`service.app.bodies.AnnyServiceBodyProvider` plugs it into the BodyProvider
+Protocol (`create_app(body_provider=...)`), with `from_params` rebuilding the
+exact body from an echoed phenotype dict. Tests: `test_anny_body.py` (6:
+frame conversion, landmark sanity/determinism, GATE-1 shell invariant on the
+real body, sampler determinism/ranges) + 2 API tests (200 on real body with
+silhouette change; body_params round-trip yields byte-identical before
+render). Suite total: 122.
 
 ### M1.1 datafactory.bodies  [factory]
 

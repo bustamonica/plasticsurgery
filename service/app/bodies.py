@@ -17,11 +17,11 @@ from typing import Protocol, runtime_checkable
 
 import trimesh
 
-from morphengine.datafactory.bodies import BodySampler
+from morphengine.datafactory.bodies import AnnyBodySampler, BodySampler
 from morphengine.geometry.fixtures import FixtureLandmarkProvider, synthetic_torso
 from morphengine.geometry.landmarks import ChestLandmarks
 
-__all__ = ["BodyProvider", "FixtureBodyProvider"]
+__all__ = ["BodyProvider", "FixtureBodyProvider", "AnnyServiceBodyProvider"]
 
 
 @runtime_checkable
@@ -64,3 +64,35 @@ class FixtureBodyProvider:
         mesh = synthetic_torso(**params)
         landmarks = FixtureLandmarkProvider().locate(mesh)
         return mesh, landmarks, params
+
+
+class AnnyServiceBodyProvider:
+    """BodyProvider backed by real Anny bodies (plan.md Track A, post-GATE 1).
+
+    Drop-in replacement for :class:`FixtureBodyProvider`::
+
+        from service.app.main import create_app
+        app = create_app(body_provider=AnnyServiceBodyProvider())
+
+    Requires the optional ``anny`` package (plus torch/warp/roma). The body
+    model is built once per process and shared across requests; each request
+    draws a seeded phenotype, so ``sample(seed)`` stays deterministic.
+    """
+
+    def __init__(self, **model_kwargs):
+        self._sampler = AnnyBodySampler(seed=0, **model_kwargs)
+
+    def sample(self, seed: int) -> tuple[trimesh.Trimesh, ChestLandmarks, dict]:
+        # fresh seeded sampler for determinism, but reuse the loaded model
+        sampler = AnnyBodySampler(seed=seed)
+        sampler._provider = self._sampler._get_provider()
+        return sampler.sample()
+
+    def from_params(self, body_params: dict) -> tuple[trimesh.Trimesh, ChestLandmarks, dict]:
+        """Rebuild the exact Anny body described by ``body_params['phenotype']``."""
+        from morphengine.geometry.anny_body import AnnyBodyProvider
+        phenotype = dict(body_params["phenotype"])
+        provider = AnnyBodyProvider(phenotype=phenotype)
+        provider._model = self._sampler._get_provider()._get_model()
+        mesh, landmarks, _meta = provider.sample()
+        return mesh, landmarks, {"provider": "anny", "phenotype": phenotype}

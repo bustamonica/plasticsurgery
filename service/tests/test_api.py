@@ -133,3 +133,53 @@ def test_index_smoke_ui(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "<select" in r.text and "/morph" in r.text
+
+
+class TestAnnyServiceProvider:
+    """End-to-end on a REAL body (plan.md Track A → Track B seam, post-GATE 1).
+
+    Skipped unless the optional anny stack is installed; when it runs it is
+    the full path: HTTP request -> Anny body -> morph -> PNG pair.
+    """
+
+    @pytest.fixture(scope="class")
+    def anny_client(self):
+        pytest.importorskip("anny", reason="anny not installed")
+        from service.app.bodies import AnnyServiceBodyProvider
+        from service.app.main import create_app
+        return TestClient(create_app(body_provider=AnnyServiceBodyProvider()))
+
+    def test_morph_real_body_200(self, anny_client, db):
+        sku = _pick_sku(db)
+        r = anny_client.post("/morph", json={
+            "sku_id": sku.sku_id,
+            "placement": "submuscular",
+            "seed": 11,
+            "image_size": IMAGE_SIZE,
+        })
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["body_params"]["provider"] == "anny"
+        before = _decode_png(data["before_png_b64"])
+        after = _decode_png(data["after_png_b64"])
+        assert before.size == after.size == (IMAGE_SIZE, IMAGE_SIZE)
+        # morph actually changed the silhouette
+        assert before.tobytes() != after.tobytes()
+
+    def test_from_params_roundtrip(self, anny_client, db):
+        """body_params echoed by one call must rebuild the same body."""
+        sku = _pick_sku(db)
+        r1 = anny_client.post("/morph", json={
+            "sku_id": sku.sku_id, "placement": "submuscular",
+            "seed": 5, "image_size": IMAGE_SIZE,
+        })
+        assert r1.status_code == 200, r1.text
+        body_params = r1.json()["body_params"]
+        r2 = anny_client.post("/morph", json={
+            "sku_id": sku.sku_id, "placement": "submuscular",
+            "body_params": body_params, "image_size": IMAGE_SIZE,
+        })
+        assert r2.status_code == 200, r2.text
+        assert r2.json()["body_params"] == body_params
+        # same body + same sku -> identical before render
+        assert r1.json()["before_png_b64"] == r2.json()["before_png_b64"]

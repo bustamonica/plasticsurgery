@@ -59,3 +59,58 @@ class BodySampler:
     def sample_n(self, n: int) -> list[tuple[trimesh.Trimesh, ChestLandmarks, dict]]:
         """Draw ``n`` bodies in sequence (order is deterministic)."""
         return [self.sample() for _ in range(int(n))]
+
+
+# Anny phenotype draw ranges (fractions 0..1 of the model's range). Chosen to
+# span plausible breast-aug candidates: adults of varied build, excluding the
+# extremes where derived landmarks become unreliable.
+ANNY_PHENOTYPE_RANGES = {
+    "age": (0.15, 0.65),
+    "weight": (0.25, 0.75),
+    "height": (0.30, 0.70),
+    "muscle": (0.30, 0.65),
+}
+
+
+class AnnyBodySampler:
+    """Seeded sampler of REAL bodies via the Anny parametric model (M2/factory v2).
+
+    Same ``sample()`` contract as :class:`BodySampler` but draws phenotypes of
+    the Apache-2.0 anny/mpfb2 body instead of fixture kwargs. ``gender`` is
+    fixed at 1.0 (female — the breast-augmentation target population);
+    cupsize/firmness stay at anny's defaults so the engine — not the body
+    model — owns breast shape.
+
+    Requires the optional ``anny`` package; the underlying model is built once
+    per process and reused across draws (phenotypes are forward-pass inputs).
+    """
+
+    def __init__(self, seed: int = 0, **model_kwargs):
+        self.seed = int(seed)
+        self._rng = np.random.default_rng(self.seed)
+        self._model_kwargs = model_kwargs
+        self._provider = None
+
+    def _get_provider(self):
+        if self._provider is None:
+            from ..geometry.anny_body import AnnyBodyProvider  # lazy optional dep
+            self._provider = AnnyBodyProvider(**self._model_kwargs)
+        return self._provider
+
+    def sample(self) -> tuple[trimesh.Trimesh, ChestLandmarks, dict]:
+        u = self._rng.uniform
+        phenotype = {
+            "gender": 1.0,
+            "age": float(u(*ANNY_PHENOTYPE_RANGES["age"])),
+            "weight": float(u(*ANNY_PHENOTYPE_RANGES["weight"])),
+            "height": float(u(*ANNY_PHENOTYPE_RANGES["height"])),
+            "muscle": float(u(*ANNY_PHENOTYPE_RANGES["muscle"])),
+        }
+        provider = self._get_provider()
+        provider.phenotype = phenotype
+        mesh, landmarks, _meta = provider.sample()
+        body_params = {"provider": "anny", "phenotype": phenotype}
+        return mesh, landmarks, body_params
+
+    def sample_n(self, n: int) -> list[tuple[trimesh.Trimesh, ChestLandmarks, dict]]:
+        return [self.sample() for _ in range(int(n))]
