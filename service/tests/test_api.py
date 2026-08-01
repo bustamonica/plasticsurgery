@@ -183,3 +183,49 @@ class TestAnnyServiceProvider:
         assert r2.json()["body_params"] == body_params
         # same body + same sku -> identical before render
         assert r1.json()["before_png_b64"] == r2.json()["before_png_b64"]
+
+
+class TestPainterEndpoint:
+    """POST /morph with painter=true (M4 service seam)."""
+
+    @staticmethod
+    def _make_stub():
+        import numpy as np
+
+        class _StubPainter:
+            def __init__(self):
+                self.calls = 0
+
+            def paint_geometry(self, before_rgb, depth_before, depth_after,
+                               normal_after, mask_before, steps=30, seed=0):
+                self.calls += 1
+                h, w = before_rgb.shape[:2]
+                out = np.zeros((h, w, 3), np.float32)
+                out[..., 0] = 0.9                    # unmistakable red tint
+                return out
+
+        return _StubPainter()
+
+    def test_painter_true_uses_painter_output(self, db):
+        from service.app.main import create_app
+        stub = self._make_stub()
+        client = TestClient(create_app(painter=stub))
+        sku = _pick_sku(db)
+        r = client.post("/morph", json={
+            "sku_id": sku.sku_id, "placement": "submuscular",
+            "seed": 3, "image_size": IMAGE_SIZE,
+            "painter": True, "painter_steps": 5,
+        })
+        assert r.status_code == 200, r.text
+        after = _decode_png(r.json()["after_png_b64"])
+        px = after.convert("RGB").getpixel((IMAGE_SIZE // 2, IMAGE_SIZE // 2))
+        assert px[0] > 200           # stub's red tint reached the PNG
+        assert stub.calls == 1
+
+    def test_painter_true_without_ckpt_503(self, client, db):
+        sku = _pick_sku(db)
+        r = client.post("/morph", json={
+            "sku_id": sku.sku_id, "placement": "submuscular",
+            "image_size": IMAGE_SIZE, "painter": True,
+        })
+        assert r.status_code == 503, r.text

@@ -66,6 +66,47 @@ def _nearest_resize(arr: np.ndarray, size: int) -> np.ndarray:
     return arr[ys][:, xs, :]
 
 
+def build_cond(depth_before: np.ndarray, depth_after: np.ndarray,
+               normal_after: np.ndarray, mask_before: np.ndarray) -> np.ndarray:
+    """Assemble the 6-channel conditioning map (training == inference).
+
+    Channel order (H,W,6): depth_before_n, depth_after_n, normal_after_n(3),
+    mask_before. Depths are per-pair normalized: 1st–99th percentile of valid
+    depths across BOTH maps, inverted so foreground ~1 and bg 0. Normals are
+    remapped [-1,1] -> [0,1] with bg forced to 0 (bg = NaN in depth_after).
+    Shared by PairDataset (training) and painter.inference (sampling) — the
+    two MUST NOT drift apart.
+    """
+    valid = np.concatenate(
+        [depth_before[np.isfinite(depth_before)],
+         depth_after[np.isfinite(depth_after)]]
+    )
+    if valid.size >= 2:
+        lo, hi = np.percentile(valid, [1.0, 99.0])
+    else:  # degenerate pair (no body pixels); keep zeros
+        lo, hi = 0.0, 1.0
+    span = max(float(hi - lo), 1e-6)
+
+    def _norm_depth(d: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(d, dtype=np.float32)
+        m = np.isfinite(d)
+        out[m] = 1.0 - np.clip((d[m] - lo) / span, 0.0, 1.0)
+        return out
+
+    depth_before_n = _norm_depth(depth_before)
+    depth_after_n = _norm_depth(depth_after)
+
+    normal_after_n = np.clip(normal_after * 0.5 + 0.5, 0.0, 1.0).astype(np.float32)
+    normal_after_n[~np.isfinite(depth_after)] = 0.0
+    mask_before_f = (mask_before > 0.5).astype(np.float32)
+
+    return np.concatenate(
+        [depth_before_n[..., None], depth_after_n[..., None],
+         normal_after_n, mask_before_f[..., None]],
+        axis=-1,
+    )  # (H,W,6)
+
+
 class PairDataset(_TorchDataset):
     """torch.utils.data.Dataset over a datafactory manifest (SPEC M1.4).
 
@@ -116,50 +157,7 @@ class PairDataset(_TorchDataset):
             np.load(self.root / files["mask_before"]).astype(np.float32), size
         )
 
-        # --- per-pair depth normalization ----------------------------------
-        # Body range = 1st–99th percentile of valid (non-NaN) depths across
-        # BOTH depth maps of the pair. Camera-space z: nearer is smaller, so
-        # invert after scaling so foreground (near) -> ~1, bg -> 0.
-        valid = np.concatenate(
-            [
-                depth_before[np.isfinite(depth_before)],
-                depth_after[np.isfinite(depth_after)],
-            ]
-        )
-        if valid.size >= 2:
-            lo, hi = np.percentile(valid, [1.0, 99.0])
-        else:  # degenerate pair (no body pixels); keep zeros
-            lo, hi = 0.0, 1.0
-        span = max(float(hi - lo), 1e-6)
-
-        def _norm_depth(d: np.ndarray) -> np.ndarray:
-            out = np.zeros_like(d, dtype=np.float32)
-            m = np.isfinite(d)
-            out[m] = 1.0 - np.clip((d[m] - lo) / span, 0.0, 1.0)
-            return out
-
-        depth_before_n = _norm_depth(depth_before)
-        depth_after_n = _norm_depth(depth_after)
-
-        # Normals are unit vectors in [-1,1] (bg = 0) -> remap to [0,1];
-        # bg pixels are then forced to 0 (same "NaN/bg -> 0" rule as depths,
-        # bg identified by the NaN mask of depth_after).
-        normal_after_n = np.clip(normal_after * 0.5 + 0.5, 0.0, 1.0).astype(
-            np.float32
-        )
-        normal_after_n[~np.isfinite(depth_after)] = 0.0
-        # Mask bool -> {0,1} float32.
-        mask_before_f = (mask_before > 0.5).astype(np.float32)
-
-        cond = np.concatenate(
-            [
-                depth_before_n[..., None],
-                depth_after_n[..., None],
-                normal_after_n,
-                mask_before_f[..., None],
-            ],
-            axis=-1,
-        )  # (H,W,6)
+        cond = build_cond(depth_before, depth_after, normal_after, mask_before)
 
         return {
             # HWC -> CHW; images to [-1,1]

@@ -37,6 +37,8 @@ class MorphRequest(BaseModel):
     body_params: dict | None = None
     camera: Literal["front", "oblique"] = "front"
     image_size: int = Field(default=256, ge=32, le=1024)
+    painter: bool = False        # True: photoreal after via the trained painter
+    painter_steps: int = Field(default=30, ge=1, le=150)
 
 
 class SideMeasurements(BaseModel):

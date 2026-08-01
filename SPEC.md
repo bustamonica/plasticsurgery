@@ -462,6 +462,29 @@ real body, sampler determinism/ranges) + 2 API tests (200 on real body with
 silhouette change; body_params round-trip yields byte-identical before
 render). Suite total: 122.
 
+**painter.inference + service seam** (new module, M4): `PainterInference`
+mirrors the sdxl-lora training graph exactly — frozen SDXL VAE, UNet with the
+4→8 ch conv_in extension (old weights verbatim, new 4 zero-init), peft LoRA,
+and the small `cond_encoder` (9→32→32→4) that maps before(3)+cond(6) to the
+4 extra latent channels; conditioning is unconditional (zero prompt embeds,
+matching train.py). `from_ckpt(dir)` rebuilds everything from the exported
+`config.json` / `unet_lora/` / `cond_encoder.pt` (bf16 on cuda, fp32 on CPU);
+`from_parts(...)` accepts injected stubs for tests. `paint(before, cond,
+steps=30, seed)` runs the DDPM loop; `paint_geometry(before_rgb, depth_before,
+depth_after, normal_after, mask_before, ...)` does the PIL resize + map
+regridding and shares the ONE normalization with training: `build_cond` was
+extracted to module level in `painter.dataset` and is the single source of
+truth for the 6-channel cond layout (depth_before_n, depth_after_n,
+normal_after_n×3, mask_before; per-pair 1st–99th pct depth norm, inverted,
+NaN→0; normals ×0.5+0.5, bg zeroed). Training PairDataset and inference must
+never drift — a test pins their equality. Service: `MorphRequest.painter`
+(default false) + `painter_steps` (1–150); `create_app(painter=...)` accepts
+an instance or a checkpoint path (lazy `from_ckpt`, cached); requesting the
+painter with none configured → 503. Tests: `test_painter_inference.py` (5:
+cond layout/bg rules, train/infer cond equality, stub-injected loop shape/
+step-count/mean, paint_geometry end-to-end prep) + 2 API tests (stub painter
+tints the after-image; painter flag without ckpt → 503). Suite total: 136.
+
 ### M1.1 datafactory.bodies  [factory]
 
 ```python

@@ -41,12 +41,18 @@ def run_morph(
     db: ImplantDB,
     body_provider: BodyProvider,
     engine: MorphEngine | None = None,
+    painter=None,
 ) -> MorphResponse:
     """Execute one morph job and render before/after PNGs.
 
     Explicit ``req.body_params`` wins over ``req.seed`` for body selection.
     One camera (fit to the BEFORE mesh bounds) is used for both renders so
     the two images are directly comparable.
+
+    ``req.painter=True`` replaces the geometric after-render with the trained
+    painter's photoreal output (conditioned on the after-state geometry).
+    Raises ``RuntimeError`` when no painter is configured — the route maps it
+    to 503.
     """
     engine = engine or MorphEngine()
 
@@ -69,10 +75,23 @@ def run_morph(
     before = renderer.render(mesh)
     after = renderer.render(result.mesh)
 
+    if req.painter:
+        if painter is None:
+            raise RuntimeError(
+                "painter requested but no painter checkpoint is configured "
+                "(create_app(painter=...))")
+        after_rgb = painter.paint_geometry(
+            before.rgb.astype("float32") / 255.0,
+            before.depth, after.depth, after.normal, before.mask,
+            steps=req.painter_steps, seed=req.seed)
+        after_rgb = (after_rgb.clip(0, 1) * 255).astype("uint8")
+    else:
+        after_rgb = after.rgb
+
     guardrails = result.guardrails
     return MorphResponse(
         before_png_b64=_png_b64(before.rgb),
-        after_png_b64=_png_b64(after.rgb),
+        after_png_b64=_png_b64(after_rgb),
         engine=EngineOut(
             achieved_volume_cc={k: float(v)
                                 for k, v in result.achieved_volume_cc.items()},

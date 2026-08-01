@@ -115,12 +115,26 @@ def _to_summary(sku) -> ImplantSummary:
 
 
 def create_app(body_provider: BodyProvider | None = None,
-               db: ImplantDB | None = None) -> FastAPI:
+               db: ImplantDB | None = None,
+               painter=None) -> FastAPI:
     """App factory. ``body_provider`` is the Track A seam: pass an Anny-backed
-    provider later; defaults to the synthetic FixtureBodyProvider."""
+    provider later; defaults to the synthetic FixtureBodyProvider.
+
+    ``painter`` is the M4 seam: an object with ``paint_geometry(...)`` (e.g.
+    ``PainterInference.from_ckpt(dir)``) or a checkpoint-dir path — paths are
+    lazy-loaded on first painter request (SDXL weights are heavy)."""
     app = FastAPI(title="morphengine service", version="0.1.0")
     app.state.db = db or ImplantDB.from_json()
     app.state.body_provider = body_provider or FixtureBodyProvider()
+    app.state.painter = painter
+
+    def _resolve_painter():
+        p = app.state.painter
+        if p is None or hasattr(p, "paint_geometry"):
+            return p
+        from morphengine.painter.inference import PainterInference
+        app.state.painter = PainterInference.from_ckpt(p)
+        return app.state.painter
 
     @app.get("/health")
     def health() -> dict:
@@ -142,12 +156,15 @@ def create_app(body_provider: BodyProvider | None = None,
     @app.post("/morph", response_model=MorphResponse)
     def morph(req: MorphRequest) -> MorphResponse:
         try:
-            resp = run_morph(req, app.state.db, app.state.body_provider)
+            resp = run_morph(req, app.state.db, app.state.body_provider,
+                             painter=_resolve_painter() if req.painter else None)
         except KeyError as exc:
             raise HTTPException(status_code=404,
                                 detail=str(exc.args[0])) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         g = resp.engine.guardrails
         if g.clamped or not g.ok:
             raise HTTPException(status_code=422, detail={
