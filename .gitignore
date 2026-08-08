@@ -5,3 +5,5 @@ __pycache__/
 testrun.log
 testrun*.log
 *.log
+painter_ckpt*/
+paint_grid*.png

@@ -56,6 +56,25 @@ app = create_app(body_provider=AnnyBodyProvider(...))
 If the provider also implements `from_params(body_params)`, explicit
 `body_params` in a `MorphRequest` win over `seed`.
 
+## Painter (M4)
+
+With a trained checkpoint configured, `/morph` can return a
+photorealistic painted after-image:
+
+```python
+from service.app.main import create_app
+app = create_app(painter="painter_ckpt")  # dir with config.json, unet_lora/, cond_encoder.pt
+```
+
+- The checkpoint lives **outside git** (`painter_ckpt*/` is gitignored).
+  Unzip the Colab-exported `painter_ckpt_slim.zip` into the repo root as
+  `painter_ckpt/`. It lazy-loads on the first painter request and caches.
+- `MorphRequest {"painter": true, "painter_steps": 30}`; without a
+  configured painter the route returns **503**.
+- Memory: SDXL fp32 on CPU needs ~14 GB RAM (very slow); GPU bf16 ~8 GB
+  VRAM. For visual smoke tests use `scripts/paint_demo.py --ckpt
+  painter_ckpt --manifest <manifest.jsonl>` (Colab GPU recommended).
+
 ## Tests
 
 ```bash

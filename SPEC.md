@@ -485,6 +485,20 @@ cond layout/bg rules, train/infer cond equality, stub-injected loop shape/
 step-count/mean, paint_geometry end-to-end prep) + 2 API tests (stub painter
 tints the after-image; painter flag without ckpt → 503). Suite total: 136.
 
+**Post-flight validation (2026-08-09, real Colab checkpoint):** first real
+`painter_ckpt_slim.zip` (53 MB: 89 MB fp32 adapter + cond_encoder +
+config) passed `validate_ckpt.py` and tensor-level forensics: 560 A/B
+pairs (r=16/α=32, to_q/k/v/out.0, modules_to_save=[conv_in]) matching
+train.py exactly; trained-vs-init fingerprint as designed — attn1
+(self-attn) B-matrices all trained (std 3.3e-3, 0/280 zero), attn2
+(cross-attn) B-matrices all still zero-init (280/280), the expected
+signature of zero-prompt unconditional training (documented limitation:
+no text conditioning yet); conv_in extension channels 4–7 learned from
+zero-init (std 4.8e-3); no NaN/Inf anywhere; cond_encoder loads and runs
+a finite (1,9,256,256)→(1,4,32,32) forward. Full-graph paint not run in
+the 4 GB sandbox (SDXL fp32 CPU needs ~14 GB) — visual smoke path:
+`scripts/paint_demo.py` on GPU / Colab sampling cell.
+
 ### M1.1 datafactory.bodies  [factory]
 
 ```python
