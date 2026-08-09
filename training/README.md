@@ -49,7 +49,7 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
                                   └── manifest.jsonl
 ```
 
-Run it:
+Run it (requires **Python >= 3.10** - ai-toolkit itself needs 3.10+, 3.12 recommended; the pipeline scripts additionally carry a `from __future__ import annotations` shim so they still run on 3.9 for local data prep):
 
 ```bash
 cd training
@@ -65,10 +65,37 @@ Audit `data/clean` visually before training — every image, every batch. You
 are checking two things: no identifiable faces survived, and the pair is
 actually the same patient/pose.
 
+## Synthetic smoke-test corpus
+
+Before any real consented data exists, generate a schema-valid synthetic corpus
+to exercise the whole pipeline (and later the GPU smoke run):
+
+```bash
+python scripts/generate_synthetic.py data/raw --count 100 --seed 42
+```
+
+The "after" images are programmatic warps of the "before" images, sized by
+`volume_cc`, with balanced `clothing` coverage and unique pixels per pair (so
+the ingest dedup check is exercised too).
+The images are headless, so `deidentify.py` needs `--allow-no-face`.
+**Never mix these pairs into a real training corpus** - they teach the model
+nothing medically meaningful; they only prove the tooling works end to end.
+
+## Tests
+
+```bash
+pip install -r requirements.txt   # includes pytest + pyyaml
+python -m pytest tests -q
+```
+
+Covers ingest validation/rejection paths, caption assembly (including the
+`clothing` variants), and a drift guard on `configs/qwen_edit_lora.yaml`.
+
 ## Training on RunPod
 
-1. Create a pod: 1× A100 80GB, the official PyTorch template, attach a volume.
-2. `git clone https://github.com/ostris/ai-toolkit && cd ai-toolkit && pip install -r requirements.txt`
+1. Create a pod: 1× A100 80GB, the official PyTorch template (Python >= 3.10, torch per the ai-toolkit README), attach a volume.
+2. `git clone https://github.com/ostris/ai-toolkit && cd ai-toolkit && git checkout 6d8afa5684000b69db97cc40504a972a85615e3b && pip install -r requirements.txt`
+   (the pinned commit our config was validated against; if you take a newer one, re-diff `config/examples/train_lora_qwen_image_edit_2509_32gb.yaml` first)
 3. Upload `data/dataset/` to the volume (e.g. `runpodctl send` or rsync over SSH).
 4. Copy `configs/qwen_edit_lora.yaml` into `ai-toolkit/config/`, adjust paths,
    and sync its keys with the current example config in the ai-toolkit repo
@@ -93,6 +120,11 @@ than generalize — keep collecting before drawing conclusions.
 
 Deploy the LoRA behind a small HTTP endpoint (RunPod serverless has a
 diffusers worker template), then in `app/api/generate/route.ts` swap the
-Gemini fetch for your endpoint. The request/response contract of
+Gemini fetch for your endpoint (the `AI_PROVIDER` env seam in `.env.example`;
+`gemini` stays the default).
+Use `buildCustomModelPrompt()` from `lib/prompt.ts` for the instruction - it
+emits exactly the `build_caption()` format the model was trained on, unlike
+the Gemini prompt.
+The request/response contract of
 `/api/generate` (base64 in, base64 out) does not need to change, and demo
 mode still works for local dev.

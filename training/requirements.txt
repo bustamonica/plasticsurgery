@@ -3,3 +3,7 @@ pillow>=10.0
 # uses for offline face detection.
 opencv-python-headless>=4.9,<5
 numpy>=1.26
+
+# Dev/test only (not needed to run the pipeline itself):
+pytest>=8.0
+pyyaml>=6.0

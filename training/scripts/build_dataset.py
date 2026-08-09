@@ -13,6 +13,9 @@ Output (ai-toolkit paired-editing layout + a tool-agnostic manifest):
   <out>/manifest.jsonl               {pair_id, split, control, target, instruction, meta}
 """
 
+# Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
+from __future__ import annotations
+
 import argparse
 import json
 import random
@@ -43,6 +46,25 @@ BRAND_LANGUAGE = {
     "sientra": "high-strength cohesive silicone gel implants",
 }
 
+# The `clothing` field in dataset_schema.json. Captions must reflect it: the
+# model trains on clinical photos that are often nude, while consumers upload
+# clothed photos, so the instruction has to say what to preserve and what to
+# render. Keep in sync with CUSTOM_MODEL_CLOTHING_LANGUAGE in lib/prompt.ts.
+CLOTHING_LANGUAGE = {
+    "nude": (
+        "The subject is photographed nude from the waist up; render realistic "
+        "natural skin and anatomy in the chest area."
+    ),
+    "bra": (
+        "The subject is wearing a bra; adjust only the breast size and shape "
+        "under the existing bra and keep the bra itself unchanged."
+    ),
+    "top": (
+        "The subject is wearing a top; adjust only the breast size and shape "
+        "under the existing top and keep the top itself unchanged."
+    ),
+}
+
 
 def size_language(cc: int) -> str:
     if cc < 250:
@@ -61,14 +83,21 @@ def build_caption(meta: dict) -> str:
     shape = SHAPE_LANGUAGE.get(meta.get("shape", ""), "implants")
     profile = PROFILE_LANGUAGE.get(meta.get("profile", ""), "a balanced profile")
     brand = BRAND_LANGUAGE.get(meta.get("brand", ""))
+    clothing = meta.get("clothing")
+    preserve = "identity, pose, skin tone, lighting and background"
+    if clothing != "nude":
+        # No clothing to preserve in a nude photo; for clothed (or unknown)
+        # pairs, explicitly pin the clothing.
+        preserve = "identity, pose, skin tone, clothing, lighting and background"
     parts = [
         f"Edit this photo to simulate the outcome of breast augmentation surgery "
         f"with {cc} cc {shape}, using {profile}"
         + (f", in the style of {brand}" if brand else "")
         + f". The change should read as {size_language(cc)}.",
-        "Keep the person's identity, pose, skin tone, clothing, lighting and background "
-        "exactly the same.",
+        f"Keep the person's {preserve} exactly the same.",
     ]
+    if clothing in CLOTHING_LANGUAGE:
+        parts.append(CLOTHING_LANGUAGE[clothing])
     return " ".join(parts)
 
 
