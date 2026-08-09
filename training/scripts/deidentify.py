@@ -11,6 +11,9 @@ chin — audit a sample first, then rerun with the flag. Detection is a helper,
 not a guarantee: visually audit every output batch.
 """
 
+# Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
+from __future__ import annotations
+
 import argparse
 import shutil
 import sys

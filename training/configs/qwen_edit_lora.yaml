@@ -1,24 +1,32 @@
 # LoRA fine-tune of Qwen-Image-Edit on paired before/after data, for
 # ostris/ai-toolkit (https://github.com/ostris/ai-toolkit).
 #
-# IMPORTANT: ai-toolkit moves fast — before running, diff this against the
-# current Qwen-Image-Edit example in ai-toolkit/config/examples/ and adopt any
-# renamed keys. The values below (rank, lr, steps) are sane starting points.
+# Key layout verified against ai-toolkit example
+# config/examples/train_lora_qwen_image_edit_2509_32gb.yaml at pinned commit
+# 6d8afa5684000b69db97cc40504a972a85615e3b ("Version bump", 2026-08-09).
+# IMPORTANT: ai-toolkit moves fast - always pin that commit (or re-diff this
+# file against the example at the commit you actually cloned) before a run.
 #
-# Hardware: 1x A100 80GB. Reduce resolution to 768 or enable the toolkit's
-# low-VRAM/quantization options if you rent a smaller GPU.
+# Base model: Qwen-Image-Edit-2509. NOTE: the newer 2511 is also supported by
+# the same `qwen_image_edit_plus` arch (Apache-2.0) - re-evaluate the base
+# version at run time; 2509 stays the default until 2511 is validated.
+#
+# Hardware: 1x A100 80GB. The quantization stack below (uint3 + accuracy
+# recovery adapter, qfloat8 text encoder, low_vram, cached text embeddings)
+# follows the toolkit's 32GB recipe, so this config also fits a 32GB card
+# (RTX 5090 class) as-is.
 
 job: extension
 config:
   name: augmentation_preview_lora_v1
   process:
-    - type: sd_trainer
+    - type: diffusion_trainer
       training_folder: output
       device: cuda:0
 
       network:
         type: lora
-        linear: 32          # rank — 16 for quick smoke tests, 32-64 for real runs
+        linear: 32          # rank - 16 for quick smoke tests, 32-64 for real runs
         linear_alpha: 32
 
       save:
@@ -28,33 +36,50 @@ config:
 
       datasets:
         - folder_path: /workspace/data/dataset/train/target
-          control_path: /workspace/data/dataset/train/control
+          # control_path is a list (up to 3 control folders); we use one.
+          control_path:
+            - /workspace/data/dataset/train/control
           caption_ext: txt
-          resolution: [1024]
-          buckets: true       # keep native aspect ratios via bucketing
+          caption_dropout_rate: 0.05
+          # Multi-resolution training; replaces the old dead `buckets` key.
+          resolution: [512, 768, 1024]
 
       train:
         batch_size: 1
-        gradient_accumulation_steps: 4
+        gradient_accumulation: 4
         steps: 4000
         lr: 1.0e-4
         optimizer: adamw8bit
         noise_scheduler: flowmatch
+        timestep_type: weighted
         dtype: bf16
         gradient_checkpointing: true
+        # Required for the sub-80GB recipe; harmless on 80GB.
+        cache_text_embeddings: true
 
       model:
         name_or_path: Qwen/Qwen-Image-Edit-2509
-        arch: qwen_image_edit
-        quantize: true        # fits comfortably on 80GB; required on smaller cards
+        arch: qwen_image_edit_plus   # required for 2509/2511 weights
+        quantize: true
+        # uint3 with accuracy-recovery adapter (the 32GB recipe); the pipe
+        # points at the adapter on HuggingFace (or a local path).
+        qtype: uint3|ostris/accuracy_recovery_adapters/qwen_image_edit_2509_torchao_uint3.safetensors
+        quantize_te: true
+        qtype_te: qfloat8
+        low_vram: true
 
       sample:
-        sampler: flowmatch
+        sampler: flowmatch          # must match train.noise_scheduler
         sample_every: 500
         width: 832
         height: 1216
+        guidance_scale: 3
+        sample_steps: 25
+        neg: ""
+        seed: 42
+        walk_seed: true
         # Point these at a few VAL control images + their captions so the
         # sample grid doubles as an eval set the model never trained on.
         samples:
           - prompt: "Edit this photo to simulate the outcome of breast augmentation surgery with 350 cc round implants giving even fullness and visible roundness in the upper breast, using a balanced moderate-plus profile. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same."
-            ctrl_img: /workspace/data/dataset/val/control/PICK_A_VAL_PAIR.jpg
+            ctrl_img_1: /workspace/data/dataset/val/control/PICK_A_VAL_PAIR.jpg

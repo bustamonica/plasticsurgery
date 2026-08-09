@@ -9,6 +9,9 @@ Output layout: <staging>/<pair_id>/{before,after}.jpg + meta.json
 - Rejects tiny images and exact-duplicate pairs (SHA-256 of pixel data).
 """
 
+# Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
