@@ -56,6 +56,10 @@ cd training
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
+# Optional: pull a consented clinic gallery into data/raw (polite, cached;
+# see scripts/scrape_gallery.py docstring for the consent + annotation model)
+python scripts/scrape_gallery.py --clinic drkolker --out data/raw --annotations annotations.json
+
 python scripts/ingest.py       data/raw data/staging
 python scripts/deidentify.py   data/staging data/clean        # add --allow-no-face after auditing a sample
 python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
