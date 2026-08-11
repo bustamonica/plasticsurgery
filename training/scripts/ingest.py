@@ -21,9 +21,13 @@ from pathlib import Path
 
 from PIL import Image
 
-MIN_DIMENSION = 512
+# Deliberately below the 512px ideal: much of the drkolker gallery is published
+# at 418x418, and rejecting those would cost ~75% of a consented corpus. The
+# tradeoff is that 418px pairs must be upscaled ~2.5x to the 1024px training
+# resolution, which softens detail; accepted knowingly (captain ruling, PR #2).
+MIN_DIMENSION = 400
 REQUIRED_FIELDS = ["pair_id", "shape", "volume_cc", "view", "consent_ref"]
-VALID_SHAPES = {"round", "teardrop"}
+VALID_SHAPES = {"round", "teardrop", "unknown"}
 VALID_VIEWS = {"front", "oblique-left", "oblique-right", "side-left", "side-right"}
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"]
 

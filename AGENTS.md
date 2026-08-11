@@ -13,7 +13,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 ## Training track sharp edges
 
 - Authoritative docs: `training/README.md` (pipeline, RunPod steps) and `training/dataset_schema.json` (consent contract per pair).
-- Never commit photos or datasets: `training/data/` is gitignored on purpose.
+- Never commit photos or datasets: `training/data/` is gitignored on purpose; the consented clinic corpus lives outside the repo at `~/firstmate/data/clinic-corpus/<clinic>/raw/` (with `.scraper-cache/` beside it).
+- Gallery intake: `training/scripts/scrape_gallery.py` (pluggable `CLINICS` configs; currently drkolker + drdanielbarrett-implants-only per captain scope). View laterality / unlabeled views come from a visual-annotation JSON (see the scraper docstring); `training/scripts/annotate_contact_sheets.py` renders the review sheets. Undocumented spec fields are omitted or the schema's `unknown` enum - never invented.
+- `ingest.py` `MIN_DIMENSION` is 400 (not 512) by captain ruling: drkolker publishes ~75% of cases at 418px; those pairs need ~2.5x upscale to 1024px training res.
 - Tests: `cd training && python -m pytest tests -q` (deps in `training/requirements.txt`).
 - `training/configs/qwen_edit_lora.yaml` is validated against ai-toolkit commit `6d8afa5684000b69db97cc40504a972a85615e3b`; the toolkit renames keys often, so re-diff its example config before using a newer commit.
 - Caption parity is a hard contract: `build_caption()` in `training/scripts/build_dataset.py` and `buildCustomModelPrompt()` in `lib/prompt.ts` must emit byte-identical instruction text. Update both (and their shared vocabulary in `lib/implants.ts`) together.
