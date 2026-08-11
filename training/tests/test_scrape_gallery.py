@@ -62,11 +62,38 @@ def test_kolker_specs_motiva_case():
     assert specs.left_cc == 170
     assert specs.right_cc == 185
     assert specs.brand == "motiva"
-    # 'Mini Motiva' is a projection tier, not a documented profile/shape word:
-    # neither may be invented.
+    # 'Mini Motiva' is Motiva's documented projection tier: Mini -> moderate.
+    assert specs.profile == "moderate"
+    # Shape is never stated for this case and must not be invented.
     assert specs.shape is None
-    assert specs.profile is None
     assert sg.volume_cc(specs) == 178  # average of 170/185, per schema
+
+
+@pytest.mark.parametrize(
+    "fixture,expected_profile",
+    [
+        ("case_motiva_demi.html", "moderate-plus"),
+        ("case_motiva_full.html", "high"),
+        ("case_motiva_corse.html", "extra-high"),
+    ],
+)
+def test_kolker_motiva_projection_families(fixture, expected_profile):
+    # Motiva projection families map onto the schema's profile enum:
+    # Demi -> moderate-plus, Full -> high, Corsé -> extra-high.
+    specs = sg.kolker_parse_case(load_fixture(fixture), "x", "x").specs
+    assert specs.brand == "motiva"
+    assert specs.profile == expected_profile
+
+
+def test_kolker_non_motiva_never_invents_profile():
+    # The bare words 'Demi'/'Full'/'Corsé' are ambiguous outside Motiva; a
+    # non-Motiva case using them must keep profile unset.
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(
+        specs, "310cc Full round saline implants, bilateral")
+    assert specs.brand == "unknown"
+    assert specs.shape == "round"
+    assert specs.profile is None
 
 
 def test_kolker_specs_silicone_round_case():
@@ -76,6 +103,7 @@ def test_kolker_specs_silicone_round_case():
     assert specs.right_cc == 265
     assert specs.brand == "unknown"  # 'Silicone Breast Implants', no brand named
     assert specs.shape == "round"
+    assert specs.profile is None  # no projection documented
     assert sg.volume_cc(specs) == 252
 
 
@@ -217,3 +245,33 @@ def test_kolker_list_cases():
         '<a href="/gallery/breast/breast-augmentation/01/#nav">z</a>'
     )
     assert sg.kolker_list_cases(html) == ["01", "02", "10"]
+
+
+# ---------------------------------------------------------------------------
+# Notes hygiene
+# ---------------------------------------------------------------------------
+
+
+def test_notes_omitted_when_no_clinical_description():
+    # Cases with no patient-details block (real Kolker cases 03, 83-105) must
+    # not emit a notes field containing only the 'view labels' boilerplate.
+    specs = sg.kolker_parse_case(load_fixture("case_no_details.html"), "03", "x").specs
+    assert not specs.summary and not specs.fields
+    meta = sg.build_meta(
+        "drkolker-03-side-left", "side-left", specs,
+        {"laterality": "left", "clothing": "nude"}, {},
+        "laterality from visual inspection of downloaded images",
+        "drkolker-agreement-2026-08",
+    )
+    assert "notes" not in meta
+
+
+def test_notes_keep_view_label_provenance_with_description():
+    specs = sg.kolker_parse_case(load_fixture("case_02.html"), "02", "x").specs
+    meta = sg.build_meta(
+        "drkolker-02-side-left", "side-left", specs, {}, {},
+        "laterality from visual inspection of downloaded images",
+        "drkolker-agreement-2026-08",
+    )
+    assert "Clinic description" in meta["notes"]
+    assert "view labels" in meta["notes"]

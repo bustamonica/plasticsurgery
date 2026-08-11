@@ -80,6 +80,16 @@ PROFILE_PATTERNS = [
     (re.compile(r"\bhigh\s+(profile|projection)\b", re.I), "high"),
     (re.compile(r"\bmoderate\s+(profile|projection)\b", re.I), "moderate"),
 ]
+# Motiva projection families map onto the schema's profile enum (captain's
+# ruling): Mini -> moderate, Demi -> moderate-plus, Full -> high,
+# Corsé -> extra-high. The bare words ('Demi', 'Full') are ambiguous outside
+# Motiva, so they are only matched when the case documents a Motiva implant.
+MOTIVA_PROFILE_PATTERNS = [
+    (re.compile(r"\bmini\b", re.I), "moderate"),
+    (re.compile(r"\bdemi\b", re.I), "moderate-plus"),
+    (re.compile(r"\bfull\b", re.I), "high"),
+    (re.compile(r"\bcors[eé]\b", re.I), "extra-high"),
+]
 
 
 @dataclass
@@ -281,6 +291,11 @@ def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
         if pattern.search(haystack):
             specs.profile = profile
             break
+    if specs.profile is None and "motiva" in lower:
+        for pattern, profile in MOTIVA_PROFILE_PATTERNS:
+            if pattern.search(haystack):
+                specs.profile = profile
+                break
 
 
 def volume_cc(specs: CaseSpecs) -> int | None:
@@ -540,7 +555,9 @@ def build_notes(specs: CaseSpecs, laterality_source: str | None) -> str:
                 f"asymmetric volumes (left {specs.left_cc:g}cc, "
                 f"right {specs.right_cc:g}cc); volume_cc is the average"
             )
-    if laterality_source:
+    # View-label provenance is kept only alongside real clinical content;
+    # on its own it is boilerplate, and notes are omitted entirely.
+    if laterality_source and (parts or details):
         details.append(f"view labels: {laterality_source}")
     if details:
         parts.append(". ".join(details) + ".")
