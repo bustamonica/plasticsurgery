@@ -366,6 +366,237 @@ def test_kolker_list_cases():
 
 
 # ---------------------------------------------------------------------------
+# 2026-08 batch: one test per new parser family
+# ---------------------------------------------------------------------------
+
+
+def test_harrington_parse_case():
+    case = sg.harrington_parse_case(load_fixture("harrington_case_177.html"), "177", "x")
+    assert [p.key for p in case.pairs] == ["view1", "view2", "view3"]
+    assert case.pairs[0].before_url == "/wp-content/uploads/177/before-0.jpg"
+    assert case.pairs[0].view_hint is None  # ordinal only; needs visual annotation
+    specs = case.specs
+    assert specs.age == 29
+    assert specs.height == "5' 2"
+    assert specs.weight_lbs == 110
+    assert specs.left_cc == 385 and specs.right_cc == 385
+    assert specs.brand == "sientra"
+    assert specs.profile == "moderate"
+
+
+def test_influx_swiper_lakeshore():
+    case = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_01.html"), "01", "x",
+        "/gallery/breast/breast-augmentation/")
+    assert [p.key for p in case.pairs] == ["pair1"]
+    assert case.pairs[0].before_url.endswith("01.jpg")
+    assert case.pairs[0].after_url.endswith("02.jpg")
+    specs = case.specs
+    assert specs.left_cc == 445 and specs.right_cc == 445
+    assert specs.shape == "round"
+    assert specs.brand == "natrelle"
+    assert specs.profile == "moderate"
+    assert specs.age == 30
+    assert specs.height == "5'3"
+    assert specs.weight_lbs == 130
+
+
+def test_influx_swiper_marina_narrative_specs():
+    case = sg.influx_swiper_parse_case(
+        load_fixture("marina_case_6155.html"), "6155", "x",
+        "/before-after-gallery-los-angeles/breast-augmentation/")
+    assert len(case.pairs) == 1
+    specs = case.specs
+    assert specs.age == 43
+    assert specs.height == "5'7" and specs.weight_lbs == 123
+    assert specs.left_cc == 255 and specs.right_cc == 255
+
+
+def test_austinweston_parse_case_excludes_thumbs_mobile():
+    case = sg.austinweston_parse_case(load_fixture("austinweston_case_01.html"), "01", "x")
+    assert len(case.pairs) == 1
+    assert case.pairs[0].before_url.endswith("before.jpg")
+    assert case.pairs[0].after_url.endswith("after.jpg")
+    assert case.specs.left_cc == 375 and case.specs.right_cc == 375
+
+
+def test_charlotte_parse_case_split_composites():
+    case = sg.charlotte_parse_case(load_fixture("charlotte_case_01.html"), "01", "x")
+    assert [p.key for p in case.pairs] == ["view1", "view2"]
+    assert all(p.split_composite for p in case.pairs)
+    assert case.specs.age == 34
+
+
+def test_allure_parse_case_and_chain():
+    case = sg.allure_parse_case(load_fixture("allure_case_01.html"), "01", "x")
+    assert len(case.pairs) == 1
+    assert case.specs.left_cc == 415 and case.specs.shape == "round"
+    assert sg.allure_next_case_id(load_fixture("allure_case_01.html")) == "02"
+    assert sg.allure_next_case_id(load_fixture("allure_case_last.html")) is None
+
+
+def test_drtavakoli_parse_listing_filters_decoy_images():
+    cases = sg.drtavakoli_parse_listing(load_fixture("drtavakoli_listing.html"), "x")
+    assert [c.case_id for c in cases] == ["32286", "32288"]  # decoy (7154) excluded
+    assert cases[0].pairs[0].split_composite
+    assert cases[0].specs.left_cc == 400 and cases[0].specs.shape == "round"
+    assert cases[0].specs.profile == "high"
+
+
+def test_sixsurgery_parse_listing():
+    (case,) = sg.sixsurgery_parse_listing(load_fixture("sixsurgery_listing.html"), "x")
+    assert case.case_id == "43253"
+    assert len(case.pairs) == 1
+    assert not case.pairs[0].split_composite
+    specs = case.specs
+    assert specs.left_cc == 275 and specs.right_cc == 275
+    assert specs.profile == "moderate"
+    assert specs.height == '5.5" - 6.0"'
+    assert specs.weight_lbs == 100
+
+
+def test_drmiroshnik_parse_listing_groups_by_caption():
+    cases = sg.drmiroshnik_parse_listing(load_fixture("drmiroshnik_listing.html"), "x")
+    assert len(cases) == 2
+    case1 = cases[0]
+    assert [p.key for p in case1.pairs] == ["front", "side"]
+    assert case1.pairs[0].view_hint == "front"
+    assert case1.pairs[1].view_hint == "side"
+    assert all(p.split_composite for p in case1.pairs)
+    assert case1.specs.left_cc == 350 and case1.specs.shape == "round"
+
+
+def test_drrohrich_parse_listing_2x2_grid():
+    (case,) = sg.drrohrich_parse_listing(load_fixture("drrohrich_listing.html"), "x")
+    assert [p.key for p in case.pairs] == ["front", "side"]
+    front = case.pairs[0]
+    assert front.grid_shape == (2, 2)
+    assert front.before_cell == (0, 0) and front.after_cell == (0, 1)
+    assert front.view_hint == "front"
+    assert case.pairs[1].view_hint == "side"
+    specs = case.specs
+    assert specs.age == 23
+    assert specs.brand == "natrelle"  # 'Allergan' maps to its Natrelle implant line
+    assert specs.profile == "moderate"
+    assert specs.left_cc == 295 and specs.right_cc == 295
+
+
+def test_drjeremyhunt_parse_listing():
+    (case,) = sg.drjeremyhunt_parse_listing(load_fixture("drjeremyhunt_listing.html"), "x")
+    assert case.case_id == "1197"
+    assert {p.key for p in case.pairs} == {"oblique", "front", "side"}
+    for p in case.pairs:
+        assert p.split_composite
+        assert p.before_url.endswith(".jpg") and "-768x512" not in p.before_url
+    specs = case.specs
+    assert specs.age == 41
+    assert specs.shape == "teardrop"
+    assert specs.left_cc == 420 and specs.right_cc == 420
+
+
+def test_wny_parse_case_and_chain():
+    case = sg.wny_parse_case(load_fixture("wny_case_8.html"), "8", "x")
+    assert [p.key for p in case.pairs] == ["view1", "view2", "view3"]
+    assert all(p.split_composite for p in case.pairs)
+    # No L/R prefix in the narrative, so parse_fill_volumes falls back to its
+    # documented unordered two-number case (not necessarily symmetric).
+    assert case.specs.left_cc == 360 and case.specs.right_cc == 390
+    assert sg.wny_next_case_ids(load_fixture("wny_case_8.html")) == ["1", "19"]
+
+
+def test_privateclinic_parse_card():
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(load_fixture("privateclinic_card.html"), "html.parser")
+    card = soup.select_one("div.wp-block-group.is-style-thumbnail-format-2")
+    case = sg.privateclinic_parse_card(card, "x")
+    assert case.case_id == "089AR"
+    assert case.pairs[0].split_composite
+    assert case.specs.left_cc == 230 and case.specs.right_cc == 230
+
+
+def test_mitchellbrown_parse_listing_excludes_lift_combo():
+    cases = sg.mitchellbrown_parse_listing(load_fixture("mitchellbrown_listing.html"), "x")
+    # 'ba-lift-case1' (combo augmentation+lift) is out of the implants-only scope.
+    assert [c.case_id for c in cases] == ["round-gel7"]
+    assert len(cases[0].pairs) == 2
+    assert cases[0].specs.left_cc == 300 and cases[0].specs.right_cc == 270
+
+
+def test_skplastic_parse_listing_2x3_grid():
+    (case,) = sg.skplastic_parse_listing(load_fixture("skplastic_listing.html"), "x")
+    assert [p.key for p in case.pairs] == ["front", "oblique", "side"]
+    assert case.pairs[0].grid_shape == (2, 3)
+    assert case.pairs[1].before_cell == (0, 1) and case.pairs[1].after_cell == (1, 1)
+    assert case.specs.left_cc == 385 and case.specs.right_cc == 385
+
+
+def test_heavenly_parse_listing_picks_gallery_column():
+    cases = sg.heavenly_parse_listing(load_fixture("heavenly_listing.html"), "x")
+    (case,) = cases
+    assert [p.view_hint for p in case.pairs] == ["oblique-left", None]
+    assert case.specs.left_cc == 425 and case.specs.brand == "mentor"
+
+
+def test_mya_parse_listing():
+    (case,) = sg.mya_parse_listing(load_fixture("mya_listing.html"), "x")
+    # MYA_ID_RE captures the single hyphen-joined token immediately before
+    # '-MYA<digits>-', not any multi-token initials prefix.
+    assert case.case_id == "B-MYA706000"
+    assert case.specs.left_cc == 375 and case.specs.right_cc == 350
+
+
+def test_drgrover_parse_listing_relative_urls():
+    (case,) = sg.drgrover_parse_listing(
+        load_fixture("drgrover_listing.html"),
+        "https://www.drgrover.com/gallery/breast-procedures/breast-augmentation/")
+    assert case.case_id == "01"
+    assert case.pairs[0].before_url == (
+        "https://www.drgrover.com/gallery/breast-procedures/breast-augmentation/01/01.jpg")
+    assert not case.specs.summary and not case.specs.fields  # no specs documented
+
+
+def test_basu_parse_listing_page_bare_url_and_case_id():
+    (case,) = sg.basu_parse_listing_page(load_fixture("basu_listing.html"), "x")
+    assert case.case_id == "31722"
+    assert "?" not in case.pairs[0].before_url  # query params stripped
+
+
+def test_drteitelbaum_parse_listing_page_2x3_grid():
+    (case,) = sg.drteitelbaum_parse_listing_page(load_fixture("drteitelbaum_listing.html"), "x")
+    assert case.case_id == "161354"
+    assert [p.key for p in case.pairs] == ["front", "oblique", "side"]
+    assert case.pairs[0].grid_shape == (2, 3)
+
+
+def test_crop_grid_cell():
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (900, 600))
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+    cw, ch = 300, 300
+    for i, color in enumerate(colors):
+        row, col = divmod(i, 3)
+        img.paste(Image.new("RGB", (cw, ch), color), (col * cw, row * ch))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    data = buf.getvalue()
+    top_left = Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 3, (0, 0))))
+    bottom_right = Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 3, (1, 2))))
+    assert top_left.size == (300, 300)
+    assert top_left.convert("RGB").getpixel((150, 150))[0] > 200  # red
+    assert bottom_right.convert("RGB").getpixel((150, 150))[2] > 200  # blue/magenta
+
+
+def test_resolve_view_prelabeled_schema_view():
+    # heavenly's older filenames document laterality directly; a hint that is
+    # already a full schema view resolves without any annotation.
+    pair = sg.ImagePair("pair1", "b", "a", view_hint="oblique-right")
+    assert sg.resolve_view(pair, {}) == ("oblique-right", None)
+
+
+# ---------------------------------------------------------------------------
 # Notes hygiene
 # ---------------------------------------------------------------------------
 
