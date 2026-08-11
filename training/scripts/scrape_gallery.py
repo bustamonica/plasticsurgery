@@ -14,6 +14,15 @@ its markup differs, one parser. Currently supported:
   category page. Views are NOT labeled; before/after is derived from tagged
   thumbnail slides plus the (verified) filename-index convention, and every
   view label comes from visual-inspection annotations.
+- sanantonio: https://sanantonioplasticsurgery.com/before-after-photos/breast-augmentation/
+  WordPress + BRAG book plugin; one listing page links each case page
+  (div.brag-book-gallery-case-detail-view). Each case carries a Patient
+  Information grid (Age/Height/Weight/Implant Size/Brand/.../Photo Taken) and
+  a Case Notes narrative. Images are side-by-side before|after COMPOSITES
+  (left half before, right half after) served as signed Supabase URLs; the
+  scraper splits each composite into the pair's before/after files. Views are
+  not labeled ('Angle N'), so every view label comes from visual-inspection
+  annotations.
 
 Output layout (what ingest.py expects):
 
@@ -111,6 +120,18 @@ CLINICS: dict[str, ClinicConfig] = {
         ],
         kind="drdanielbarrett",
     ),
+    "sanantonio": ClinicConfig(
+        slug="sanantonio",
+        consent_ref="sanantonio-agreement-2026-08",
+        base_url="https://sanantonioplasticsurgery.com",
+        gallery_paths=[
+            # Captain's scope: ONLY the breast augmentation gallery. The
+            # breast-augmentation-with-lift gallery and every other procedure
+            # gallery are explicitly excluded.
+            "/before-after-photos/breast-augmentation/",
+        ],
+        kind="sanantonio",
+    ),
 }
 
 
@@ -134,6 +155,7 @@ class CaseSpecs:
     brand: str = "unknown"
     shape: str | None = None
     profile: str | None = None
+    months_post_op: float | None = None
 
 
 @dataclass
@@ -142,6 +164,9 @@ class ImagePair:
     before_url: str
     after_url: str
     view_hint: str | None = None  # page-documented view label, if any
+    # True when before_url/after_url point at the same side-by-side composite
+    # image (left half before, right half after) that must be split on save.
+    split_composite: bool = False
 
 
 @dataclass
@@ -515,6 +540,147 @@ def barrett_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
 
 
 # ---------------------------------------------------------------------------
+# sanantonio parser (BRAG book plugin; composite before|after images)
+# ---------------------------------------------------------------------------
+
+SANANTONIO_GALLERY_PATH = "/before-after-photos/breast-augmentation/"
+# Case slugs always start with a digit ('24004', '23818-2'); this also keeps
+# the stale 'page/2' pagination link and sibling galleries (e.g.
+# breast-augmentation-with-lift/) out of the listing matches.
+SANANTONIO_CASE_RE = re.compile(re.escape(SANANTONIO_GALLERY_PATH) + r"(\d[\d-]*)/")
+
+
+def sanantonio_list_cases(listing_html: str) -> list[str]:
+    """Unique case URL slugs from the gallery listing page, document order."""
+    slugs = []
+    for m in SANANTONIO_CASE_RE.finditer(listing_html):
+        if m.group(1) not in slugs:
+            slugs.append(m.group(1))
+    return slugs
+
+
+def sanantonio_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+    detail = soup.select_one("div.brag-book-gallery-case-detail-view")
+    if detail is None:
+        case.warnings.append("no brag-book case detail view found")
+        return case
+
+    # The BRAG book display case number (data-case-id) differs from the
+    # WordPress URL slug; the slug is the unique key, the display number is
+    # kept as a documented field for cross-referencing the clinic site.
+    display_id = detail.get("data-case-id", "")
+
+    specs = CaseSpecs()
+    if display_id:
+        specs.fields["Gallery Case"] = f"#{display_id}"
+    labels = detail.select(".brag-book-gallery-info-label")
+    values = detail.select(".brag-book-gallery-info-value")
+    for label_el, value_el in zip(labels, values):
+        label, value = label_el.get_text(strip=True), value_el.get_text(strip=True)
+        if not label or not value:
+            continue
+        if label == "Age":
+            m = re.match(r"(\d+)", value)
+            if m:
+                specs.age = int(m.group(1))
+        elif label == "Photo Taken":
+            m = re.search(r"(\d+(?:\.\d+)?)\s*months?\s*post[- ]op", value, re.I)
+            if m:
+                specs.months_post_op = float(m.group(1))
+            else:
+                specs.fields[label] = value
+        elif label == "Implant Size":
+            # Bare per-implant volume in cc (e.g. '310'); kept as a raw field
+            # as well so the documented text survives in notes.
+            specs.fields[label] = value
+            m = re.match(r"(\d+(?:\.\d+)?)\s*(?:cc)?$", value, re.I)
+            if m and 100 <= float(m.group(1)) <= 1000:
+                specs.left_cc = specs.right_cc = float(m.group(1))
+        else:
+            # Height/Weight units are not documented on the page: record the
+            # values verbatim instead of inventing units.
+            specs.fields[label] = value
+    notes_el = detail.select_one(".case-notes-body")
+    if notes_el is not None:
+        specs.summary = notes_el.get_text(" ", strip=True)
+
+    # Narrative fallbacks for stats the structured grid omits (documented
+    # text only; nothing is inferred beyond what the page states).
+    if specs.age is None:
+        m = re.search(r"\b(\d{2})[ -]year[ -]old\b", specs.summary, re.I)
+        if m:
+            specs.age = int(m.group(1))
+    if specs.months_post_op is None:
+        m = re.search(r"\b(?:postop|post-op)\s+(\d+(?:\.\d+)?)\s*months?\b",
+                      specs.summary, re.I) or re.search(
+            r"\b(\d+(?:\.\d+)?)\s*months?\s*(?:postop|post-op)\b",
+            specs.summary, re.I)
+        if m:
+            specs.months_post_op = float(m.group(1))
+
+    # Narrative cc only when the structured grid did not provide one.
+    if specs.left_cc is None and specs.right_cc is None and specs.summary:
+        specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
+    haystack = " ".join([specs.summary, *specs.fields.values()])
+    classify_brand_shape_profile(specs, haystack)
+    procedures = list(dict.fromkeys(
+        b.get_text(" ", strip=True) for b in detail.select(".procedure-badge")))
+    if procedures:
+        specs.fields["Procedures Performed"] = "; ".join(procedures)
+    case.specs = specs
+
+    # Composite before|after images, one per (unlabeled) angle, in the
+    # thumbnail track's data-image-index order.
+    thumbs = detail.select("div.brag-book-gallery-thumbnail-item")
+    indexed = []
+    for thumb in thumbs:
+        url = thumb.get("data-processed-url", "")
+        if not url:
+            img = thumb.find("img")
+            url = img.get("src", "") if img is not None else ""
+        if not url:
+            continue
+        m = re.match(r"(\d+)$", thumb.get("data-image-index", ""))
+        indexed.append((int(m.group(1)) if m else len(indexed), url))
+    seen = set()
+    for _, url in sorted(indexed):
+        if url in seen:
+            continue
+        seen.add(url)
+        case.pairs.append(ImagePair(key=f"angle{len(seen)}", before_url=url,
+                                    after_url=url, split_composite=True))
+    if not case.pairs:
+        case.warnings.append("no usable image pairs")
+    return case
+
+
+def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
+    """Split a side-by-side before|after composite into (before, after) JPEGs.
+
+    The split is the exact horizontal midpoint. Raises ValueError for
+    portrait/square images, where a left|right split cannot be assumed.
+    """
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data))
+    if img.width <= img.height:
+        raise ValueError(
+            f"composite image is not landscape ({img.width}x{img.height}); "
+            "cannot assume a left|right before|after split")
+    half = img.width // 2
+    out = []
+    for box in ((0, 0, half, img.height), (half, 0, img.width, img.height)):
+        buf = io.BytesIO()
+        img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
+        out.append(buf.getvalue())
+    return out[0], out[1]
+
+
+# ---------------------------------------------------------------------------
 # Metadata emission
 # ---------------------------------------------------------------------------
 
@@ -569,6 +735,8 @@ def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
     vol = volume_cc(specs)
     if vol is not None:
         meta["volume_cc"] = vol
+    if specs.months_post_op is not None:
+        meta["months_post_op"] = specs.months_post_op
     # shape is a required field; 'unknown' (schema enum) when the clinic did
     # not document it - never guessed.
     meta["shape"] = specs.shape if specs.shape is not None else "unknown"
@@ -608,6 +776,16 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             html = fetcher.get(url, f"{cfg.slug}_listing_{path.rsplit('/', 1)[-1]}.html"
                                ).decode("utf-8", "replace")
             cases.extend(barrett_parse_listing(html, url))
+        return cases
+    if cfg.kind == "sanantonio":
+        listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
+                              f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = []
+        for case_id in sanantonio_list_cases(listing):
+            url = f"{cfg.base_url}{cfg.gallery_paths[0]}{case_id}/"
+            html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
+                "utf-8", "replace")
+            cases.append(sanantonio_parse_case(html, case_id, url))
         return cases
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 
@@ -671,7 +849,7 @@ def main() -> int:
             continue
         if args.prefetch:
             for pair in case.pairs:
-                for url in (pair.before_url, pair.after_url):
+                for url in dict.fromkeys((pair.before_url, pair.after_url)):
                     full_url = url if url.startswith("http") else cfg.base_url + url
                     fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
             continue
@@ -693,11 +871,24 @@ def main() -> int:
             emitted_ids.add(pair_id)
             pair_dir = out_clinic / pair_id
             pair_dir.mkdir(parents=True, exist_ok=True)
-            for stem, url in (("before", pair.before_url), ("after", pair.after_url)):
-                full_url = url if url.startswith("http") else cfg.base_url + url
-                ext = Path(urlsplit(full_url).path).suffix or ".jpg"
+            if pair.split_composite:
+                full_url = (pair.before_url if pair.before_url.startswith("http")
+                            else cfg.base_url + pair.before_url)
                 data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
-                (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
+                try:
+                    before_data, after_data = split_composite_image(data)
+                except ValueError as exc:
+                    print(f"    SKIP {pair.key}: {exc}")
+                    skipped += 1
+                    continue
+                (pair_dir / "before.jpg").write_bytes(before_data)
+                (pair_dir / "after.jpg").write_bytes(after_data)
+            else:
+                for stem, url in (("before", pair.before_url), ("after", pair.after_url)):
+                    full_url = url if url.startswith("http") else cfg.base_url + url
+                    ext = Path(urlsplit(full_url).path).suffix or ".jpg"
+                    data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
+                    (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
             pair_ann = annotations.get("pairs", {}).get(pair.key, {})
             meta = build_meta(pair_id, view, specs, annotations, pair_ann,
                               view_source, cfg.consent_ref)
