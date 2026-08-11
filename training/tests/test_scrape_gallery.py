@@ -178,6 +178,124 @@ def test_barrett_image_index(filename, case_id, expected):
 
 
 # ---------------------------------------------------------------------------
+# sanantonio: BRAG book parsing (composite before|after images)
+# ---------------------------------------------------------------------------
+
+
+def test_sanantonio_parse_full_grid_case():
+    case = sg.sanantonio_parse_case(
+        load_fixture("sanantonio_case_12804.html"), "12804", "x")
+    assert case.warnings == []
+    assert [p.key for p in case.pairs] == ["angle1", "angle2", "angle3"]
+    for pair in case.pairs:
+        # Composite images: one URL carries both halves and must be split.
+        assert pair.split_composite
+        assert pair.before_url == pair.after_url
+        assert pair.view_hint is None  # views are never labeled on the page
+    specs = case.specs
+    assert specs.age == 24
+    assert specs.left_cc == 310 and specs.right_cc == 310
+    assert specs.brand == "natrelle"  # documented 'Allergan' implant line
+    assert specs.profile == "moderate"
+    assert specs.months_post_op == 3.0
+    # 'Silicone Gel' documents fill material, not shape; never invented.
+    assert specs.shape is None
+    # Height/Weight units are undocumented: kept verbatim, not interpreted.
+    assert specs.fields["Height"] == "65"
+    assert specs.fields["Weight"] == "115"
+    assert specs.height == "" and specs.weight_lbs is None
+    assert specs.fields["Gallery Case"] == "#12804"
+    assert specs.fields["Procedures Performed"] == "Breast Augmentation"
+
+
+def test_sanantonio_parse_sparse_case_notes_fallback():
+    case = sg.sanantonio_parse_case(
+        load_fixture("sanantonio_case_sparse.html"), "24004", "x")
+    assert [p.key for p in case.pairs] == ["angle1", "angle2"]
+    specs = case.specs
+    assert specs.age is None
+    assert specs.left_cc == 350 and specs.right_cc == 350  # from Case Notes
+    assert specs.profile == "high"  # 'high profile' in the narrative
+    assert specs.brand == "unknown"
+    assert specs.months_post_op is None
+    meta = sg.build_meta("sanantonio-24004-front", "front", specs, {}, {},
+                         None, "sanantonio-agreement-2026-08")
+    assert meta["volume_cc"] == 350
+    assert meta["shape"] == "unknown"
+    assert "months_post_op" not in meta
+
+
+def test_sanantonio_full_profile_is_not_remapped():
+    # Allergan's 'full profile' tier is not one of the schema's documented
+    # profile words; it must stay unmapped (raw text survives in notes).
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(
+        specs, "485 cc full profile silicone gel implants")
+    assert specs.profile is None
+
+
+def test_sanantonio_list_cases_dedupes_and_scopes():
+    html = (
+        '<a href="https://sanantonioplasticsurgery.com/before-after-photos/breast-augmentation/23829/">x</a>'
+        '<a href="/before-after-photos/breast-augmentation/23818-2/">y</a>'
+        '<a href="/before-after-photos/breast-augmentation/23829/">dup</a>'
+        # sibling gallery and stale pagination must not match
+        '<a href="/before-after-photos/breast-augmentation-with-lift/">no</a>'
+        '<a href="/before-after-photos/breast-augmentation/page/2/">no</a>'
+    )
+    assert sg.sanantonio_list_cases(html) == ["23829", "23818-2"]
+
+
+def test_sanantonio_missing_detail_view_warns():
+    case = sg.sanantonio_parse_case("<html><body><p>none</p></body></html>",
+                                    "24004", "x")
+    assert case.pairs == []
+    assert case.warnings == ["no brag-book case detail view found"]
+
+
+def test_split_composite_image():
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (900, 450))
+    left = Image.new("RGB", (450, 450), (200, 100, 100))
+    right = Image.new("RGB", (450, 450), (100, 100, 200))
+    img.paste(left, (0, 0))
+    img.paste(right, (450, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    before_data, after_data = sg.split_composite_image(buf.getvalue())
+    before, after = (Image.open(io.BytesIO(b)) for b in (before_data, after_data))
+    assert before.size == (450, 450) and after.size == (450, 450)
+    # Left half is the reddish 'before', right half the bluish 'after'.
+    assert before.convert("RGB").getpixel((225, 225))[0] > 150
+    assert after.convert("RGB").getpixel((225, 225))[2] > 150
+
+
+def test_split_composite_image_rejects_portrait():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (450, 900)).save(buf, format="JPEG")
+    with pytest.raises(ValueError, match="not landscape"):
+        sg.split_composite_image(buf.getvalue())
+
+
+def test_build_meta_months_post_op():
+    specs = sg.sanantonio_parse_case(
+        load_fixture("sanantonio_case_12804.html"), "12804", "x").specs
+    meta = sg.build_meta("sanantonio-12804-front", "front", specs, {}, {},
+                         None, "sanantonio-agreement-2026-08")
+    assert meta["months_post_op"] == 3.0
+    assert meta["brand"] == "natrelle"
+    assert meta["profile"] == "moderate"
+    assert meta["consent_ref"] == "sanantonio-agreement-2026-08"
+
+
+# ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
