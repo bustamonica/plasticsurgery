@@ -569,8 +569,9 @@ def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
     vol = volume_cc(specs)
     if vol is not None:
         meta["volume_cc"] = vol
-    if specs.shape is not None:
-        meta["shape"] = specs.shape
+    # shape is a required field; 'unknown' (schema enum) when the clinic did
+    # not document it - never guessed.
+    meta["shape"] = specs.shape if specs.shape is not None else "unknown"
     if specs.brand != "unknown":
         meta["brand"] = specs.brand
     if specs.profile is not None:
@@ -676,6 +677,7 @@ def main() -> int:
             continue
 
         annotations = annotations_all.get(f"{cfg.slug}:{case.case_id}", {})
+        emitted_ids = set()
         for pair in case.pairs:
             view, view_source = resolve_view(pair, annotations)
             if view is None:
@@ -683,6 +685,12 @@ def main() -> int:
                 skipped += 1
                 continue
             pair_id = f"{cfg.slug}-{case.case_id}-{view}"
+            if pair_id in emitted_ids:
+                print(f"    SKIP {pair.key}: view {view} already emitted for "
+                      f"this case (duplicate view label)")
+                skipped += 1
+                continue
+            emitted_ids.add(pair_id)
             pair_dir = out_clinic / pair_id
             pair_dir.mkdir(parents=True, exist_ok=True)
             for stem, url in (("before", pair.before_url), ("after", pair.after_url)):

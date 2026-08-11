@@ -15,7 +15,8 @@
     },
     "shape": {
       "type": "string",
-      "enum": ["round", "teardrop"]
+      "enum": ["round", "teardrop", "unknown"],
+      "description": "Implant shape. 'unknown' when the clinic did not document it; never guessed."
     },
     "profile": {
       "type": "string",

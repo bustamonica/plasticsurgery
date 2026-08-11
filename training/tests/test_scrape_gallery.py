@@ -196,8 +196,18 @@ def test_build_meta_full():
     assert meta["volume_cc"] == 252
     assert meta["clothing"] == "nude"
     assert meta["consent_ref"] == "drkolker-agreement-2026-08"
-    assert "brand" not in meta  # unknown fields are omitted, not invented
+    assert "brand" not in meta  # undocumented optional fields are omitted
     assert "asymmetric" in meta["notes"]
+
+
+def test_build_meta_undocumented_shape_is_unknown_not_omitted():
+    # shape is required; when the clinic does not document it we emit the
+    # schema's 'unknown' rather than dropping the pair.
+    specs = sg.kolker_parse_case(load_fixture("case_01.html"), "01", "x").specs
+    assert specs.shape is None  # Motiva case: shape never stated
+    meta = sg.build_meta("drkolker-01-front", "front", specs, {}, {}, None,
+                         "drkolker-agreement-2026-08")
+    assert meta["shape"] == "unknown"
 
 
 def test_kolker_list_cases():

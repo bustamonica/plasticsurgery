@@ -34,6 +34,13 @@ class TestValidateMeta:
         folder.mkdir()
         assert any("invalid shape" in e for e in ingest.validate_meta(valid_meta, folder))
 
+    def test_unknown_shape_is_accepted(self, valid_meta, tmp_path):
+        # Clinics often do not document round/teardrop; schema allows 'unknown'.
+        valid_meta["shape"] = "unknown"
+        folder = tmp_path / valid_meta["pair_id"]
+        folder.mkdir()
+        assert ingest.validate_meta(valid_meta, folder) == []
+
     def test_invalid_view(self, valid_meta, tmp_path):
         valid_meta["view"] = "back"
         folder = tmp_path / valid_meta["pair_id"]
@@ -102,6 +109,14 @@ class TestIngestMain:
         assert rc == 1
         assert "too small" in out
         assert not (staging / "clinic01-0001").exists()
+
+    def test_418px_image_is_accepted(self, make_pair, valid_meta, tmp_path, capsys):
+        # drkolker publishes much of its gallery at 418px; MIN_DIMENSION was
+        # lowered to 400 to keep those consented pairs (PR #2 ruling).
+        make_pair("clinic01-0001", valid_meta, size=(418, 418))
+        rc, staging, out = self.run_ingest(tmp_path, capsys)
+        assert rc == 0
+        assert "1 accepted, 0 rejected" in out
 
     def test_invalid_json_is_rejected(self, make_pair, valid_meta, tmp_path, capsys):
         folder = make_pair("clinic01-0001", valid_meta)
