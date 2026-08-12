@@ -1189,11 +1189,18 @@ SIXSURGERY_CASE_RE = re.compile(r"Composite\s+(\d+)", re.I)
 def sixsurgery_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     """2 single-view images per case (document order: before, then after,
     confirmed by visual inspection), rich structured field grid. View is
-    unlabeled (one clinical angle per case, not documented)."""
+    unlabeled (one clinical angle per case, not documented).
+
+    Some entries interleave a 'sensitive content' eye icon
+    (img.hide-eye-image) inside each .blurred-img-container, so the photos
+    must be selected by img.blurred-img rather than by position - matching
+    every img made the icon the 'after' image for 37 of 58 cases.
+    """
     soup = BeautifulSoup(listing_html, "html.parser")
     cases = []
     for i, wrapper in enumerate(soup.select("div.gallery-entry-wrapper"), 1):
-        imgs = wrapper.select(".dallery-entry-imgs-wrapper .blurred-img-container img")
+        imgs = wrapper.select(
+            ".dallery-entry-imgs-wrapper .blurred-img-container img.blurred-img")
         if len(imgs) < 2:
             continue
         before_src, after_src = imgs[0].get("src", ""), imgs[1].get("src", "")

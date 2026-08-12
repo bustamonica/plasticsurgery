@@ -448,6 +448,11 @@ def test_sixsurgery_parse_listing():
     assert case.case_id == "43253"
     assert len(case.pairs) == 1
     assert not case.pairs[0].split_composite
+    # The 'sensitive content' eye icon sits inside the same container as each
+    # photo; selecting by position instead of img.blurred-img made it the
+    # 'after' image.
+    assert case.pairs[0].before_url.endswith("43253%20before.png")
+    assert case.pairs[0].after_url.endswith("43253%20after.png")
     specs = case.specs
     assert specs.left_cc == 275 and specs.right_cc == 275
     assert specs.profile == "moderate"
