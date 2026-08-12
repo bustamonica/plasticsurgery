@@ -446,8 +446,17 @@ def test_drtavakoli_parse_listing_filters_decoy_images():
 def test_sixsurgery_parse_listing():
     (case,) = sg.sixsurgery_parse_listing(load_fixture("sixsurgery_listing.html"), "x")
     assert case.case_id == "43253"
-    assert len(case.pairs) == 1
+    # A second gallery entry for the same case number is another angle of the
+    # same patient, so it groups in as pair2 instead of becoming a second case
+    # with a colliding id (which no annotation or pair_id could tell apart).
+    assert [p.key for p in case.pairs] == ["pair1", "pair2"]
+    assert case.pairs[1].before_url.endswith("angle2%20before.png")
     assert not case.pairs[0].split_composite
+    # The 'sensitive content' eye icon sits inside the same container as each
+    # photo; selecting by position instead of img.blurred-img made it the
+    # 'after' image.
+    assert case.pairs[0].before_url.endswith("43253%20before.png")
+    assert case.pairs[0].after_url.endswith("43253%20after.png")
     specs = case.specs
     assert specs.left_cc == 275 and specs.right_cc == 275
     assert specs.profile == "moderate"

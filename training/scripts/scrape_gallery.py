@@ -1189,11 +1189,18 @@ SIXSURGERY_CASE_RE = re.compile(r"Composite\s+(\d+)", re.I)
 def sixsurgery_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     """2 single-view images per case (document order: before, then after,
     confirmed by visual inspection), rich structured field grid. View is
-    unlabeled (one clinical angle per case, not documented)."""
+    unlabeled (one clinical angle per case, not documented).
+
+    Some entries interleave a 'sensitive content' eye icon
+    (img.hide-eye-image) inside each .blurred-img-container, so the photos
+    must be selected by img.blurred-img rather than by position - matching
+    every img made the icon the 'after' image for 37 of 58 cases.
+    """
     soup = BeautifulSoup(listing_html, "html.parser")
-    cases = []
+    cases: dict[str, CaseData] = {}
     for i, wrapper in enumerate(soup.select("div.gallery-entry-wrapper"), 1):
-        imgs = wrapper.select(".dallery-entry-imgs-wrapper .blurred-img-container img")
+        imgs = wrapper.select(
+            ".dallery-entry-imgs-wrapper .blurred-img-container img.blurred-img")
         if len(imgs) < 2:
             continue
         before_src, after_src = imgs[0].get("src", ""), imgs[1].get("src", "")
@@ -1201,8 +1208,17 @@ def sixsurgery_parse_listing(listing_html: str, source_url: str) -> list[CaseDat
             continue
         m = SIXSURGERY_CASE_RE.search(unquote(before_src))
         case_id = m.group(1) if m else f"case{i}"
-        case = CaseData(case_id=case_id, source_url=source_url)
-        case.pairs.append(ImagePair(key="pair1", before_url=before_src, after_url=after_src))
+        # One patient's angles are separate gallery entries carrying the same
+        # case number; they are one case with several pairs, not several cases
+        # with a colliding id (a colliding id makes every pair after the first
+        # unemittable, and makes one annotation key mean two different cases).
+        case = cases.get(case_id)
+        if case is None:
+            case = cases[case_id] = CaseData(case_id=case_id, source_url=source_url)
+        case.pairs.append(ImagePair(key=f"pair{len(case.pairs) + 1}",
+                                    before_url=before_src, after_url=after_src))
+        if case.specs.left_cc is not None or case.specs.fields:
+            continue  # specs already captured from this case's first entry
 
         specs = CaseSpecs()
         bmi_value = wrapper.select_one(".bmi-value") or wrapper.select_one(".bmitext")
@@ -1225,8 +1241,7 @@ def sixsurgery_parse_listing(listing_html: str, source_url: str) -> list[CaseDat
         haystack = " ".join(specs.fields.values())
         classify_brand_shape_profile(specs, haystack)
         case.specs = specs
-        cases.append(case)
-    return cases
+    return list(cases.values())
 
 
 # ---------------------------------------------------------------------------
