@@ -77,20 +77,39 @@ def _pair_images(cfg: sg.ClinicConfig, cache_dir: Path,
     return data, after
 
 
+def _min_dimension(images: tuple[bytes, bytes]) -> int:
+    sizes = []
+    for data in images:
+        with Image.open(io.BytesIO(data)) as im:
+            sizes.append(min(im.size))
+    return min(sizes)
+
+
 def collect_tiles(cfg: sg.ClinicConfig, cache_dir: Path, cases: set[str] | None,
-                  both: bool) -> list[tuple[str, list[bytes]]]:
+                  both: bool, min_dim: int) -> list[tuple[str, list[bytes]]]:
     """(label, [image bytes]) per pair whose images are all in the cache."""
     fetcher = sg.PoliteFetcher(cache_dir, offline=True)
     tiles = []
+    skipped_small = 0
     for case in sg.collect_cases(cfg, fetcher):
         if cases is not None and case.case_id not in cases:
             continue
         for pair in case.pairs:
-            images = _pair_images(cfg, cache_dir, pair)
+            try:
+                images = _pair_images(cfg, cache_dir, pair)
+            except Exception as e:  # unreadable/undecodable cache entry
+                print(f"WARN {case.case_id}:{pair.key}: {e}")
+                continue
             if images is None:
+                continue
+            # Annotating a pair ingest.py would reject anyway is wasted work.
+            if min_dim and _min_dimension(images) < min_dim:
+                skipped_small += 1
                 continue
             label = f"{case.case_id}:{pair.key}"
             tiles.append((label, list(images) if both else [images[0]]))
+    if skipped_small:
+        print(f"{skipped_small} pair(s) skipped: below --min-dim {min_dim}")
     return tiles
 
 
@@ -148,11 +167,15 @@ def main() -> int:
                              "laterality calls")
     parser.add_argument("--cases", default=None,
                         help="Comma-separated case ids to restrict to")
+    parser.add_argument("--min-dim", type=int, default=0,
+                        help="Skip pairs whose smaller image side is under this "
+                             "(use ingest.py's MIN_DIMENSION to skip pairs that "
+                             "would be rejected anyway)")
     args = parser.parse_args()
 
     cases = set(args.cases.split(",")) if args.cases else None
     tiles = collect_tiles(sg.CLINICS[args.clinic], args.cache_dir, cases,
-                          args.side == "both")
+                          args.side == "both", args.min_dim)
     print(f"{len(tiles)} pair(s) with cached images")
     if tiles:
         render_sheets(tiles, args.out_dir, args.tile, args.cols,
