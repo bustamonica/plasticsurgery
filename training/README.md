@@ -23,11 +23,6 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   training folder or leaves your machine: faces blurred or cropped, EXIF/GPS
   stripped. The model only needs the chest region — it never needs a face.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
-- Every pair MUST carry a `clothing` value, even though `dataset_schema.json`
-  marks it optional. `ingest.py` rejects pairs without one: `build_caption()`
-  reads an absent value as clothed and then instructs the model to preserve
-  clothing that is not in a nude photograph. Legacy pairs collected before this
-  gate fail it until the clinic retro-labels them; that is intended.
 - Censored and annotated photos are rejected, not repaired (`censorship.py`).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
   a clinic's blur bands. Corner clinic watermarks are fine and are kept.

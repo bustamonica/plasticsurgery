@@ -41,9 +41,6 @@ def make_pair(tmp_path):
 
 @pytest.fixture()
 def valid_meta() -> dict:
-    # `clothing` is optional in dataset_schema.json but mandatory at ingest: an
-    # absent value makes build_caption() instruct the model to preserve clothing
-    # that is not in a nude photograph.
     return {
         "pair_id": "clinic01-0001",
         "shape": "round",

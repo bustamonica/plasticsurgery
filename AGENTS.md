@@ -28,7 +28,6 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Tests: `cd training && python -m pytest tests -q` (deps in `training/requirements.txt`).
 - `training/configs/qwen_edit_lora.yaml` is validated against ai-toolkit commit `6d8afa5684000b69db97cc40504a972a85615e3b`; the toolkit renames keys often, so re-diff its example config before using a newer commit.
 - Caption parity is a hard contract: `build_caption()` in `training/scripts/build_dataset.py` and `buildCustomModelPrompt()` in `lib/prompt.ts` must emit byte-identical instruction text. Update both (and their shared vocabulary in `lib/implants.ts`) together. Only a subset of `dataset_schema.json` reaches a caption; the chart/frame fields (`placement`, `incision`, `height_cm`, `weight_kg`, `bra_size_before`, `chest_width_cm`) are curation/eval metadata and `tests/test_schema.py` asserts they never leak into one.
-- `clothing` is optional in `dataset_schema.json` but mandatory in `ingest.py`: `build_caption()` reads an absent value as clothed and tells the model to preserve clothing that is not in a nude photograph. Legacy pairs collected before the gate (407 on disk) fail it until the clinic retro-labels them - that is intended, not a regression.
 - The website's AI provider seam is `AI_PROVIDER` in `.env.example`; `gemini` is the default and the Gemini prompt in `lib/prompt.ts` (`buildEditPrompt`) is intentionally different from the training-caption format.
 
 ## Maintaining this file
