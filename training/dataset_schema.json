@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Before/after pair metadata (meta.json, one per pair folder)",
+  "description": "Only pair_id, shape, volume_cc, view, consent_ref and clothing reach the model: build_caption() in training/scripts/build_dataset.py reads exactly those (plus brand and profile) and must stay byte-identical to buildCustomModelPrompt() in lib/prompt.ts. placement, incision and the frame metrics are recorded for curation, stratification and evaluation only; adding one here never changes a caption.",
   "type": "object",
   "required": ["pair_id", "shape", "volume_cc", "view", "consent_ref"],
   "properties": {
@@ -45,6 +46,38 @@
     "consent_ref": {
       "type": "string",
       "description": "Reference to the signed clinic agreement + patient release covering AI training, e.g. 'clinic01-agreement-2026-05'. Pairs without this are rejected at ingest."
+    },
+    "placement": {
+      "type": "string",
+      "enum": ["submuscular", "subglandular", "subfascial", "dual-plane", "unknown"],
+      "description": "Where the implant sits relative to the pectoral muscle. A real confound: submuscular vs subglandular changes upper-pole shape at the same volume. From the chart only; 'unknown' when undocumented."
+    },
+    "incision": {
+      "type": "string",
+      "enum": ["inframammary", "periareolar", "transaxillary", "unknown"],
+      "description": "Surgical approach. From the chart only; 'unknown' when undocumented."
+    },
+    "height_cm": {
+      "type": "number",
+      "minimum": 120,
+      "maximum": 220,
+      "description": "Patient height in centimetres. Frame metric: lets evaluation control for body type. Convert from the clinic's units; never estimated from the photo."
+    },
+    "weight_kg": {
+      "type": "number",
+      "minimum": 30,
+      "maximum": 250,
+      "description": "Patient weight in kilograms. Frame metric; see height_cm."
+    },
+    "bra_size_before": {
+      "type": "string",
+      "description": "Pre-operative bra size exactly as the clinic recorded it, e.g. '32B' or '10C (AU)'. Free text on purpose: sizing systems differ by market and are not normalised here."
+    },
+    "chest_width_cm": {
+      "type": "number",
+      "minimum": 20,
+      "maximum": 60,
+      "description": "Chest/base width in centimetres as measured at consultation. Frame metric; see height_cm."
     },
     "notes": { "type": "string" }
   }

@@ -11,3 +11,6 @@ beautifulsoup4>=4.12
 # Dev/test only (not needed to run the pipeline itself):
 pytest>=8.0
 pyyaml>=6.0
+# Checks meta.json against dataset_schema.json in the test suite. The pipeline
+# itself validates in ingest.py, which stays dependency-free on this.
+jsonschema>=4.0
