@@ -23,6 +23,14 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   training folder or leaves your machine: faces blurred or cropped, EXIF/GPS
   stripped. The model only needs the chest region — it never needs a face.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
+- Every pair MUST carry a `clothing` value, even though `dataset_schema.json`
+  marks it optional. `ingest.py` rejects pairs without one: `build_caption()`
+  reads an absent value as clothed and then instructs the model to preserve
+  clothing that is not in a nude photograph. Legacy pairs collected before this
+  gate fail it until the clinic retro-labels them; that is intended.
+- Censored and annotated photos are rejected, not repaired (`censorship.py`).
+  A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
+  a clinic's blur bands. Corner clinic watermarks are fine and are kept.
 
 ## Pipeline
 
@@ -31,7 +39,8 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
         │                         ├── before.jpg
         ▼                         ├── after.jpg
 1. scripts/ingest.py              └── meta.json   (see dataset_schema.json)
-   validates pairs + metadata, strips EXIF, dedupes, min-resolution check
+   validates pairs + metadata, strips EXIF, dedupes, min-resolution check,
+   rejects censored/annotated images (scripts/censorship.py)
         │
         ▼                       training/data/staging/
 2. scripts/deidentify.py
@@ -88,12 +97,16 @@ nothing medically meaningful; they only prove the tooling works end to end.
 ## Tests
 
 ```bash
-pip install -r requirements.txt   # includes pytest + pyyaml
+pip install -r requirements.txt   # includes pytest, pyyaml, jsonschema
 python -m pytest tests -q
 ```
 
-Covers ingest validation/rejection paths, caption assembly (including the
-`clothing` variants), and a drift guard on `configs/qwen_edit_lora.yaml`.
+Covers ingest validation/rejection paths, `dataset_schema.json` (including the
+guarantee that the optional chart/frame fields never reach a caption), caption
+assembly with its `clothing` variants, the censorship detector, and a drift guard
+on `configs/qwen_edit_lora.yaml`. The detector's tests draw their own torsos -
+no patient imagery is ever committed. Two of them reference the real corpus by
+path and skip when it is not mounted.
 
 ## Training on RunPod
 
