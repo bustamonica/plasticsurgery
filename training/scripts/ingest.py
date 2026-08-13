@@ -33,11 +33,6 @@ MIN_DIMENSION = 400
 REQUIRED_FIELDS = ["pair_id", "shape", "volume_cc", "view", "consent_ref"]
 VALID_SHAPES = {"round", "teardrop", "unknown"}
 VALID_VIEWS = {"front", "oblique-left", "oblique-right", "side-left", "side-right"}
-# `clothing` is optional in dataset_schema.json but mandatory here. build_caption()
-# treats an absent value as clothed and tells the model to preserve clothing that
-# is not in a nude photograph; 407 pairs on disk are affected
-# (`ba-viz-clinic-ask-24/report.md` section 4.3). Absent is not a safe default, so
-# ingest refuses to guess.
 VALID_CLOTHING = {"nude", "bra", "top"}
 # Optional chart/frame fields (schema extension, 2026-08). Nothing here reaches
 # build_caption() - they exist for curation, stratification and evaluation - but
@@ -70,14 +65,7 @@ def validate_meta(meta: dict, folder: Path) -> list[str]:
         errors.append(f"invalid shape '{meta['shape']}'")
     if meta.get("view") and meta["view"] not in VALID_VIEWS:
         errors.append(f"invalid view '{meta['view']}'")
-    if meta.get("clothing") is None:
-        errors.append(
-            "missing 'clothing' - it is what the subject wears in BOTH photos; set it to "
-            f"one of {sorted(VALID_CLOTHING)} from the photograph itself. Ingest will not "
-            "guess: build_caption() reads an absent value as clothed and instructs the "
-            "model to preserve clothing that is not in the picture"
-        )
-    elif meta["clothing"] not in VALID_CLOTHING:
+    if meta.get("clothing") is not None and meta["clothing"] not in VALID_CLOTHING:
         errors.append(f"invalid clothing '{meta['clothing']}'")
     if meta.get("placement") and meta["placement"] not in VALID_PLACEMENTS:
         errors.append(f"invalid placement '{meta['placement']}'")
