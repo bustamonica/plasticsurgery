@@ -9,6 +9,16 @@ Safety default: an image where NO face is detected is REJECTED unless
 --allow-no-face is passed. Many clinical photos are already cropped below the
 chin — audit a sample first, then rerun with the flag. Detection is a helper,
 not a guarantee: visually audit every output batch.
+
+This stage is the ONLY one that can create censorship-like damage, and it runs
+AFTER ingest.py's censorship gate, so nothing used to re-check its own output.
+It does now: a pair whose blur lands on the body instead of a face is rejected
+here. That is not hypothetical - the Haar cascade false-positived on a torso in
+drmiroshnik case88/case112, pixelating a breast in photographs the clinic
+publishes clean, and both pairs reached the corpus silently (report
+`ba-viz-emit-backlog` section 7). --allow-no-face makes this MORE likely, not
+less: you pass it precisely for headless photos, where every detection is by
+definition a false positive.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -22,7 +32,38 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from censorship import detect_censorship
+
 BLUR_MARGIN = 0.35  # expand detected face boxes by this fraction on each side
+# A legitimate blur target is a head, which sits at the top of the frame - these
+# galleries crop at or below the chin, which is why --allow-no-face exists at
+# all. A blur whose vertical centre falls below this band is not covering a
+# face. Measured: the drmiroshnik false positives centred at 0.71 and 0.67 of
+# frame height; a real head blur centres in the top tenth.
+HEAD_BAND_FRACTION = 0.30
+
+
+def blur_is_on_the_body(before: np.ndarray, after: np.ndarray) -> list[str]:
+    """Censorship marks this stage introduced over the body rather than a face.
+
+    ingest.py already ran `detect_censorship`, but it ran it on the UNBLURRED
+    image; re-running it on the output is what turns a face-detector false
+    positive into a rejection instead of a corpus entry.
+
+    Two conditions, because a pixelated FACE is also a 'texture-free patch of
+    skin' and must stay allowed:
+      1. the blurred region's centre lies below the head band, and
+      2. it introduces a censorship mark the input did not already have.
+    """
+    changed = np.any(before != after, axis=2)
+    if not changed.any():
+        return []
+    rows = np.where(changed.any(axis=1))[0]
+    if float(rows.mean()) < HEAD_BAND_FRACTION * before.shape[0]:
+        return []  # sitting over the head: the intended target
+    was = {mark.split(" at ")[0] for mark in detect_censorship(before)}
+    return [mark for mark in detect_censorship(after)
+            if mark.split(" at ")[0] not in was]
 
 
 def detect_faces(image: np.ndarray) -> list[tuple[int, int, int, int]]:
@@ -105,7 +146,17 @@ def main() -> int:
 
             faces = detect_faces(image)
             if faces:
-                image = blur_regions(image, faces)
+                blurred = blur_regions(image, faces)
+                introduced = blur_is_on_the_body(image, blurred)
+                if introduced:
+                    print(
+                        f"REJECT {folder.name}: blurring {stem}.jpg put censorship over "
+                        "the body, not a face - " + "; ".join(introduced)
+                        + ". The face detector fired on the torso; do not train on this"
+                    )
+                    pair_ok = False
+                    break
+                image = blurred
             elif not args.allow_no_face and args.crop_top == 0:
                 print(
                     f"REJECT {folder.name}: no face detected in {stem}.jpg — "
