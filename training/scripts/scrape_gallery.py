@@ -339,19 +339,42 @@ def image_cache_key(clinic: str, url: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Volumes may be published in cc or in grams. Anatomical/shaped implants are
+# specified in grams by their manufacturers, cohesive gel density is ~0.97 g/cc
+# (a smaller error than the averaging volume_cc() already applies to asymmetric
+# pairs), and clinics use the two units interchangeably for the same implant -
+# drmiroshnik case64 reads '255cc' in prose and is published as '255g-...jpg'.
+# A gram figure is therefore recorded as volume_cc unconverted. Captain ruling
+# 2026-08-14 (`ba-viz-emit-backlog` report section 2), same class as the
+# Natrelle model-number decoder.
+# The trailing \b is what makes a bare 'g' safe to accept, but the unit is often
+# pluralised ('filled to 300ccs', 'Silicone gels 270ccs.'), so every spelling
+# takes an optional 's' - without it drrohrich and charlotte silently lose the
+# cc figures they have always parsed. Longest alternatives first.
+#
+# Grams also measure what a combined procedure REMOVED, which is not an implant
+# volume: sanantonio case 24139 reads '...came to the 457cc implant... 442 grams
+# of tissue plus 225 mL of lipoaspirate was removed', and counting the 442 makes
+# volume_cc the 450 average of two unrelated numbers. Gram figures qualified as
+# excised tissue are therefore not volumes. 'cc' needs no such guard - clinics
+# describe excised tissue in grams and mL, never in cc.
+_GRAM_UNIT = r"(?:grams?|gms?|grs?|gs?)\b(?!\s*(?:of\s+)?(?:tissue|fat|skin|lipoaspirate))"
+VOLUME_UNIT = rf"(?:ccs?\b|{_GRAM_UNIT})"
+
+
 def _parse_fill_side(segment: str) -> float | None:
-    """Final cc for one breast from text like '270 filled to 285cc' or '185cc'."""
-    m = re.search(r"filled\s+to\s*(\d+(?:\.\d+)?)\s*cc", segment, re.I)
+    """Final volume for one breast from '270 filled to 285cc' or '185cc'/'185g'."""
+    m = re.search(rf"filled\s+to\s*(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", segment, re.I)
     if m:
         return float(m.group(1))
-    m = re.search(r"(\d+(?:\.\d+)?)\s*cc", segment, re.I)
+    m = re.search(rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", segment, re.I)
     return float(m.group(1)) if m else None
 
 
 # Implant volumes only: schema bounds are 100-1000cc. Thousands-grouped numbers
 # ('1,600cc of fat' from combined lipo cases) are parsed in full and then
 # dropped by the range filter so they never pollute implant volumes.
-CC_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*cc", re.I)
+CC_RE = re.compile(rf"(\d{{1,3}}(?:,\d{{3}})+|\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", re.I)
 
 
 def _cc_numbers(text: str) -> list[float]:
@@ -382,11 +405,11 @@ def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
 
     # Suffix markers: '300cc (R)', '320 (L)', '350cc on the right'.
     for m in re.finditer(
-            r"(\d+(?:\.\d+)?)\s*cc\s*(?:on the\s+)?\((left|right|l|r)\)", text, re.I):
+            rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}\s*(?:on the\s+)?\((left|right|l|r)\)", text, re.I):
         assign(m.group(2).lower(), float(m.group(1)))
     for m in re.finditer(r"(\d{3})\s*\((left|right|l|r)\)", text, re.I):
         assign(m.group(2).lower(), float(m.group(1)))
-    for m in re.finditer(r"(\d+(?:\.\d+)?)\s*cc\s+on the\s+(left|right)\b", text, re.I):
+    for m in re.finditer(rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}\s+on the\s+(left|right)\b", text, re.I):
         assign(m.group(2).lower(), float(m.group(1)))
     # Prefix markers: 'Right: 185cc ...', 'R 270 filled to 285cc'.
     if left is None and right is None:
@@ -415,7 +438,10 @@ def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
             break
     if re.search(r"\bround\b", lower):
         specs.shape = "round"
-    elif re.search(r"\b(teardrop|anatomic|shaped)\b", lower):
+    # 'anatomic' with a trailing \b never matched the word clinics actually use:
+    # 'anatomical'. 52 of drmiroshnik's 146 cases were recorded shape=unknown
+    # because of it. Captain ruling 2026-08-14.
+    elif re.search(r"\b(teardrop|anatomic\w*|shaped)\b", lower):
         specs.shape = "teardrop"
     for pattern, profile in PROFILE_PATTERNS:
         if pattern.search(haystack):
