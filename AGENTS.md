@@ -10,6 +10,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `origin/main` is an unrelated legacy Python project; never base work on it or push to it.
 - `app/`, `components/`, `lib/` are a Next.js preview-studio app; `training/` is the custom-model training track (data pipeline + ai-toolkit config). See `HANDOFF.md` and `training/README.md`.
 
+## CI
+
+- `.github/workflows/ci.yml` runs on `pull_request` and pushes to the default branch: a `web` job (`npm ci`, `next build`, `tsc --noEmit`) and a `training` job (`pip install` + `pytest` for `training/`). `package.json` has no `test` script yet, so no JS test step runs - add one there once a JS/TS test suite exists. The ESLint job is a commented-out TODO slot pending `ba-viz-eslint-setup`.
+
 ## Training track sharp edges
 
 - Authoritative docs: `training/README.md` (pipeline, RunPod steps) and `training/dataset_schema.json` (consent contract per pair).
