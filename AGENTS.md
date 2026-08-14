@@ -9,6 +9,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The GitHub default branch is `claude/breast-augmentation-ai-preview-56w494` (the Next.js app + training track).
   `origin/main` is an unrelated legacy Python project; never base work on it or push to it.
 - `app/`, `components/`, `lib/` are a Next.js preview-studio app; `training/` is the custom-model training track (data pipeline + ai-toolkit config). See `HANDOFF.md` and `training/README.md`.
+- Website checks: `npm test` (Node's built-in runner over `**/*.test.ts` - there is no jest/vitest here) and `npx tsc --noEmit`. `npm run lint` is inert: no ESLint config is committed, so `next lint` only offers to create one. Training-track tests are separate (pytest, below).
 
 ## CI
 
