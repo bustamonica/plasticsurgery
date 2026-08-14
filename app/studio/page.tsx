@@ -4,12 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { PhotoUpload, UploadedPhoto } from "@/components/PhotoUpload";
 import {
+  availableProfiles,
+  availableShapes,
   BRANDS,
   describeVolume,
   ImplantShape,
   PreviewConfig,
-  PROFILES,
-  SHAPES,
   VOLUME_DEFAULT,
   VOLUME_MAX,
   VOLUME_MIN,
@@ -50,6 +50,8 @@ export default function StudioPage() {
   const resultRef = useRef<HTMLDivElement>(null);
 
   const canGenerate = Boolean(photo) && consent && !generating;
+  const shapes = availableShapes();
+  const profiles = availableProfiles();
 
   useEffect(() => {
     if (result && resultRef.current) {
@@ -242,7 +244,7 @@ export default function StudioPage() {
             <fieldset>
               <legend className="text-sm font-semibold text-ink-900">Shape</legend>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                {SHAPES.map((s) => (
+                {shapes.map((s) => (
                   <button
                     key={s.id}
                     type="button"
@@ -274,14 +276,14 @@ export default function StudioPage() {
                 onChange={(e) => setProfileId(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-cream-200 bg-white px-3 py-2.5 text-sm text-ink-900 focus:border-blush-500 focus:ring-2 focus:ring-blush-500 focus:outline-none"
               >
-                {PROFILES.map((p) => (
+                {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
               </select>
               <p className="mt-2 text-xs leading-relaxed text-ink-400">
-                {PROFILES.find((p) => p.id === profileId)?.blurb}
+                {profiles.find((p) => p.id === profileId)?.blurb}
               </p>
             </div>
 
