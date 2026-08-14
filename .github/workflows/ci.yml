@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - claude/breast-augmentation-ai-preview-56w494
+
+jobs:
+  web:
+    name: Build, typecheck, test (Next.js app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # No `test` script exists in package.json yet (only dev/build/start/lint) -
+      # there is no JS/TS test suite to run. Add a step here once one exists.
+
+  # TODO(ba-viz-eslint-setup): add an eslint job once ESLint is configured for
+  # this repo (`npm run lint` currently runs `next lint`, which is being
+  # replaced/wired up as a separate task). Slot:
+  #
+  # lint:
+  #   name: ESLint
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npm run lint
+
+  training:
+    name: Training pipeline tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: training/requirements.txt
+
+      - name: Install dependencies
+        working-directory: training
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        working-directory: training
+        run: python -m pytest tests -q
