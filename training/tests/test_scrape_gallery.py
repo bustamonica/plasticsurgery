@@ -330,6 +330,84 @@ def test_resolve_view():
     assert sg.resolve_view(pair1, {"pairs": {"pair1": {"view": "side-right"}}})[0] == "side-right"
 
 
+class TestGramVolumesAreRecordedAsCc:
+    """Captain ruling 2026-08-14 (`ba-viz-emit-backlog` report section 2).
+
+    Anatomical implants are specified in grams; gel density is ~0.97 g/cc and
+    clinics use the units interchangeably for one implant (drmiroshnik case64 is
+    '255cc' in prose and '255g-...jpg' as a filename). A gram figure is recorded
+    as volume_cc unconverted. Worth 118 drmiroshnik and 17 mitchellbrown cases.
+    """
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("Early 20s, no children, 290g anatomical high profile implants", (290.0, 290.0)),
+            ("354gm Textured Round Gel Implant, Subpectoral Fold Incision", (354.0, 354.0)),
+            ("425 grams anatomical P-URE implants", (425.0, 425.0)),
+            ("L 240g, R 265g", (240.0, 265.0)),
+            # Out of the 100-1000 schema range, so not an implant volume.
+            ("she lost 12g", (None, None)),
+        ],
+    )
+    def test_gram_volumes_parse(self, text, expected):
+        assert sg.parse_fill_volumes(text) == expected
+
+    def test_excised_tissue_in_grams_is_not_an_implant_volume(self):
+        """sanantonio 24139: counting the 442 averages two unrelated numbers."""
+        text = ("She selected midrange profile silicone breast implants, which for her "
+                "base width came to the 457cc implant. ... 442 grams of tissue plus "
+                "225 mL of lipoaspirate was removed.")
+        assert sg.parse_fill_volumes(text) == (457.0, 457.0)
+
+    @pytest.mark.parametrize("removed", ["fat", "tissue", "skin", "lipoaspirate"])
+    def test_every_excision_noun_is_guarded(self, removed):
+        assert sg.parse_fill_volumes(f"300cc implants; 480g of {removed} removed") == (300.0, 300.0)
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            # The unit is routinely pluralised; a trailing \b alone would drop these.
+            ("Mentor smooth saline 275 implants filled to 300ccs", (300.0, 300.0)),
+            ("Submuscular Breast Augmentation. Silicone gels 270ccs.", (270.0, 270.0)),
+        ],
+    )
+    def test_plural_units_still_parse(self, text, expected):
+        assert sg.parse_fill_volumes(text) == expected
+
+
+class TestAnatomicalIsTeardrop:
+    """`\\banatomic\\b` never matched 'anatomical', the word clinics actually use.
+
+    52 of drmiroshnik's 146 cases were recorded shape=unknown because of it, and
+    that reached the corpus. Captain ruling 2026-08-14.
+    """
+
+    @pytest.mark.parametrize(
+        "text", ["255g anatomical (teardrop) moderate profile implants",
+                 "290g anatomical high profile implants",
+                 "425cc RB shaped anatomic Cohesive Gel Implants",
+                 "495cc medium height high profile anatomical Implants",
+                 "335gm Shaped Gel Implant"],
+    )
+    def test_shaped_families_classify_as_teardrop(self, text):
+        specs = sg.CaseSpecs()
+        sg.classify_brand_shape_profile(specs, text)
+        assert specs.shape == "teardrop"
+
+    @pytest.mark.parametrize("text", ["350cc textured round breast implants",
+                                      "500gm Round Gel Implants"])
+    def test_round_is_unaffected(self, text):
+        specs = sg.CaseSpecs()
+        sg.classify_brand_shape_profile(specs, text)
+        assert specs.shape == "round"
+
+    def test_unrelated_anatomy_words_do_not_match(self):
+        specs = sg.CaseSpecs()
+        sg.classify_brand_shape_profile(specs, "respecting her chest anatomy and proportions")
+        assert specs.shape is None
+
+
 def test_build_meta_full():
     specs = sg.kolker_parse_case(load_fixture("case_02.html"), "02", "x").specs
     meta = sg.build_meta(
