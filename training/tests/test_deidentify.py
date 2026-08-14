@@ -39,9 +39,29 @@ class TestBlurLandingOnTheBody:
         blurred = blur_regions(torso, [chest_box(torso)])
         assert blur_is_on_the_body(torso, blurred)
 
-    def test_the_reason_names_the_damage(self, torso):
+    def test_the_reason_names_the_position(self, torso):
+        """The verdict is geometric, so the reason must state the geometry."""
         blurred = blur_regions(torso, [chest_box(torso)])
-        assert any("texture-free" in r for r in blur_is_on_the_body(torso, blurred))
+        assert any("head band" in r for r in blur_is_on_the_body(torso, blurred))
+
+    def test_it_does_not_depend_on_the_censorship_detector(self, torso):
+        """censorship.py missed drmiroshnik case55's mosaicked abdomen entirely.
+
+        A blur low in the frame must be rejected even when the detector, run on
+        the result, reports nothing at all.
+        """
+        import censorship
+        blurred = blur_regions(torso, [chest_box(torso)])
+        real = censorship.detect_censorship
+        try:
+            censorship.detect_censorship = lambda img: []
+            import deidentify
+            deidentify.detect_censorship = lambda img: []
+            assert blur_is_on_the_body(torso, blurred)
+        finally:
+            censorship.detect_censorship = real
+            import deidentify
+            deidentify.detect_censorship = real
 
     def test_an_untouched_image_is_clean(self, torso):
         assert blur_is_on_the_body(torso, torso) == []

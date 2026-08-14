@@ -67,20 +67,34 @@ def blur_is_on_the_body(before: np.ndarray, after: np.ndarray) -> list[str]:
     image; re-running it on the output is what turns a face-detector false
     positive into a rejection instead of a corpus entry.
 
-    Two conditions, because a pixelated FACE is also a 'texture-free patch of
-    skin' and must stay allowed:
-      1. the blurred region's centre lies below the head band, and
-      2. it introduces a censorship mark the input did not already have.
+    The verdict is GEOMETRIC, not detector-based. These galleries crop at or
+    below the chin, so a blur centred low in the frame is not covering a face
+    whatever the pixels look like afterwards. Deferring to `detect_censorship`
+    is not sound: it missed drmiroshnik case55 completely - a plainly mosaicked
+    abdomen that measured CLEAN both in memory and encoded - and that pair
+    reached the corpus. Detector output is appended as evidence when it has
+    something to say, but it is never the test.
+
+    A pixelated FACE is also a 'texture-free patch of skin', which is exactly
+    why position, not appearance, separates a legitimate blur from a ruined
+    breast.
     """
     changed = np.any(before != after, axis=2)
     if not changed.any():
         return []
     rows = np.where(changed.any(axis=1))[0]
-    if float(rows.mean()) < HEAD_BAND_FRACTION * before.shape[0]:
+    centre = float(rows.mean()) / before.shape[0]
+    if centre < HEAD_BAND_FRACTION:
         return []  # sitting over the head: the intended target
+    reasons = [
+        f"blurred region spans rows {rows.min()}-{rows.max()} and centres at "
+        f"{centre:.0%} of frame height, below the {HEAD_BAND_FRACTION:.0%} head "
+        "band - a face cannot be there in a chin-cropped clinical photo"
+    ]
     was = {mark.split(" at ")[0] for mark in detect_censorship(before)}
-    return [mark for mark in detect_censorship(after)
-            if mark.split(" at ")[0] not in was]
+    reasons += [mark for mark in detect_censorship(after)
+                if mark.split(" at ")[0] not in was]
+    return reasons
 
 
 def detect_faces(image: np.ndarray) -> list[tuple[int, int, int, int]]:
