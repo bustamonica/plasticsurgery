@@ -8,6 +8,10 @@ A consumer website for people considering breast augmentation. Users upload a
 photo, choose implant **brand** (Mentor, Natrelle, Motiva, Sientra),
 **shape** (round/teardrop), **profile**, and **volume** (150–800 cc), and an
 AI generates a realistic before/after preview with a comparison slider.
+The **teardrop** shape and the **extra-high** profile are hidden by default
+(the training corpus does not yet back them); set
+`NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS=true` in `.env.local` and rebuild
+to offer them again.
 
 Two tracks exist in this repo:
 

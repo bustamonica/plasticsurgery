@@ -5,6 +5,12 @@ implant **brand** (Mentor, Natrelle, Motiva, Sientra), **shape** (round /
 teardrop), **profile** and **volume** (150–800 cc), and an AI generates a
 realistic before & after preview with a comparison slider.
 
+Two of those options, the **teardrop** shape and the **extra-high** profile,
+are hidden by default because the training corpus does not yet back them.
+Set `NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS=true` (see `.env.example`) and
+rebuild to offer them again; until then the configurator and `/api/generate`
+both reject them.
+
 Built with Next.js 15 (App Router), React 19, TypeScript and Tailwind CSS 4.
 
 ## Pages
@@ -48,7 +54,9 @@ provider (Replicate/FLUX, OpenAI, a custom model) later.
 
 - `lib/implants.ts` — the implant catalog (brands, shapes, profiles, volume
   bounds) and all marketing copy for the options. Edit this to change what the
-  configurator offers.
+  configurator offers. Options the corpus does not back are marked `unbacked`
+  and filtered out by `availableShapes()` / `availableProfiles()`; render and
+  validate from those, not from the raw `SHAPES` / `PROFILES` arrays.
 - `lib/site.ts` — site name & tagline (currently the placeholder "Aurelle").
 - `lib/prompt.ts` — how configurator choices become the AI edit instruction.
 - `components/BeforeAfterSlider.tsx` — the draggable comparison slider.

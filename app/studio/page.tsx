@@ -243,26 +243,35 @@ export default function StudioPage() {
             {/* Shape */}
             <fieldset>
               <legend className="text-sm font-semibold text-ink-900">Shape</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {shapes.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setShape(s.id)}
-                    aria-pressed={shape === s.id}
-                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                      shape === s.id
-                        ? "border-blush-500 bg-blush-50 ring-1 ring-blush-500"
-                        : "border-cream-200 hover:border-blush-300"
-                    }`}
-                  >
-                    <span className="block text-sm font-medium text-ink-950">{s.name}</span>
-                    <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
-                      {s.blurb}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {shapes.length === 1 ? (
+                <div className="mt-2 rounded-xl border border-cream-200 bg-cream-50 px-3 py-2.5">
+                  <span className="block text-sm font-medium text-ink-950">{shapes[0].name}</span>
+                  <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
+                    {shapes[0].blurb}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {shapes.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setShape(s.id)}
+                      aria-pressed={shape === s.id}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                        shape === s.id
+                          ? "border-blush-500 bg-blush-50 ring-1 ring-blush-500"
+                          : "border-cream-200 hover:border-blush-300"
+                      }`}
+                    >
+                      <span className="block text-sm font-medium text-ink-950">{s.name}</span>
+                      <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
+                        {s.blurb}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </fieldset>
 
             {/* Profile */}
