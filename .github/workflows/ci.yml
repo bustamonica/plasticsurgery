@@ -13,9 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `npm test` runs Node's built-in test runner directly over `.ts` files,
+      # which needs the unflagged type stripping shipped in 22.18 (see the
+      # `engines` field in package.json).
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.18.0'
           cache: npm
 
       - name: Install dependencies
@@ -27,8 +30,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # No `test` script exists in package.json yet (only dev/build/start/lint) -
-      # there is no JS/TS test suite to run. Add a step here once one exists.
+      - name: Test
+        run: npm test
 
   # TODO(ba-viz-eslint-setup): add an eslint job once ESLint is configured for
   # this repo (`npm run lint` currently runs `next lint`, which is being
@@ -41,7 +44,7 @@ jobs:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
   #       with:
-  #         node-version: '20'
+  #         node-version: '22.18.0'
   #         cache: npm
   #     - run: npm ci
   #     - run: npm run lint

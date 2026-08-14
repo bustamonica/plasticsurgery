@@ -141,6 +141,22 @@ export function availableShapes(): typeof SHAPES {
   return unbackedOptionsEnabled() ? SHAPES : SHAPES.filter((s) => !s.unbacked);
 }
 
+// The configurator's opening selection. Derived from the available lists so a
+// seeded default can never be an option the gate hides (which the API would
+// then reject); the preferred ids below are only a preference within them.
+const PREFERRED_SHAPE: ImplantShape = "round";
+const PREFERRED_PROFILE_ID = "moderate-plus";
+
+export function defaultShape(): ImplantShape {
+  const shapes = availableShapes();
+  return (shapes.find((s) => s.id === PREFERRED_SHAPE) ?? shapes[0]).id;
+}
+
+export function defaultProfileId(): string {
+  const profiles = availableProfiles();
+  return (profiles.find((p) => p.id === PREFERRED_PROFILE_ID) ?? profiles[0]).id;
+}
+
 export const VOLUME_MIN = 150;
 export const VOLUME_MAX = 800;
 export const VOLUME_STEP = 25;

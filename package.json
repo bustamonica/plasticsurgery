@@ -9,6 +9,9 @@
     "lint": "next lint",
     "test": "node --test \"**/*.test.ts\""
   },
+  "engines": {
+    "node": ">=22.18"
+  },
   "dependencies": {
     "next": "^15.3.4",
     "react": "^19.1.0",

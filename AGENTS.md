@@ -9,11 +9,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The GitHub default branch is `claude/breast-augmentation-ai-preview-56w494` (the Next.js app + training track).
   `origin/main` is an unrelated legacy Python project; never base work on it or push to it.
 - `app/`, `components/`, `lib/` are a Next.js preview-studio app; `training/` is the custom-model training track (data pipeline + ai-toolkit config). See `HANDOFF.md` and `training/README.md`.
-- Website checks: `npm test` (Node's built-in runner over `**/*.test.ts` - there is no jest/vitest here) and `npx tsc --noEmit`. `npm run lint` is inert: no ESLint config is committed, so `next lint` only offers to create one. Training-track tests are separate (pytest, below).
+- Website checks: `npm test` (Node's built-in runner over `**/*.test.ts` - there is no jest/vitest here) and `npx tsc --noEmit`. `npm test` runs Node's runner straight over `.ts` sources, so it needs Node >= 22.18 for unflagged type stripping (`engines` in `package.json` pins that floor, and tests import source files with an explicit `.ts` extension). `npm run lint` is inert: no ESLint config is committed, so `next lint` only offers to create one. Training-track tests are separate (pytest, below).
 
 ## CI
 
-- `.github/workflows/ci.yml` runs on `pull_request` and pushes to the default branch: a `web` job (`npm ci`, `next build`, `tsc --noEmit`) and a `training` job (`pip install` + `pytest` for `training/`). `package.json` has no `test` script yet, so no JS test step runs - add one there once a JS/TS test suite exists. The ESLint job is a commented-out TODO slot pending `ba-viz-eslint-setup`.
+- `.github/workflows/ci.yml` runs on `pull_request` and pushes to the default branch: a `web` job (`npm ci`, `next build`, `tsc --noEmit`, `npm test` on Node 22.18) and a `training` job (`pip install` + `pytest` for `training/`). The ESLint job is a commented-out TODO slot pending `ba-viz-eslint-setup`.
 
 ## Training track sharp edges
 

@@ -7,6 +7,8 @@ import {
   availableProfiles,
   availableShapes,
   BRANDS,
+  defaultProfileId,
+  defaultShape,
   describeVolume,
   ImplantShape,
   PreviewConfig,
@@ -36,8 +38,8 @@ export default function StudioPage() {
   const [consent, setConsent] = useState(false);
 
   const [brandId, setBrandId] = useState(BRANDS[0].id);
-  const [shape, setShape] = useState<ImplantShape>("round");
-  const [profileId, setProfileId] = useState("moderate-plus");
+  const [shape, setShape] = useState<ImplantShape>(defaultShape);
+  const [profileId, setProfileId] = useState(defaultProfileId);
   const [volumeCc, setVolumeCc] = useState(VOLUME_DEFAULT);
 
   const [generating, setGenerating] = useState(false);

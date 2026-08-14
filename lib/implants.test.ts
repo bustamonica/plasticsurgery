@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { availableProfiles, availableShapes, PROFILES, SHAPES } from "./implants.ts";
+import {
+  availableProfiles,
+  availableShapes,
+  defaultProfileId,
+  defaultShape,
+  PROFILES,
+  SHAPES,
+} from "./implants.ts";
 
 // Run with `npm test`. The gate reads NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS
 // on every call, so a single process can exercise both flag states.
@@ -42,6 +49,42 @@ test("only the literal value \"true\" opens the gate", () => {
       assert.ok(!ids(availableProfiles()).includes("extra-high"), `profile leaked for "${value}"`);
       assert.ok(!ids(availableShapes()).includes("teardrop"), `shape leaked for "${value}"`);
     });
+  }
+});
+
+test("the configurator's seeded defaults are unchanged under both flag states", () => {
+  for (const value of [undefined, "true"]) {
+    withFlag(value, () => {
+      assert.equal(defaultShape(), "round");
+      assert.equal(defaultProfileId(), "moderate-plus");
+    });
+  }
+});
+
+// The gate is deliberately generic, so the seeded defaults must survive it
+// being applied to the options they currently point at.
+test("a seeded default falls back when the gate hides the preferred option", () => {
+  const round = SHAPES.find((s) => s.id === "round")!;
+  const teardrop = SHAPES.find((s) => s.id === "teardrop")!;
+  const moderatePlus = PROFILES.find((p) => p.id === "moderate-plus")!;
+  round.unbacked = true;
+  delete teardrop.unbacked;
+  moderatePlus.unbacked = true;
+  try {
+    withFlag(undefined, () => {
+      assert.equal(defaultShape(), "teardrop");
+      assert.equal(defaultProfileId(), "moderate");
+      assert.ok(ids(availableShapes()).includes(defaultShape()));
+      assert.ok(ids(availableProfiles()).includes(defaultProfileId()));
+    });
+    withFlag("true", () => {
+      assert.equal(defaultShape(), "round");
+      assert.equal(defaultProfileId(), "moderate-plus");
+    });
+  } finally {
+    delete round.unbacked;
+    teardrop.unbacked = true;
+    delete moderatePlus.unbacked;
   }
 });
 
