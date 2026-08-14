@@ -35,12 +35,29 @@ import numpy as np
 from censorship import detect_censorship
 
 BLUR_MARGIN = 0.35  # expand detected face boxes by this fraction on each side
+JPEG_QUALITY = 95
 # A legitimate blur target is a head, which sits at the top of the frame - these
 # galleries crop at or below the chin, which is why --allow-no-face exists at
 # all. A blur whose vertical centre falls below this band is not covering a
 # face. Measured: the drmiroshnik false positives centred at 0.71 and 0.67 of
 # frame height; a real head blur centres in the top tenth.
 HEAD_BAND_FRACTION = 0.30
+
+
+def encode_as_written(image: np.ndarray, quality: int = JPEG_QUALITY) -> tuple[bytes, np.ndarray]:
+    """(bytes to write, the image those bytes decode to).
+
+    The censorship detector reads a texture field, and JPEG quantisation moves
+    it: drmiroshnik case71's pixelated chest measures CLEAN as an in-memory
+    array and censored after a quality-95 round trip. Checking the array would
+    therefore have passed a pair whose FILE is damaged, so the check has to run
+    on exactly the bytes that land in the corpus.
+    """
+    ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not ok:
+        raise ValueError("cv2.imencode failed")
+    data = buf.tobytes()
+    return data, cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
 
 
 def blur_is_on_the_body(before: np.ndarray, after: np.ndarray) -> list[str]:
@@ -145,19 +162,7 @@ def main() -> int:
                 image = crop_top(image, args.crop_top)
 
             faces = detect_faces(image)
-            if faces:
-                blurred = blur_regions(image, faces)
-                introduced = blur_is_on_the_body(image, blurred)
-                if introduced:
-                    print(
-                        f"REJECT {folder.name}: blurring {stem}.jpg put censorship over "
-                        "the body, not a face - " + "; ".join(introduced)
-                        + ". The face detector fired on the torso; do not train on this"
-                    )
-                    pair_ok = False
-                    break
-                image = blurred
-            elif not args.allow_no_face and args.crop_top == 0:
+            if not faces and not args.allow_no_face and args.crop_top == 0:
                 print(
                     f"REJECT {folder.name}: no face detected in {stem}.jpg — "
                     "verify it is already de-identified, then rerun with --allow-no-face"
@@ -165,7 +170,19 @@ def main() -> int:
                 pair_ok = False
                 break
 
-            cv2.imwrite(str(out_dir / f"{stem}.jpg"), image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            data, written = encode_as_written(
+                blur_regions(image, faces) if faces else image)
+            introduced = blur_is_on_the_body(image, written) if faces else []
+            if introduced:
+                print(
+                    f"REJECT {folder.name}: blurring {stem}.jpg put censorship over "
+                    "the body, not a face - " + "; ".join(introduced)
+                    + ". The face detector fired on the torso; do not train on this"
+                )
+                pair_ok = False
+                break
+
+            (out_dir / f"{stem}.jpg").write_bytes(data)
 
         if not pair_ok:
             shutil.rmtree(out_dir)

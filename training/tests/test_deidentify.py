@@ -13,7 +13,8 @@ import pytest
 
 from censorship import detect_censorship
 from conftest import make_torso
-from deidentify import BLUR_MARGIN, blur_is_on_the_body, blur_regions
+from deidentify import (BLUR_MARGIN, blur_is_on_the_body, blur_regions,
+                        encode_as_written)
 
 
 @pytest.fixture()
@@ -76,3 +77,28 @@ class TestBlurLandingOnTheBody:
         assert cols.min() < x
         assert cols.max() > x + bw
         assert BLUR_MARGIN > 0
+
+
+class TestTheCheckRunsOnWhatIsWritten:
+    """detect_censorship reads a texture field and JPEG quantisation moves it.
+
+    drmiroshnik case71's pixelated chest measured CLEAN as an in-memory array
+    and censored after a quality-95 round trip, so checking the array passed a
+    pair whose FILE was damaged. The check runs on the encoded bytes now.
+    """
+
+    def test_bytes_and_array_agree(self, torso):
+        data, written = encode_as_written(torso)
+        assert data.startswith(b"\xff\xd8")  # JPEG SOI
+        assert written.shape == torso.shape
+
+    def test_the_decoded_array_is_what_the_bytes_hold(self, torso):
+        import cv2
+        import numpy as np
+        data, written = encode_as_written(blur_regions(torso, chest_box(torso)and[chest_box(torso)]))
+        again = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+        assert np.array_equal(again, written)
+
+    def test_a_chest_blur_is_still_caught_after_encoding(self, torso):
+        _, written = encode_as_written(blur_regions(torso, [chest_box(torso)]))
+        assert blur_is_on_the_body(torso, written)
