@@ -32,7 +32,14 @@ the hosted Gemini model in `app/api/generate/route.ts`.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
 - Censored and annotated photos are rejected, not repaired (`censorship.py`).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
-  a clinic's blur bands. Corner clinic watermarks are fine and are kept.
+  a clinic's blur bands. Corner clinic watermarks are fine and are kept; which
+  clinic carries what, and whether it touches breast tissue, is in
+  `clinic_watermarks.md`.
+- Pairs are **retired, not deleted**. `retired_pairs.json` enumerates every pair
+  id withheld from the finished corpus with the ruling and the reason;
+  `emit_corpus.py` reads it and copies each withheld pair into the quarantine
+  tree so its images and consent metadata survive. Nothing under `raw/` or
+  `staging/` is ever removed.
 
 ## Pipeline
 
@@ -45,7 +52,14 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
    rejects censored/annotated images (scripts/censorship.py)
         │
         ▼                       training/data/staging/
-2. scripts/deidentify.py
+2. scripts/emit_corpus.py
+   carries staged pairs through to the FINISHED corpus tree, applying the
+   emit gates and the retirements in retired_pairs.json. A pair that never
+   reaches this tree is invisible to every corpus walk and dataset build,
+   however much material sits in staging. Copies bytes; re-encodes nothing.
+        │
+        ▼                       <corpus>/<clinic>/<pair-id>/
+2b. scripts/deidentify.py
    re-encodes every image, stripping EXIF/GPS (optionally --crop-top)
         │
         ▼                       training/data/clean/
@@ -72,9 +86,21 @@ pip install -r requirements.txt
 python scripts/scrape_gallery.py --clinic drkolker --out data/raw --annotations annotations.json
 
 python scripts/ingest.py       data/raw data/staging
+
+# Carry the staged pairs into the finished corpus. --quarantine both skips
+# pairs already withheld and records the ones this run retires; --report writes
+# one row per staged pair, emitted or not.
+python scripts/emit_corpus.py data/staging ~/firstmate/data/clinic-corpus \
+    --clinic drkolker \
+    --quarantine ~/firstmate/data/ba-viz-emit-backlog/quarantine \
+    --report emit-drkolker.csv --dry-run
+
 python scripts/deidentify.py   data/staging data/clean
 python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
 ```
+
+Always `--dry-run` first and read the per-disposition counts. `emit_corpus.py`
+never overwrites an existing corpus pair - a clash is an error, not a merge.
 
 Audit `data/clean` visually before training — every image, every batch, to
 confirm the pair is actually the same patient in the same pose and that the
@@ -104,8 +130,10 @@ python -m pytest tests -q
 
 Covers ingest validation/rejection paths, `dataset_schema.json` (including the
 guarantee that the optional chart/frame fields never reach a caption), caption
-assembly with its `clothing` variants, the censorship detector, and a drift guard
-on `configs/qwen_edit_lora.yaml`. The detector's tests draw their own torsos -
+assembly with its `clothing` variants, the censorship detector, the emit stage
+and its retirements (`retired_pairs.json` is asserted directly - count, shape
+and named exceptions - and again through the only code that can put a pair in
+the corpus), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's tests draw their own torsos -
 no patient imagery is ever committed. Two of them reference the real corpus by
 path and skip when it is not mounted.
 
