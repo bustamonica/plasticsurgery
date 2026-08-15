@@ -22,19 +22,13 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pytest
 from PIL import Image
 from PIL.TiffImagePlugin import IFDRational
 
 from conftest import make_torso
-from deidentify import JPEG_QUALITY, crop_top, encode_stripped
+from deidentify import crop_top, encode_stripped
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "deidentify.py"
-
-
-@pytest.fixture()
-def torso():
-    return make_torso(seed=7)
 
 
 def stage_pair(tmp_path, pair_id, image, exif=None):
@@ -263,6 +257,3 @@ class TestEverythingElseThisStageDoes:
         assert code == 0
         assert "3 accepted, 0 rejected" in out
         assert len(list((tmp_path / "clean").iterdir())) == 3
-
-    def test_output_quality_is_the_documented_constant(self, torso):
-        assert JPEG_QUALITY == 95

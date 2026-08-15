@@ -13,8 +13,11 @@ That also removes a stage that only ever did harm here. Across every clinic
 examined, not one Haar detection was a real face: the frontal-face cascade reads
 a breast in profile, a shoulder, a hip or a patch of hair as a face, and the
 blur that followed destroyed tissue in photographs the clinic publishes clean.
-It cost 37 pairs at drkolker, 15 at austinweston, 12 at harrington, 9 at
-drjeremyhunt, 8 at drmiroshnik and 5 at drdanielbarrett before it was removed
+It cost 99 pairs corpus-wide before it was removed; the six largest losses were
+37 pairs at drkolker, 15 at austinweston, 12 at harrington, 9 at drjeremyhunt,
+8 at drmiroshnik and 5 at drdanielbarrett, and the rest fell across allure,
+heavenly, marina, charlotte and wny. 84 were recovered on 2026-08-15 and 15 stay
+quarantined behind a second defect
 (`~/firstmate/data/ba-viz-emit-backlog/quarantine/MANIFEST.md`). Do not
 reintroduce it, and in particular do not reintroduce a rule that decides by
 where a blur sits in the frame: position cannot separate a face from a shoulder
