@@ -23,9 +23,9 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   training folder or leaves your machine. It strips EXIF/GPS by re-encoding
   every image it writes — `ingest.py` does the same on the way in, and that
   redundancy is deliberate. It does **not** detect or blur faces: the consented
-  clinics contractually guarantee that no faces appear in what they publish
-  (captain ruling 2026-08-14), and that guarantee is stronger than any check
-  this code could run. The model only needs the chest region.
+  clinics guarantee that no faces appear in what they publish, and the captain
+  holds that assurance (ruling 2026-08-14). The model only needs the chest
+  region.
 - Metadata stripping is not theoretical. A scan of all 5656 corpus images found
   36 carrying EXIF, including `harrington-177-front`, whose images carry the
   camera make and model and 2020 capture timestamps.
@@ -76,10 +76,9 @@ python scripts/deidentify.py   data/staging data/clean
 python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
 ```
 
-Audit `data/clean` visually before training — every image, every batch. You
-are checking two things: nothing identifying is visible (the clinics' guarantee
-is the control here, and the audit is how you would catch it failing), and the
-pair is actually the same patient/pose.
+Audit `data/clean` visually before training — every image, every batch, to
+confirm the pair is actually the same patient in the same pose and that the
+before/after direction is right.
 
 ## Synthetic smoke-test corpus
 

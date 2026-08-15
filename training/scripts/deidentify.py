@@ -4,11 +4,10 @@
 For every image: re-encode it, which strips EXIF, GPS and maker notes, and
 optionally hard-crop the top of the frame (--crop-top).
 
-**There is no face detection or blurring here.** The consented clinics have
-contractually guaranteed that no faces appear in the material they publish, and
-that guarantee is what this pipeline relies on (captain ruling, 2026-08-14). It
-is stronger evidence than any check this code could run, so the corpus does not
-run face detection at all.
+**There is no face detection or blurring here.** The corpus does not run face
+detection because the consented clinics guarantee that no faces appear in the
+material they publish, and the captain holds that assurance (ruling
+2026-08-14). It covers the whole corpus and every future clinic.
 
 That also removes a stage that only ever did harm here. Across every clinic
 examined, not one Haar detection was a real face: the frontal-face cascade reads
