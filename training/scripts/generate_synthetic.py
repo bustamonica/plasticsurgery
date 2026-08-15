@@ -39,9 +39,9 @@ WIDTH, HEIGHT = 768, 1024
 def draw_torso(rng: random.Random, volume_cc: int, clothing: str) -> Image.Image:
     """Draw a crude headless torso with a chest region sized by volume_cc.
 
-    Headless on purpose: deidentify.py must find no face (run it with
-    --allow-no-face). Per-pair jitter keeps pixel hashes unique for the
-    ingest dedup check.
+    Headless on purpose, matching the real corpus: the consented clinics
+    publish no faces, which is why the pipeline runs no face detection.
+    Per-pair jitter keeps pixel hashes unique for the ingest dedup check.
     """
     img = Image.new("RGB", (WIDTH, HEIGHT))
     draw = ImageDraw.Draw(img)
@@ -157,7 +157,7 @@ def main() -> int:
         (pair_dir / "meta.json").write_text(json.dumps(make_meta(rng, pair_id, volume_cc, clothing), indent=2))
 
     print(f"Generated {args.count} synthetic pairs under {args.out / args.clinic}")
-    print("Next: ingest.py <out> data/staging, then deidentify.py --allow-no-face (images are headless).")
+    print("Next: ingest.py <out> data/staging, then deidentify.py.")
     return 0
 
 
