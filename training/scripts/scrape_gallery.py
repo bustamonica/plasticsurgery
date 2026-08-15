@@ -56,6 +56,11 @@ one parser family per gallery platform (Influx legacy/Growthstack/S3, Etna
 Interactive, Webflow, Studio 3 Marketing/DatoCMS, WordPress-custom, and a
 handful of bespoke builds); see each parser function's docstring for its
 specific markup contract.
+
+12 more (2026-08-15 batch) all run the Etna Interactive photo gallery and are
+served by the single kind='etna' parser - one parser configured twelve times.
+See the etna section below for the platform's markup contract, its five
+published spec-block layouts, and how enumeration and procedure purity work.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -257,6 +262,71 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="drteitelbaum", consent_ref="drteitelbaum-agreement-2026-08",
         base_url="https://www.drteitelbaum.com",
         gallery_paths=["/gallery/breast/breast-augmentation/"], kind="drteitelbaum"),
+    # -- 2026-08-15 batch: 12 newly consented clinics, all Etna Interactive --
+    # Consent executed 2026-08-15; recorded in clinic-corpus/CONSENT-STATUS.md
+    # with the instrument filed beside it. Section 2 of that instrument grants
+    # AI/ML use including model training and derivative works.
+    # One parser (kind='etna') serves every one of them.
+    "camp": ClinicConfig(
+        slug="camp", consent_ref="camp-agreement-2026-08-15",
+        base_url="https://www.campplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+    "colville": ClinicConfig(
+        slug="colville", consent_ref="colville-agreement-2026-08-15",
+        base_url="https://www.craigcolvillemd.com",
+        gallery_paths=["/photo-gallery/breast-procedures/breast-augmentation/"],
+        kind="etna"),
+    "roth": ClinicConfig(
+        slug="roth", consent_ref="roth-agreement-2026-08-15",
+        base_url="https://www.jjrothmd.com",
+        gallery_paths=["/before-after/breast/breast-augmentation/"], kind="etna"),
+    "kochcarlisle": ClinicConfig(
+        slug="kochcarlisle", consent_ref="kochcarlisle-agreement-2026-08-15",
+        base_url="https://www.kochandcarlisle.com",
+        gallery_paths=["/photo-gallery/breast-procedures/breast-augmentation/"],
+        kind="etna"),
+    "wmips": ClinicConfig(
+        slug="wmips", consent_ref="wmips-agreement-2026-08-15",
+        base_url="https://www.wmips.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+    "southeastern": ClinicConfig(
+        slug="southeastern", consent_ref="southeastern-agreement-2026-08-15",
+        base_url="https://www.se-plasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+    "northraleigh": ClinicConfig(
+        slug="northraleigh", consent_ref="northraleigh-agreement-2026-08-15",
+        base_url="https://www.northraleighplasticsurgery.com",
+        gallery_paths=["/before-and-after/breast/breast-augmentation/"], kind="etna"),
+    "ablavsky": ClinicConfig(
+        slug="ablavsky", consent_ref="ablavsky-agreement-2026-08-15",
+        base_url="https://www.ablavskyplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+    "hasen": ClinicConfig(
+        slug="hasen", consent_ref="hasen-agreement-2026-08-15",
+        base_url="https://www.drhasen.com",
+        gallery_paths=["/gallery/breast-enhancement/breast-augmentation/"], kind="etna"),
+    "curtsinger": ClinicConfig(
+        slug="curtsinger", consent_ref="curtsinger-agreement-2026-08-15",
+        base_url="https://www.lukecurtsingermd.com",
+        gallery_paths=["/gallery/plastic-surgery/breast-augmentation/"], kind="etna"),
+    "coastal": ClinicConfig(
+        slug="coastal", consent_ref="coastal-agreement-2026-08-15",
+        base_url="https://www.bostoncoastalplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+    # thecenterforcosmeticsurgery.net is the only one of the twelve that does
+    # not serve the Etna AI-access robots block. Its robots.txt is a
+    # Cloudflare-managed default carrying 'User-agent: ClaudeBot / Disallow: /'
+    # and 'Content-Signal: ai-train=no'. That was escalated rather than decided
+    # here, and the captain ruled on 2026-08-15 to collect: the practice holds
+    # executed AI-training consent as the rights holder, and its website's
+    # machine signal was simply never updated to match. Collection still runs
+    # under the same politeness contract as the other eleven - 2s delay, the
+    # descriptive clinic-corpus-scraper UA (which the site's 'User-agent: *'
+    # group allows), and never the admin-ajax endpoint.
+    "tccs": ClinicConfig(
+        slug="tccs", consent_ref="tccs-agreement-2026-08-15",
+        base_url="https://www.thecenterforcosmeticsurgery.net",
+        gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
 }
 
 
@@ -326,6 +396,15 @@ class CaseData:
 # ---------------------------------------------------------------------------
 
 
+# A long walk over one host eventually meets a transient refusal - a reset, a
+# read timeout, or a 429/5xx from an edge that has decided we are going too
+# fast. Retrying a few times with a widening pause is both the robust and the
+# polite response; without it a single reset ends a multi-hundred-page
+# enumeration and the shortfall looks like missing data rather than a blip.
+RETRY_STATUS = {429, 500, 502, 503, 504}
+MAX_ATTEMPTS = 4
+
+
 class PoliteFetcher:
     def __init__(self, cache_dir: Path, delay: float = 2.0, offline: bool = False):
         self.cache_dir = cache_dir
@@ -335,6 +414,12 @@ class PoliteFetcher:
         self.session.headers.update({"User-Agent": USER_AGENT})
         self._last_request = 0.0
         self.requests_made = 0
+        self.retries_made = 0
+
+    def _sleep_until_allowed(self, extra: float = 0.0) -> None:
+        wait = self.delay + extra - (time.monotonic() - self._last_request)
+        if wait > 0:
+            time.sleep(wait)
 
     def get(self, url: str, cache_key: str) -> bytes:
         path = self.cache_dir / cache_key
@@ -342,17 +427,33 @@ class PoliteFetcher:
             return path.read_bytes()
         if self.offline:
             raise FileNotFoundError(f"offline mode and no cache entry for {url}")
-        wait = self.delay - (time.monotonic() - self._last_request)
-        if wait > 0:
-            time.sleep(wait)
-        resp = self.session.get(url, timeout=60)
-        self._last_request = time.monotonic()
-        self.requests_made += 1
-        resp.raise_for_status()
-        data = resp.content
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        return data
+        backoff = 0.0
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            self._sleep_until_allowed(backoff)
+            try:
+                resp = self.session.get(url, timeout=60)
+                self._last_request = time.monotonic()
+                self.requests_made += 1
+                if resp.status_code in RETRY_STATUS and attempt < MAX_ATTEMPTS:
+                    raise requests.exceptions.RetryError(
+                        f"HTTP {resp.status_code}")
+                resp.raise_for_status()
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                    requests.exceptions.RetryError) as exc:
+                self._last_request = time.monotonic()
+                if attempt == MAX_ATTEMPTS:
+                    raise
+                self.retries_made += 1
+                backoff = max(5.0, self.delay * 2 ** attempt)
+                print(f"  retry {attempt}/{MAX_ATTEMPTS - 1} in {backoff:.0f}s "
+                      f"after {type(exc).__name__} on {url}")
+                continue
+            data = resp.content
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            return data
+        raise RuntimeError("unreachable")  # pragma: no cover
 
 
 def image_cache_key(clinic: str, url: str) -> str:
@@ -388,6 +489,15 @@ def image_cache_key(clinic: str, url: str) -> str:
 # describe excised tissue in grams and mL, never in cc.
 _GRAM_UNIT = r"(?:grams?|gms?|grs?|gs?)\b(?!\s*(?:of\s+)?(?:tissue|fat|skin|lipoaspirate))"
 VOLUME_UNIT = rf"(?:ccs?\b|{_GRAM_UNIT})"
+
+
+# 'on the right', 'on her right', 'on right', 'in the right' - the phrasings
+# clinics actually use to attach a volume to a side in narrative prose. The
+# side word must not be followed by another word that makes it an adjective
+# ('on the right side' is a side marker, 'on the right track' is not, and
+# 'right breast' is the noun this is describing anyway).
+TRAILING_SIDE_RE = re.compile(
+    r"\b(?:on|in)\s+(?:the\s+|her\s+|his\s+)?(left|right)\b", re.I)
 
 
 def _parse_fill_side(segment: str) -> float | None:
@@ -437,8 +547,26 @@ def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
         assign(m.group(2).lower(), float(m.group(1)))
     for m in re.finditer(r"(\d{3})\s*\((left|right|l|r)\)", text, re.I):
         assign(m.group(2).lower(), float(m.group(1)))
-    for m in re.finditer(rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}\s+on the\s+(left|right)\b", text, re.I):
-        assign(m.group(2).lower(), float(m.group(1)))
+    # Trailing side markers with words between the volume and the side:
+    # '385cc gummy bear implant on her right', '330cc gel on right',
+    # '360 cc breast implant in the right', '300cc filled to 340cc on the right
+    # side'. Each marker takes the text since the PREVIOUS marker as its
+    # segment, so the second side reads its own volume instead of re-reading
+    # the first one; _parse_fill_side then prefers a 'filled to' final volume
+    # over the shell size quoted beside it.
+    # The segment is also cut at the previous sentence break, because 'on the
+    # right' often points at the right-hand PHOTOGRAPH rather than the right
+    # breast: drrohrich 96 reads '...using 275 cc saline filled implants with a
+    # breast fold incision. She is show here 3 years post operatively on the
+    # right.' Without the cut that sentence steals the volume onto one side and
+    # loses the bilateral reading.
+    prev_end = 0
+    for m in TRAILING_SIDE_RE.finditer(text):
+        segment = re.split(r"[.;]", text[prev_end:m.start()])[-1]
+        prev_end = m.end()
+        cc = _parse_fill_side(segment)
+        if cc is not None and 100 <= cc <= 1000:
+            assign(m.group(1).lower(), cc)
     # Prefix markers: 'Right: 185cc ...', 'R 270 filled to 285cc'.
     if left is None and right is None:
         side_re = re.compile(r"\b(left|right|l|r)\b\s*:?\s*([^;,.]*)", re.I)
@@ -1620,6 +1748,398 @@ def wny_next_case_ids(case_html: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# etna parser family (Etna Interactive photo gallery; 12 clinics, 2026-08-15)
+# ---------------------------------------------------------------------------
+#
+# One gallery product serves every clinic in the 2026-08-15 consented batch, so
+# this is one parser configured twelve times rather than twelve parsers. The
+# platform fixes four things across all of them:
+#
+#   * Case pages live at <gallery_path><case-id>/ and link their neighbours
+#     through a.case-details-prev / a.case-details-next. Walking that chain from
+#     the 12 cases the listing renders reaches the whole gallery; the listing
+#     also embeds its own case count as EII_GALLERY_JS ... "state":{"total":N},
+#     which collect_cases() uses as an independent completeness check.
+#     The gallery's own "load more" calls admin-ajax.php under /wp-admin/, which
+#     every one of these robots.txt files disallows - it is never requested.
+#     The sitemap does NOT enumerate case pages (verified on se-plasticsurgery:
+#     post/page/eii_* sitemaps carry zero gallery case URLs), so the chain plus
+#     the declared total is the enumeration contract.
+#   * Photos are side-by-side before|after composites at
+#     //images.<host>/content/images/<procedure>-<case>-<view>-detail.jpg,
+#     split at the horizontal midpoint. Some Etna sites serve the identical
+#     asset from S3 instead, so the match is on the '-detail.<ext>' suffix on
+#     any host, not on a CDN path.
+#   * The image filename's leading slug is the case's OWN procedure, which is
+#     how a mixed gallery is screened: case 159 in lukecurtsingermd's breast
+#     augmentation gallery publishes 'mommy-makeover-159-front-detail.jpg', and
+#     case 483 in ablavsky's publishes 'lower-circumferential-body-lift-483-'.
+#     Both are excluded by the standing captain ruling on combined procedures.
+#   * The spec block is a single .case-description div.
+#
+# What the platform does NOT fix is the shape of that spec block, and assuming
+# it did is the lakeshore mistake (218 pairs lost to a single-layout parser).
+# Five layouts are published across these clinics and are all handled here; see
+# ETNA_FIELD_LABELS and etna_parse_description() below.
+
+# Etna publishes each view either positionally ('view-1') or by name
+# ('left-oblique'). A named token documents the view - and, for the lateral
+# views, the laterality - in the clinic's own filename, which is the only
+# laterality source CLAUDE.md accepts without a visual call. Named tokens
+# follow the corpus convention derived from heavenly's Left-Oblique filenames:
+# 'left' means the patient's LEFT side faces the camera.
+ETNA_VIEW_TOKENS = {
+    "front": "front",
+    "left-oblique": "oblique-left",
+    "oblique-left": "oblique-left",
+    "right-oblique": "oblique-right",
+    "oblique-right": "oblique-right",
+    "left-side": "side-left",
+    "side-left": "side-left",
+    "left-lateral": "side-left",
+    "right-side": "side-right",
+    "side-right": "side-right",
+    "right-lateral": "side-right",
+}
+# Tokens that name a real photograph the schema has no view for. Recorded as a
+# skip reason rather than silently dropped, so the per-clinic accounting can say
+# why a fetched image produced no pair.
+ETNA_NON_SCHEMA_VIEWS = {"back", "rear", "posterior"}
+ETNA_DETAIL_RE = re.compile(
+    r"(?://|https?://)[A-Za-z0-9.\-]+/[A-Za-z0-9./\-]*?"
+    r"(?P<procedure>[a-z0-9]+(?:-[a-z0-9]+)*?)-(?P<case>\d+)-"
+    r"(?P<view>[a-z]+(?:-[a-z0-9]+)*)-detail\.(?P<ext>jpg|jpeg|png|webp)", re.I)
+ETNA_CASE_LINK_RE = re.compile(r"/(\d+)/?$")
+ETNA_TOTAL_RE = re.compile(r'"total"\s*:\s*(\d+)')
+# The gallery slug that counts as pure breast augmentation. Everything else in
+# these galleries is a combined procedure (mommy makeover, augmentation with
+# lift/mastopexy, body lift), whose after photograph shows a change the implants
+# did not cause - excluded by captain ruling.
+ETNA_PURE_PROCEDURE = "breast-augmentation"
+# Backstop for the chain walk. It traverses off-category pages to reach the
+# other components, so a practice's whole gallery is in scope; this only stops
+# a pathological crawl, and the declared-total check reports any shortfall.
+ETNA_MAX_PAGES = 4000
+
+
+def etna_list_seed_cases(listing_html: str, gallery_path: str) -> list[str]:
+    """Case ids rendered directly into the listing page (12 on every clinic)."""
+    ids = []
+    for m in re.finditer(re.escape(gallery_path) + r"(\d+)/", listing_html):
+        if m.group(1) not in ids:
+            ids.append(m.group(1))
+    return sorted(ids, key=int)
+
+
+def etna_declared_total(listing_html: str) -> int | None:
+    """The gallery's own case count, embedded as EII_GALLERY_JS state.total."""
+    m = re.search(r"EII_GALLERY_JS.{0,2000}?" + ETNA_TOTAL_RE.pattern,
+                  listing_html, re.S)
+    return int(m.group(1)) if m else None
+
+
+def etna_gallery_root(gallery_path: str) -> str:
+    """The path prefix the prev/next chain is scoped to.
+
+    The chain is NOT scoped to the procedure category: kochandcarlisle's breast
+    augmentation cases link on into /photo-gallery/body-procedures/liposuction-
+    fat-transfer-brazilian-butt-lift/, and ablavsky's into mommy-makeover,
+    implant-removal-and-replacement and lower-circumferential-body-lift. It is
+    scoped to the practice's gallery root, so that is what the walk follows -
+    dropping an off-category link instead ends the walk there, which cost 128
+    of 152 camp cases and 69 of 81 kochandcarlisle cases on the first run.
+    """
+    return "/" + gallery_path.strip("/").split("/")[0] + "/"
+
+
+def etna_category_paths(index_html: str, gallery_root: str) -> list[str]:
+    """Category listing paths linked from the gallery index page.
+
+    The prev/next chain is a set of DISCONNECTED components, not one path over
+    the gallery, so seeding only from the target category strands most of it:
+    kochandcarlisle's 12 rendered seeds reach a 67-page component holding just
+    those 12 of its 81 augmentation cases, and the walk then legitimately ends.
+    The remaining cases are only offered through the gallery's own
+    admin-ajax.php 'load more', which every one of these robots.txt files
+    disallows and which this scraper never calls. Seeding the walk from every
+    category listing instead puts it into the other components, which is the
+    same case-chain route - just entered at more than one point.
+    """
+    paths = []
+    for m in re.finditer(r'href="([^"]+)"', index_html):
+        path = urlsplit(m.group(1)).path
+        if not path.startswith(gallery_root):
+            continue
+        parts = [p for p in path[len(gallery_root):].split("/") if p]
+        if len(parts) == 2 and not parts[-1].isdigit():
+            candidate = f"{gallery_root}{parts[0]}/{parts[1]}/"
+            if candidate not in paths:
+                paths.append(candidate)
+    return paths
+
+
+def etna_next_case_paths(case_html: str, gallery_root: str) -> list[str]:
+    """Neighbour case page paths from the prev/next chain links.
+
+    Returns full paths rather than bare ids, because the chain crosses
+    categories and an id is only unique together with its category.
+    """
+    soup = BeautifulSoup(case_html, "html.parser")
+    paths = []
+    for a in soup.select("a.case-details-prev[href], a.case-details-next[href]"):
+        path = urlsplit(a.get("href", "")).path
+        if not path.startswith(gallery_root) or not ETNA_CASE_LINK_RE.search(
+                path.rstrip("/") + "/"):
+            continue
+        path = path.rstrip("/") + "/"
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+# Chart labels published inside .case-description, measured across all 720
+# cached case pages of the 2026-08-15 batch. Scanned for ANYWHERE in a line
+# rather than split at the first ': ', because northraleigh concatenates its
+# fields with no delimiter at all ('Approach: InframammaryPlacement:
+# SubfascialImplant type: Smooth round...'): splitting at the first ': ' there
+# yields one field whose value swallows the rest of the chart, which is the
+# lakeshore failure mode exactly.
+ETNA_FIELD_LABELS = (
+    "After Photos Taken", "Approach", "Bra Size", "Cup Size", "Height",
+    "Implant Placement", "Implant Profile", "Implant Shape", "Implant Size",
+    "Implant Size (Left)", "Implant Size (Right)", "Implant Style",
+    "Implant Type", "Implant size", "Incision", "Left", "Patient Age",
+    "Patient Height", "Patient Weight", "Placement", "Procedure", "Right",
+    "Size", "Weight",
+)
+# Longest label first so 'Implant Size (Left)' wins over 'Implant Size', and
+# 'Patient Height' over 'Height'.
+#
+# A plain \b before the label is not enough. northraleigh runs its fields
+# together with no separator, so the next label begins mid-word
+# ('...InframammaryPlacement: Subfascial...'): there is no word boundary
+# between 'y' and 'P', \bPlacement never matches, and the first field's value
+# swallows the entire rest of the chart. A label may therefore also start at a
+# lowercase-to-uppercase transition. That second alternative has ignorecase
+# switched off with (?-i:...) on purpose - under re.I the class [a-z] also
+# matches capitals, which would let a label start between any two letters.
+ETNA_LABEL_RE = re.compile(
+    r"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z])(?=[A-Z])))("
+    + "|".join(re.escape(label) for label in
+               sorted(ETNA_FIELD_LABELS, key=len, reverse=True))
+    + r")\s*:\s*", re.I)
+ETNA_EMPTY_DESCRIPTIONS = re.compile(
+    r"^\s*no case details (?:for this patient|available)\.?\s*$", re.I)
+# Fields whose label names the value as an implant size/volume. Per the
+# 2026-08-15 units ruling, a bare number or an ml figure INSIDE one of these
+# reads as cc; the same bare number in free prose does not.
+ETNA_VOLUME_LABELS = {
+    "implant size", "implant size (left)", "implant size (right)",
+    "implant volume", "size", "left", "right",
+}
+ETNA_SIDED_VOLUME_LABELS = {
+    "implant size (left)": "left", "implant size (right)": "right",
+    "left": "left", "right": "right",
+}
+# Labels holding the clinic's own narrative. They never feed placement/incision,
+# per the marina precedent where the prose walks through dual-plane AND
+# subglandular before naming the one used.
+ETNA_NARRATIVE_LABELS = {"procedure", "description"}
+ETNA_BARE_VOLUME_RE = re.compile(
+    r"^(\d{2,4}(?:\.\d+)?)\s*(?:cc|ccs|ml|mls|g|gm|gms|grams?)?\.?$", re.I)
+
+
+def _etna_description_lines(desc) -> list[str]:
+    """One text line per <br>-separated run inside the .case-description block.
+
+    The block is published either as <p> paragraphs, as one <p> whose fields are
+    separated by <br>, or as bare text directly in the div (northraleigh), so
+    the split is on <br> and block boundaries rather than on element type.
+    """
+    for br in desc.find_all("br"):
+        br.replace_with("\n")
+    lines = []
+    for block in desc.find_all(["p", "li", "div"]) or [desc]:
+        if block.find(["p", "li"]) is not None:
+            continue
+        lines.extend(block.get_text(" ", strip=False).split("\n"))
+    if not lines:
+        lines = desc.get_text(" ", strip=False).split("\n")
+    return [re.sub(r"\s+", " ", line).strip()
+            for line in lines if line and line.strip()]
+
+
+def _etna_split_fields(line: str) -> tuple[list[tuple[str, str]], str]:
+    """(fields, leftover prose) for one description line.
+
+    Each known label ends the previous field's value, so a line carrying a whole
+    undelimited chart yields every field instead of one that swallowed the rest.
+    """
+    matches = list(ETNA_LABEL_RE.finditer(line))
+    if not matches:
+        return [], line
+    fields = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
+        fields.append((match.group(1).strip(), line[match.end():end].strip()))
+    return fields, line[:matches[0].start()].strip()
+
+
+def _etna_labelled_volume(label: str, value: str) -> float | None:
+    """cc figure from a field whose own label names it as an implant size.
+
+    A bare number or an ml figure counts here because the label supplies the
+    unit ('Implant Size: 350'); grams are recorded unconverted per the standing
+    units ruling. Outside such a label this returns nothing - a bare number in
+    free prose is not a volume.
+    """
+    if label.lower() not in ETNA_VOLUME_LABELS:
+        return None
+    # 'Left: 420 cc Filled to 480 cc' - the final volume is what was implanted.
+    sided = _parse_fill_side(value)
+    if sided is not None and 100 <= sided <= 1000:
+        return sided
+    m = ETNA_BARE_VOLUME_RE.match(value.strip())
+    if m:
+        cc = float(m.group(1))
+        return cc if 100 <= cc <= 1000 else None
+    return None
+
+
+def etna_parse_description(desc, specs: CaseSpecs) -> None:
+    """Fill specs from a .case-description block, whatever layout it uses.
+
+    Five layouts are published across the twelve clinics and this handles all
+    of them, because assuming one is how lakeshore silently lost 218 pairs:
+
+      A. Labelled, <strong>Label:</strong>value separated by <br>
+         (se-plasticsurgery: 'Implant Size (Left): 325cc').
+      B. Labelled, <br>-separated, no <strong>, with a sided sub-block
+         (jjrothmd: 'Placement: Submuscular' ... 'Left: 420 cc Filled to 480 cc').
+      C. Labelled with NO delimiter between fields at all
+         (northraleigh: 'Approach: InframammaryPlacement: Subfascial...').
+      D. Narrative prose carrying the volume in a sentence
+         (campplasticsurgery, craigcolvillemd, drhasen, bostoncoastal).
+      E. Short prose with no labels ('370cc Mentor MPX gel implant', wmips).
+
+    Layout F - 'No case details for this patient.' (ablavsky) - and a case page
+    with no .case-description element at all (lukecurtsingermd) both leave specs
+    empty, which drops the case at the volume gate rather than inventing one.
+    """
+    prose_parts: list[str] = []
+    for line in _etna_description_lines(desc):
+        if ETNA_EMPTY_DESCRIPTIONS.match(line):
+            continue
+        fields, leftover = _etna_split_fields(line)
+        if leftover:
+            prose_parts.append(leftover)
+        for label, value in fields:
+            if not value:
+                continue
+            key = label.lower()
+            if key in ETNA_NARRATIVE_LABELS:
+                prose_parts.append(f"{label}: {value}")
+                continue
+            specs.fields.setdefault(label, value)
+            cc = _etna_labelled_volume(label, value)
+            if cc is None:
+                continue
+            side = ETNA_SIDED_VOLUME_LABELS.get(key)
+            if side == "left":
+                specs.left_cc = cc
+            elif side == "right":
+                specs.right_cc = cc
+            elif specs.left_cc is None and specs.right_cc is None:
+                specs.left_cc = specs.right_cc = cc
+    specs.summary = " ".join(prose_parts).strip()
+
+
+def etna_parse_case(case_html: str, case_id: str, source_url: str,
+                    gallery_path: str) -> CaseData:
+    """One Etna case: side-by-side composites plus a .case-description block."""
+    case = CaseData(case_id=case_id, source_url=source_url)
+
+    # Every view is published in several encodings of the SAME photograph
+    # (.jpg and .webp), so the pair is keyed on the view token, not the URL -
+    # keying on the URL emits each view twice. JPEG is preferred because it is
+    # what the rest of the pipeline re-encodes to anyway.
+    ext_rank = {"jpg": 0, "jpeg": 1, "png": 2, "webp": 3}
+    best: dict[str, tuple[int, str]] = {}
+    procedures: set[str] = set()
+    skipped_views: set[str] = set()
+    for m in ETNA_DETAIL_RE.finditer(case_html):
+        if m.group("case") != case_id:
+            continue
+        url = m.group(0)
+        if not url.startswith("http"):
+            url = "https:" + url
+        procedures.add(m.group("procedure").lower())
+        token = m.group("view").lower()
+        if token in ETNA_NON_SCHEMA_VIEWS:
+            skipped_views.add(token)
+            continue
+        rank = ext_rank.get(m.group("ext").lower(), 9)
+        if token not in best or rank < best[token][0]:
+            best[token] = (rank, url)
+    for token in sorted(skipped_views):
+        case.warnings.append(
+            f"view '{token}': published photograph has no schema view; skipped")
+    for token, (_, url) in sorted(best.items()):
+        case.pairs.append(ImagePair(
+            key=token, before_url=url, after_url=url, split_composite=True,
+            view_hint=ETNA_VIEW_TOKENS.get(token)))
+
+    # The filename's procedure slug is the case's own procedure, and a gallery
+    # that lists a combined case still names it honestly there.
+    if procedures and not any(p == ETNA_PURE_PROCEDURE for p in procedures):
+        case.warnings.append(
+            "not pure breast augmentation (published as "
+            + "/".join(sorted(procedures)) + "); excluded by captain ruling")
+        case.pairs = []
+    if not case.pairs and not case.warnings:
+        case.warnings.append("no usable image pairs")
+
+    specs = CaseSpecs()
+    soup = BeautifulSoup(case_html, "html.parser")
+    desc = soup.select_one(".case-description") or soup.select_one(
+        ".case-card-description")
+    if desc is None:
+        case.warnings.append("no .case-description block published")
+    else:
+        etna_parse_description(desc, specs)
+
+    haystack = " ".join([specs.summary, *specs.fields.values()])
+    age = specs.fields.get("Patient Age", "")
+    if age.isdigit():
+        specs.age = int(age)
+    else:
+        m = re.search(r"(\d{2})[- ]year[- ]old", haystack, re.I)
+        if m:
+            specs.age = int(m.group(1))
+    height = specs.fields.get("Patient Height") or specs.fields.get("Height", "")
+    if height:
+        specs.height = height.replace("’", "'").replace("”", '"').strip()
+        specs.height_cm = height_to_cm(specs.height)
+    weight = specs.fields.get("Patient Weight") or specs.fields.get("Weight", "")
+    m = re.match(r"^(\d{2,3})\s*(?:lbs?|pounds?)?\.?$", weight.strip(), re.I)
+    if m:
+        specs.weight_lbs = int(m.group(1))
+        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+
+    # Prose volumes only when the chart published none: the labelled fields are
+    # the clinic's own statement, the narrative is a description of it.
+    if specs.left_cc is None and specs.right_cc is None and specs.summary:
+        specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
+
+    classify_brand_shape_profile(specs, haystack)
+    # Chart text only - the narrative is deliberately excluded (CLAUDE.md).
+    classify_placement_incision(
+        specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+    case.specs = specs
+    return case
+
+
+# ---------------------------------------------------------------------------
 # privateclinic parser (WordPress; category-scoped paginated listing)
 # ---------------------------------------------------------------------------
 
@@ -2075,6 +2595,21 @@ def _fetch_optional(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | N
         raise
 
 
+def _fetch_seed(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | None:
+    """GET a chain-seeding page, or None if it is absent.
+
+    Seeding pages (the gallery index and the sibling category listings) only
+    widen the walk's entry points; a missing one costs coverage, never
+    correctness, and the declared-total check reports any shortfall. Unlike
+    _fetch_optional this also tolerates a missing cache entry, so an offline
+    re-parse of a clinic cached before the multi-seed walk existed still runs.
+    """
+    try:
+        return _fetch_optional(fetcher, url, cache_key)
+    except FileNotFoundError:
+        return None
+
+
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
     if cfg.kind == "drkolker":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
@@ -2215,6 +2750,76 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
                 if next_id not in visited:
                     to_visit.append(next_id)
         return sorted(cases, key=lambda c: int(c.case_id))
+    if cfg.kind == "etna":
+        gallery_path = cfg.gallery_paths[0]
+        listing_url = cfg.base_url + gallery_path
+        listing = fetcher.get(listing_url, f"{cfg.slug}_listing.html").decode(
+            "utf-8", "replace")
+        declared = etna_declared_total(listing)
+        root = etna_gallery_root(gallery_path)
+        to_visit = [f"{gallery_path}{cid}/"
+                    for cid in etna_list_seed_cases(listing, gallery_path)]
+        # Seed from every other category listing too - the chain is a set of
+        # disconnected components (see etna_category_paths), and the target
+        # category's own 12 rendered cases sit in only one of them.
+        index_html = _fetch_seed(fetcher, cfg.base_url + root,
+                                 f"{cfg.slug}_gallery_index.html")
+        for cat_path in etna_category_paths(index_html or "", root):
+            if cat_path == gallery_path:
+                continue
+            cat_html = _fetch_seed(
+                fetcher, cfg.base_url + cat_path,
+                f"{cfg.slug}_cat_" + re.sub(r"[^\w]+", "_", cat_path.strip("/"))
+                + ".html")
+            if cat_html is None:
+                continue
+            for m in re.finditer(
+                    re.escape(root) + r"[a-z0-9\-]+/[a-z0-9\-]+/(\d+)/", cat_html):
+                seed = m.group(0)
+                if seed not in to_visit:
+                    to_visit.append(seed)
+        visited: set[str] = set()
+        cases = []
+        uncached = 0
+        while to_visit and len(visited) < ETNA_MAX_PAGES:
+            path = to_visit.pop(0)
+            if path in visited:
+                continue
+            visited.add(path)
+            case_id = path.rstrip("/").rsplit("/", 1)[-1]
+            url = cfg.base_url + path
+            # Off-category pages are fetched only to follow the chain through
+            # them; their cache key keeps the category so ids cannot collide.
+            in_scope = path.startswith(gallery_path)
+            key = (f"{cfg.slug}_case_{case_id}.html" if in_scope else
+                   f"{cfg.slug}_chain_"
+                   + re.sub(r"[^\w]+", "_", path.strip("/")) + ".html")
+            # An uncached page in offline mode ends this branch of the walk
+            # rather than the whole run: offline re-parsing is how the corpus
+            # proves a shared parser's blast radius, and it must still work
+            # against a cache taken before the walk crossed categories.
+            html_bytes = _fetch_seed(fetcher, url, key)
+            if html_bytes is None:
+                uncached += 1
+                continue
+            html = html_bytes
+            if in_scope:
+                cases.append(etna_parse_case(html, case_id, url, gallery_path))
+            for next_path in etna_next_case_paths(html, root):
+                if next_path not in visited:
+                    to_visit.append(next_path)
+        # The gallery publishes its own case count, so enumeration can be
+        # checked rather than assumed. A short walk means the chain does not
+        # reach every case and the shortfall is real data we never saw.
+        if uncached:
+            print(f"  {cfg.slug}: {uncached} chain page(s) not in cache "
+                  f"(offline walk); enumeration is cache-bounded")
+        if declared is not None and len(cases) != declared:
+            print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
+                  f"but the gallery declares {declared}")
+        else:
+            print(f"  {cfg.slug}: chain walk reached all {len(cases)} declared case(s)")
+        return sorted(cases, key=lambda c: int(c.case_id))
     if cfg.kind == "privateclinic":
         cases, page = [], 1
         while True:
@@ -2319,7 +2924,15 @@ def main() -> int:
     fetcher = PoliteFetcher(cache_dir, delay=args.delay, offline=args.offline)
     annotations_all = json.loads(args.annotations.read_text()) if args.annotations else {}
 
-    cases = collect_cases(cfg, fetcher)
+    # Prefetching images is a second pass over an enumeration that already
+    # happened, so it walks the cache rather than the site: re-crawling here
+    # would spend the whole run re-walking a chain whose pages are already on
+    # disk before it downloaded a single image. Images themselves still come
+    # from the network through `fetcher` below.
+    enumerator = fetcher
+    if args.prefetch and not args.offline:
+        enumerator = PoliteFetcher(cache_dir, delay=args.delay, offline=True)
+    cases = collect_cases(cfg, enumerator)
     if args.cases:
         wanted = set(args.cases.split(","))
         cases = [c for c in cases if c.case_id in wanted]
