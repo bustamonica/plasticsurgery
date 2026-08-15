@@ -1068,6 +1068,9 @@ def influx_swiper_parse_case(case_html: str, case_id: str, source_url: str,
     drkolker's alt-text convention), so images are paired positionally
     (before immediately followed by after, in document order) and every
     view label comes from visual-inspection annotations.
+
+    The patient-details spec block has three markups on the same site; see
+    INFLUX_FIELD_LABELS above for that contract and how it is read.
     """
     case = CaseData(case_id=case_id, source_url=source_url)
     soup = BeautifulSoup(case_html, "html.parser")
