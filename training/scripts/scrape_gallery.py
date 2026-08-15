@@ -105,6 +105,23 @@ MOTIVA_PROFILE_PATTERNS = [
     (re.compile(r"\bfull\b", re.I), "high"),
     (re.compile(r"\bcors[eé]\b", re.I), "extra-high"),
 ]
+# Chart vocabulary for the schema's placement/incision enums. Dual-plane is
+# tried first because a dual-plane case is routinely also described as
+# submuscular. Only terms clinics actually print on a spec chart are listed:
+# 'over the muscle' and 'incision around the areola' are prose descriptions of
+# a placement/incision, not the documented value, and reading them as one would
+# be the kind of inference CLAUDE.md rules out.
+PLACEMENT_PATTERNS = [
+    (re.compile(r"\bdual[- ]?plane\b", re.I), "dual-plane"),
+    (re.compile(r"\b(?:sub[- ]?muscular|subpectoral|retropectoral)\b", re.I), "submuscular"),
+    (re.compile(r"\bsub[- ]?glandular\b", re.I), "subglandular"),
+    (re.compile(r"\bsub[- ]?fascial\b", re.I), "subfascial"),
+]
+INCISION_PATTERNS = [
+    (re.compile(r"\binframammary\b", re.I), "inframammary"),
+    (re.compile(r"\b(?:peri|circum)[- ]?areolar\b", re.I), "periareolar"),
+    (re.compile(r"\b(?:trans[- ]?)?axillary\b", re.I), "transaxillary"),
+]
 
 
 @dataclass
@@ -264,6 +281,17 @@ class CaseSpecs:
     shape: str | None = None
     profile: str | None = None
     months_post_op: float | None = None
+    # Optional chart/frame fields (ingest.py VALID_PLACEMENTS/VALID_INCISIONS,
+    # NUMERIC_RANGES). Set only by a parser that read them off a spec chart, so
+    # 'None' means undocumented rather than 'unknown'. height_cm/weight_kg are
+    # schema-ready numbers rather than the verbatim height/weight above,
+    # because only the parser knows whether the clinic published a single
+    # figure or a bucket - sixsurgery publishes '100 - 149 lbs', and turning
+    # that range floor into a weight_kg would invent a value it never stated.
+    placement: str | None = None
+    incision: str | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
 
 
 @dataclass
@@ -452,6 +480,46 @@ def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
             if pattern.search(haystack):
                 specs.profile = profile
                 break
+
+
+def classify_placement_incision(specs: CaseSpecs, chart_text: str) -> None:
+    """Set specs.placement/incision from a case's CHART text.
+
+    Chart text only - never the clinic's narrative. Marina's prose explains the
+    options ('behind the muscle (dual plane) or over the pectoral muscle
+    (subglandular placement)') before naming the one it used, so a keyword hit
+    in narrative is not evidence of what this patient received.
+    """
+    for pattern, placement in PLACEMENT_PATTERNS:
+        if pattern.search(chart_text):
+            specs.placement = placement
+            break
+    for pattern, incision in INCISION_PATTERNS:
+        if pattern.search(chart_text):
+            specs.incision = incision
+            break
+
+
+# 5'3, 5'3", 5’10 - the only height spellings in the corpus that state a single
+# unambiguous figure. A range ('5.0” - 5.5”', sixsurgery) or a bare number with
+# no documented unit deliberately does not convert.
+FEET_INCHES_RE = re.compile(r"^(\d)\s*['’]\s*(\d{1,2})?\s*(?:\"|”|''|in\.?)?$")
+
+
+def height_to_cm(height: str) -> float | None:
+    """Schema height_cm from a verbatim feet/inches height, or None."""
+    m = FEET_INCHES_RE.match(height.strip())
+    if m is None:
+        return None
+    inches = int(m.group(1)) * 12 + int(m.group(2) or 0)
+    cm = round(inches * 2.54, 1)
+    return cm if 120 <= cm <= 220 else None
+
+
+def pounds_to_kg(weight_lbs: float) -> float | None:
+    """Schema weight_kg from a pounds figure, or None if out of schema range."""
+    kg = round(weight_lbs * 0.45359237, 1)
+    return kg if 30 <= kg <= 250 else None
 
 
 def volume_cc(specs: CaseSpecs) -> int | None:
@@ -891,6 +959,107 @@ def influx_swiper_list_cases(listing_html: str, gallery_path: str) -> list[str]:
     return sorted(ids, key=int)
 
 
+# The Influx template renders one patient-details block in three markups, and
+# the same case page mixes them: one <p> per 'Label: value' (the majority),
+# one <li> per field inside a single wrapper <p>, and the 'bare-value' layout
+# that drops the labels entirely and prints each value in its own <p>
+# ('Patient#: n/a', 'Full Profile', '400cc', 'Submuscular', ...). Fields are
+# therefore recovered by scanning for these known labels anywhere in a line -
+# one line can carry the whole block - and a line with no label is classified
+# by its content instead of being discarded. Vocabulary measured over all 122
+# lakeshore and 132 marina cached case pages; an unrecognised 'Label: value'
+# line still falls back to a plain split, so a new label is kept, not dropped.
+INFLUX_FIELD_LABELS = (
+    "Age", "Description", "Gender", "Height", "Height#", "Implant Cohesivity",
+    "Implant Placement", "Implant Profile", "Implant Shape", "Implant Texture",
+    "Implant Type", "Implant Type#", "Implant volume", "Incision", "Patient#",
+    "Post-Op Time", "Procedure", "Procedure Description", "Weight", "Weight#",
+)
+# Longest label first so 'Height#'/'Implant Type#'/'Procedure Description' win
+# over the shorter labels they contain.
+INFLUX_LABEL_RE = re.compile(
+    r"\b(" + "|".join(re.escape(label) for label in
+                      sorted(INFLUX_FIELD_LABELS, key=len, reverse=True))
+    + r")\s*:\s*", re.I)
+# The bare-value layout still prints the labelled placeholders, so 'n/a' is the
+# absence of a value, not a value.
+INFLUX_PLACEHOLDER_VALUES = {"n/a", "na", "n.a.", "-", "--"}
+# These fields hold the clinic's narrative under a label, so they are prose,
+# not chart: they never feed placement/incision. Marina case 7463's description
+# walks through dual-plane AND subglandular before naming the one it used.
+INFLUX_NARRATIVE_LABELS = {"description", "procedure description"}
+INFLUX_BARE_HEIGHT_RE = re.compile(r"^(\d)\s*['’]\s*(\d{1,2})?\s*(?:\"|”)?$")
+INFLUX_BARE_WEIGHT_RE = re.compile(r"^(\d{2,3})\s*(?:lbs?|pounds?)\.?$", re.I)
+# A line of digits and separators only ('339 & 371'): a spec whose unit the
+# clinic never printed. Recognised so it does not masquerade as prose, and
+# deliberately NOT read as cc - see CC_RE's unit requirement.
+INFLUX_BARE_NUMERIC_RE = re.compile(r"^[\d\s&,.+/-]+$")
+INFLUX_BARE_SPEC_RE = re.compile(
+    r"\b(profile|round|teardrop|anatomic\w*|shaped|smooth|textured)\b", re.I)
+# Prose runs long; a bare spec value is a couple of words.
+INFLUX_BARE_SPEC_MAX_WORDS = 4
+
+
+def _influx_detail_lines(detail) -> list[str]:
+    """One text line per innermost <p>/<li> of the patient-details block.
+
+    The template wraps the whole block in a <p class='text-center lead'> that
+    the parser is served as a PARENT of the real <p>/<li> elements, so its own
+    text is every field concatenated; taking only the innermost elements drops
+    that duplicate and keeps one spec per line.
+    """
+    lines = []
+    for element in detail.find_all(["p", "li"]):
+        if element.find(["p", "li"]) is not None:
+            continue
+        text = element.get_text(" ", strip=True)
+        if text:
+            lines.append(text)
+    return lines
+
+
+def _influx_split_fields(line: str) -> tuple[list[tuple[str, str]], str]:
+    """(fields, leftover) for one detail line.
+
+    Each known label ends the previous field's value, so a line holding the
+    whole block ('Procedure: Breast augmentation Implant Type: Silicone
+    Implant volume: 345cc ...') yields every field instead of one field that
+    swallowed the rest. 'leftover' is the label-less text ahead of the first
+    field, i.e. the whole line when the layout published no labels at all.
+    """
+    matches = list(INFLUX_LABEL_RE.finditer(line))
+    if not matches:
+        label, sep, value = line.partition(": ")
+        if sep and value:
+            return [(label.strip(), value.strip())], ""
+        return [], line
+    fields = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
+        fields.append((match.group(1).strip(), line[match.end():end].strip()))
+    return fields, line[:matches[0].start()].strip()
+
+
+def _influx_is_bare_spec(line: str) -> bool:
+    """True when a label-less line is a single spec value rather than prose.
+
+    Marina publishes a narrative paragraph where lakeshore's bare-value layout
+    publishes one value per line, and the two must not be confused: the
+    narrative has to keep flowing to specs.summary so parse_fill_volumes()
+    still reads the sided volumes out of it.
+    """
+    if len(line.split()) > INFLUX_BARE_SPEC_MAX_WORDS:
+        return False
+    return bool(
+        INFLUX_BARE_NUMERIC_RE.match(line)
+        or INFLUX_BARE_HEIGHT_RE.match(line)
+        or INFLUX_BARE_WEIGHT_RE.match(line)
+        or _cc_numbers(line)
+        or INFLUX_BARE_SPEC_RE.search(line)
+        or any(p.search(line) for p, _ in PLACEMENT_PATTERNS + INCISION_PATTERNS)
+    )
+
+
 def influx_swiper_parse_case(case_html: str, case_id: str, source_url: str,
                              gallery_path: str) -> CaseData:
     """Single-view images labeled only 'Before'/'After' by a sibling span.
@@ -933,16 +1102,18 @@ def influx_swiper_parse_case(case_html: str, case_id: str, source_url: str,
 
     specs = CaseSpecs()
     detail = soup.select_one("div.patient-details")
+    bare_specs: list[str] = []
     if detail is not None:
-        for p in detail.find_all("p"):
-            text = p.get_text(" ", strip=True)
-            if not text:
-                continue
-            label, sep, value = text.partition(": ")
-            if sep and value:
-                specs.fields[label.strip()] = value.strip()
-            elif not specs.summary:
-                specs.summary = text
+        prose: list[str] = []
+        for line in _influx_detail_lines(detail):
+            fields, leftover = _influx_split_fields(line)
+            for label, value in fields:
+                if value and value.lower() not in INFLUX_PLACEHOLDER_VALUES:
+                    specs.fields[label] = value
+            if leftover:
+                (bare_specs if _influx_is_bare_spec(leftover) else prose).append(leftover)
+        if prose:
+            specs.summary = prose[0]
     m = re.search(r"(\d+)[\s-]*(?:yr|year)s?[\s-]*old", specs.summary, re.I)
     if m:
         specs.age = int(m.group(1))
@@ -955,18 +1126,42 @@ def influx_swiper_parse_case(case_html: str, case_id: str, source_url: str,
         if age_field.isdigit():
             specs.age = int(age_field)
     if not specs.height:
-        specs.height = specs.fields.get("Height", "")
+        specs.height = specs.fields.get("Height", "") or next(
+            (line for line in bare_specs if INFLUX_BARE_HEIGHT_RE.match(line)), "")
+        specs.height = specs.height.replace("’", "'")
     if specs.weight_lbs is None:
-        m = re.match(r"(\d+)", specs.fields.get("Weight", ""))
+        # The labelled layout prints 'Weight: 137' with no unit; the same
+        # clinic's bare-value layout prints '120 lbs', so pounds is the
+        # gallery's own documented unit, not an assumption about the number.
+        m = re.match(r"(\d+)", specs.fields.get("Weight", "")) or next(
+            (m for m in (INFLUX_BARE_WEIGHT_RE.match(line) for line in bare_specs)
+             if m), None)
         if m:
             specs.weight_lbs = int(m.group(1))
+    specs.height_cm = height_to_cm(specs.height)
+    if specs.weight_lbs is not None:
+        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
     vol_ccs = _cc_numbers(specs.fields.get("Implant volume", ""))
     if vol_ccs:
-        specs.left_cc = specs.right_cc = vol_ccs[0]
+        # A case documenting two volumes ('405 cc (left side), 445 cc (right
+        # side)') gets both, not the left one twice: collapsing onto vol_ccs[0]
+        # made volume_cc() report the left side where the schema asks for the
+        # average.
+        specs.left_cc = vol_ccs[0]
+        specs.right_cc = vol_ccs[1] if len(vol_ccs) > 1 else vol_ccs[0]
+    else:
+        # Bare-value layout: the volume is its own unlabelled line. Sided
+        # spellings ('R-450cc, L-485cc') keep their sides.
+        volume_line = next((line for line in bare_specs if _cc_numbers(line)), "")
+        if volume_line:
+            specs.left_cc, specs.right_cc = parse_fill_volumes(volume_line)
     if specs.left_cc is None and specs.summary:
         specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
-    haystack = " ".join([specs.summary, *specs.fields.values()])
+    haystack = " ".join([specs.summary, *bare_specs, *specs.fields.values()])
     classify_brand_shape_profile(specs, haystack)
+    chart = [value for label, value in specs.fields.items()
+             if label.lower() not in INFLUX_NARRATIVE_LABELS]
+    classify_placement_incision(specs, " ".join([*bare_specs, *chart]))
     case.specs = specs
     return case
 
@@ -1845,6 +2040,13 @@ def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
         meta["brand"] = specs.brand
     if specs.profile is not None:
         meta["profile"] = specs.profile
+    # Chart/frame metadata: curation and evaluation only, never a caption
+    # (dataset_schema.json). Omitted rather than written as 'unknown' when the
+    # clinic did not document it.
+    for chart_field in ("placement", "incision", "height_cm", "weight_kg"):
+        value = getattr(specs, chart_field)
+        if value is not None:
+            meta[chart_field] = value
     clothing = pair_annotations.get("clothing") or annotations.get("clothing")
     if clothing in SCHEMA_CLOTHING:
         meta["clothing"] = clothing
