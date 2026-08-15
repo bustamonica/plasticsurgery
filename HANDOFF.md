@@ -1,6 +1,6 @@
 # Project Handoff — AI Breast Augmentation Preview ("Aurelle")
 
-_Last updated: July 2026. Branch: `claude/breast-augmentation-ai-preview-56w494` (not yet merged to `main`)._
+_Last updated: August 2026. Branch: `claude/breast-augmentation-ai-preview-56w494` (not yet merged to `main`)._
 
 ## What this project is
 
@@ -8,6 +8,9 @@ A consumer website for people considering breast augmentation. Users upload a
 photo, choose implant **brand** (Mentor, Natrelle, Motiva, Sientra),
 **shape** (round/teardrop), **profile**, and **volume** (150–800 cc), and an
 AI generates a realistic before/after preview with a comparison slider.
+The **teardrop** shape and the **extra-high** profile are hidden by default
+because the training corpus does not yet back them; `README.md` and
+`.env.example` document the flag that offers them again.
 
 Two tracks exist in this repo:
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildEditPrompt } from "@/lib/prompt";
 import {
+  availableProfiles,
+  availableShapes,
   findBrand,
-  findProfile,
-  findShape,
   PreviewConfig,
   VOLUME_MAX,
   VOLUME_MIN,
@@ -124,8 +124,8 @@ export async function POST(req: NextRequest) {
   if (
     !config ||
     !findBrand(config.brandId) ||
-    !findShape(config.shape) ||
-    !findProfile(config.profileId) ||
+    !availableShapes().some((s) => s.id === config.shape) ||
+    !availableProfiles().some((p) => p.id === config.profileId) ||
     typeof config.volumeCc !== "number" ||
     config.volumeCc < VOLUME_MIN ||
     config.volumeCc > VOLUME_MAX

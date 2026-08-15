@@ -9,10 +9,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The GitHub default branch is `claude/breast-augmentation-ai-preview-56w494` (the Next.js app + training track).
   `origin/main` is an unrelated legacy Python project; never base work on it or push to it.
 - `app/`, `components/`, `lib/` are a Next.js preview-studio app; `training/` is the custom-model training track (data pipeline + ai-toolkit config). See `HANDOFF.md` and `training/README.md`.
+- Website checks: `npm test` (Node's built-in runner over `**/*.test.ts` - there is no jest/vitest here) and `npx tsc --noEmit`. `npm test` runs Node's runner straight over `.ts` sources, so it needs Node >= 22.18 for unflagged type stripping (`engines` in `package.json` pins that floor, and tests import source files with an explicit `.ts` extension). `npm run lint` is inert: no ESLint config is committed, so `next lint` only offers to create one. Training-track tests are separate (pytest, below).
 
 ## CI
 
-- `.github/workflows/ci.yml` runs on `pull_request` and pushes to the default branch: a `web` job (`npm ci`, `next build`, `tsc --noEmit`) and a `training` job (`pip install` + `pytest` for `training/`). `package.json` has no `test` script yet, so no JS test step runs - add one there once a JS/TS test suite exists. The ESLint job is a commented-out TODO slot pending `ba-viz-eslint-setup`.
+- `.github/workflows/ci.yml` runs on `pull_request` and pushes to the default branch: a `web` job (`npm ci`, `next build`, `tsc --noEmit`, `npm test` on Node 22.18) and a `training` job (`pip install` + `pytest` for `training/`). The ESLint job is a commented-out TODO slot pending `ba-viz-eslint-setup`.
 
 ## Training track sharp edges
 
@@ -35,6 +36,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - `training/configs/qwen_edit_lora.yaml` is validated against ai-toolkit commit `6d8afa5684000b69db97cc40504a972a85615e3b`; the toolkit renames keys often, so re-diff its example config before using a newer commit.
 - Caption parity is a hard contract: `build_caption()` in `training/scripts/build_dataset.py` and `buildCustomModelPrompt()` in `lib/prompt.ts` must emit byte-identical instruction text. Update both (and their shared vocabulary in `lib/implants.ts`) together. Only a subset of `dataset_schema.json` reaches a caption; the chart/frame fields (`placement`, `incision`, `height_cm`, `weight_kg`, `bra_size_before`, `chest_width_cm`) are curation/eval metadata and `tests/test_schema.py` asserts they never leak into one.
 - The website's AI provider seam is `AI_PROVIDER` in `.env.example`; `gemini` is the default and the Gemini prompt in `lib/prompt.ts` (`buildEditPrompt`) is intentionally different from the training-caption format.
+- Configurator options the corpus doesn't yet back are gated behind an `unbacked` flag on their `lib/implants.ts` entry (currently extra-high profile, teardrop shape) and hidden by default; flip `NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS` (`.env.example`) to show them. Read it via `availableProfiles()`/`availableShapes()`, not `PROFILES`/`SHAPES` directly, in any code that renders or validates selectable options - that keeps the UI (`app/studio/page.tsx`) and the API gate (`app/api/generate/route.ts`) consistent. There is no shared `lib/config.ts`; env vars are read ad hoc at their point of use. Flipping the flag needs no code change, but it does need a rebuild and redeploy to take effect (both for the studio bundle and the `/api/generate` gate): Next.js inlines `NEXT_PUBLIC_*` values into the build output rather than reading them from the running process, unlike `GEMINI_API_KEY`, which is genuinely read at runtime server-side in `app/api/generate/route.ts`.
 
 ## Maintaining this file
 

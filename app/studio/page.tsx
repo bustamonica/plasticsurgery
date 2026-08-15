@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { PhotoUpload, UploadedPhoto } from "@/components/PhotoUpload";
 import {
+  availableProfiles,
+  availableShapes,
   BRANDS,
+  defaultProfileId,
+  defaultShape,
   describeVolume,
   ImplantShape,
   PreviewConfig,
-  PROFILES,
-  SHAPES,
   VOLUME_DEFAULT,
   VOLUME_MAX,
   VOLUME_MIN,
@@ -36,8 +38,8 @@ export default function StudioPage() {
   const [consent, setConsent] = useState(false);
 
   const [brandId, setBrandId] = useState(BRANDS[0].id);
-  const [shape, setShape] = useState<ImplantShape>("round");
-  const [profileId, setProfileId] = useState("moderate-plus");
+  const [shape, setShape] = useState<ImplantShape>(defaultShape);
+  const [profileId, setProfileId] = useState(defaultProfileId);
   const [volumeCc, setVolumeCc] = useState(VOLUME_DEFAULT);
 
   const [generating, setGenerating] = useState(false);
@@ -50,6 +52,8 @@ export default function StudioPage() {
   const resultRef = useRef<HTMLDivElement>(null);
 
   const canGenerate = Boolean(photo) && consent && !generating;
+  const shapes = availableShapes();
+  const profiles = availableProfiles();
 
   useEffect(() => {
     if (result && resultRef.current) {
@@ -241,26 +245,35 @@ export default function StudioPage() {
             {/* Shape */}
             <fieldset>
               <legend className="text-sm font-semibold text-ink-900">Shape</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {SHAPES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setShape(s.id)}
-                    aria-pressed={shape === s.id}
-                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                      shape === s.id
-                        ? "border-blush-500 bg-blush-50 ring-1 ring-blush-500"
-                        : "border-cream-200 hover:border-blush-300"
-                    }`}
-                  >
-                    <span className="block text-sm font-medium text-ink-950">{s.name}</span>
-                    <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
-                      {s.blurb}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {shapes.length === 1 ? (
+                <div className="mt-2 rounded-xl border border-cream-200 bg-cream-50 px-3 py-2.5">
+                  <span className="block text-sm font-medium text-ink-950">{shapes[0].name}</span>
+                  <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
+                    {shapes[0].blurb}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {shapes.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setShape(s.id)}
+                      aria-pressed={shape === s.id}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                        shape === s.id
+                          ? "border-blush-500 bg-blush-50 ring-1 ring-blush-500"
+                          : "border-cream-200 hover:border-blush-300"
+                      }`}
+                    >
+                      <span className="block text-sm font-medium text-ink-950">{s.name}</span>
+                      <span className="mt-0.5 block text-[11px] leading-tight text-ink-400">
+                        {s.blurb}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </fieldset>
 
             {/* Profile */}
@@ -274,14 +287,14 @@ export default function StudioPage() {
                 onChange={(e) => setProfileId(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-cream-200 bg-white px-3 py-2.5 text-sm text-ink-900 focus:border-blush-500 focus:ring-2 focus:ring-blush-500 focus:outline-none"
               >
-                {PROFILES.map((p) => (
+                {profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
               </select>
               <p className="mt-2 text-xs leading-relaxed text-ink-400">
-                {PROFILES.find((p) => p.id === profileId)?.blurb}
+                {profiles.find((p) => p.id === profileId)?.blurb}
               </p>
             </div>
 

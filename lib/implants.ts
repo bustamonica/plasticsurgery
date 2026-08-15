@@ -23,6 +23,8 @@ export interface ImplantProfile {
   blurb: string;
   /** Short descriptor woven into the AI prompt. */
   promptDescriptor: string;
+  /** True if the training corpus doesn't yet back this option (see availableProfiles/availableShapes). */
+  unbacked?: boolean;
 }
 
 export const BRANDS: ImplantBrand[] = [
@@ -93,10 +95,18 @@ export const PROFILES: ImplantProfile[] = [
     name: "Extra high",
     blurb: "Maximum projection from the narrowest base — the most dramatic option.",
     promptDescriptor: "an extra-high profile with maximum forward projection",
+    unbacked: true,
   },
 ];
 
-export const SHAPES: { id: ImplantShape; name: string; blurb: string; promptDescriptor: string }[] = [
+export const SHAPES: {
+  id: ImplantShape;
+  name: string;
+  blurb: string;
+  promptDescriptor: string;
+  /** True if the training corpus doesn't yet back this option (see availableProfiles/availableShapes). */
+  unbacked?: boolean;
+}[] = [
   {
     id: "round",
     name: "Round",
@@ -109,8 +119,43 @@ export const SHAPES: { id: ImplantShape; name: string; blurb: string; promptDesc
     blurb: "Tapered at the top, fuller at the bottom — mimics the natural slope of the breast.",
     promptDescriptor:
       "anatomical teardrop implants giving a gently sloped upper breast and fuller lower pole, a natural-looking result",
+    unbacked: true,
   },
 ];
+
+// Extra-high profile and teardrop shape are marked `unbacked: true` above:
+// the training corpus has 0 extra-high pairs and ~1.6% teardrop pairs, so
+// outputs at those settings are pure extrapolation (captain decision
+// 2026-08-14, investigation ba-viz-clinic-ask-24). Gate them behind this flag
+// until the corpus backs them; flip NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS
+// to re-enable, no code change needed.
+function unbackedOptionsEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS === "true";
+}
+
+export function availableProfiles(): ImplantProfile[] {
+  return unbackedOptionsEnabled() ? PROFILES : PROFILES.filter((p) => !p.unbacked);
+}
+
+export function availableShapes(): typeof SHAPES {
+  return unbackedOptionsEnabled() ? SHAPES : SHAPES.filter((s) => !s.unbacked);
+}
+
+// The configurator's opening selection. Derived from the available lists so a
+// seeded default can never be an option the gate hides (which the API would
+// then reject); the preferred ids below are only a preference within them.
+const PREFERRED_SHAPE: ImplantShape = "round";
+const PREFERRED_PROFILE_ID = "moderate-plus";
+
+export function defaultShape(): ImplantShape {
+  const shapes = availableShapes();
+  return (shapes.find((s) => s.id === PREFERRED_SHAPE) ?? shapes[0]).id;
+}
+
+export function defaultProfileId(): string {
+  const profiles = availableProfiles();
+  return (profiles.find((p) => p.id === PREFERRED_PROFILE_ID) ?? profiles[0]).id;
+}
 
 export const VOLUME_MIN = 150;
 export const VOLUME_MAX = 800;
