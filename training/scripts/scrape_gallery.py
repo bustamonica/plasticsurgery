@@ -1790,6 +1790,7 @@ def wny_next_case_ids(case_html: str) -> list[str]:
 # 'left' means the patient's LEFT side faces the camera.
 ETNA_VIEW_TOKENS = {
     "front": "front",
+    "anterior": "front",
     "left-oblique": "oblique-left",
     "oblique-left": "oblique-left",
     "right-oblique": "oblique-right",
@@ -1804,7 +1805,14 @@ ETNA_VIEW_TOKENS = {
 # Tokens that name a real photograph the schema has no view for. Recorded as a
 # skip reason rather than silently dropped, so the per-clinic accounting can say
 # why a fetched image produced no pair.
-ETNA_NON_SCHEMA_VIEWS = {"back", "rear", "posterior"}
+#
+# 'front-arms-raised' and 'bent-forward' are deliberately here rather than
+# mapped onto 'front': they are different POSES, and folding them into front
+# would both mislabel the pose and collide with the case's real front view.
+ETNA_NON_SCHEMA_VIEWS = {
+    "back", "rear", "posterior", "front-arms-raised", "bent-forward",
+    "arms-raised", "bending-forward",
+}
 ETNA_DETAIL_RE = re.compile(
     r"(?://|https?://)[A-Za-z0-9.\-]+/[A-Za-z0-9./\-]*?"
     r"(?P<procedure>[a-z0-9]+(?:-[a-z0-9]+)*?)-(?P<case>\d+)-"

@@ -1276,3 +1276,31 @@ def test_fetcher_serves_cache_without_network(tmp_path, monkeypatch):
     f = _fetcher(tmp_path, monkeypatch, session)
     assert f.get("https://example.test/x", "x.html") == b"cached"
     assert session.calls == 0
+
+
+@pytest.mark.parametrize("token,view", [
+    ("front", "front"),
+    ("anterior", "front"),          # tccs case 10969 labels its front 'anterior'
+    ("left-oblique", "oblique-left"),
+    ("right-lateral", "side-right"),  # tccs spells a side view 'lateral'
+])
+def test_etna_named_view_token_maps_to_schema_view(token, view):
+    assert sg.ETNA_VIEW_TOKENS[token] == view
+
+
+@pytest.mark.parametrize("token", ["back", "front-arms-raised", "bent-forward"])
+def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
+    """A different POSE is not a different view.
+
+    'front-arms-raised' (drhasen case 362) and 'bent-forward' photograph the
+    front, but mapping them onto 'front' would both mislabel the pose and
+    collide with the case's real front view on pair_id. They are reported as
+    having no schema view instead.
+    """
+    assert token not in sg.ETNA_VIEW_TOKENS
+    assert token in sg.ETNA_NON_SCHEMA_VIEWS
+    html = (f'<img src="//images.x.com/content/images/breast-augmentation-7-{token}'
+            '-detail.jpg"/><div class="case-description"><p>350cc</p></div>')
+    case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
+    assert case.pairs == []
+    assert any(token in w and "no schema view" in w for w in case.warnings)
