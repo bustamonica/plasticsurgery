@@ -130,21 +130,26 @@ Check by eye at full resolution on a sample from each backdrop/template
 variant the clinic uses (a script overlay can look different on a light vs
 dark backdrop and still be the same mark).
 
-Measured cost - heavenly, 106/106 pairs, universal, on-body, across two
-backdrop families:
+Measured cost - heavenly, universal, on-body, across two backdrop families,
+and all 119 of its pairs ruled unusable (which clinic carries which mark, the
+verdict on each, and whether that verdict is actually enforced on disk, is
+`training/clinic_watermarks.md`):
 
 - Masking the watermark band (`masked_regions`, `dataset_schema.json`) is
   the correct, honest fix - but the band covers the breasts on essentially
   every pair, so "kept with a mask" and "usable for breast augmentation
   training" are different claims.
 - A GPU inpainting attempt cost $6.75 (RunPod, H100) and *reported* 99.4%
-  removal; a visual audit of all 106 delivered images found **38 still
-  legibly watermarked and 22 more with a partial residual** - only 46 of 106
-  were actually clean. See the self-measurement lesson below for why the
-  automated metric was wrong.
+  removal; a visual audit of the delivered images then found **38 still
+  legibly watermarked and 22 more with a partial residual**, and a third look
+  found the remainder no cleaner. Two clean-up passes, each overstating its
+  own success. See the self-measurement lesson below for why every one of
+  those metrics read optimistically.
 - Off-body watermarks are cheap by comparison: wny's "WNY PLASTIC SURGERY"
   band sits at the bottom 9% of the after-image frame only, never touching
-  the breasts, and needed no mask at all.
+  the breasts, and needs no mask - but being on the *after* image alone
+  correlates it perfectly with the training label, which is its own open
+  question.
 
 ---
 
