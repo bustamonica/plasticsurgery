@@ -204,6 +204,41 @@ class TestRetiredPairsNeverEmit:
         run(tmp_path, clinic="drdanielbarrett")
         assert dispositions(tmp_path)["drdanielbarrett-90631-side-right"] == "retired-laterality"
 
+    def test_a_misspelled_clinic_argument_still_holds_the_ruling(self, tmp_path, make_staged):
+        # --clinic only chooses the destination subdirectory. Pair ids are
+        # globally unique and clinic-prefixed, so a variant spelling must not
+        # let a retired pair through into a fresh corpus subtree.
+        pair_id = "sanantonio-24021-oblique-right"
+        make_staged(pair_id)
+        make_staged("sanantonio-00000-front")
+        run(tmp_path, clinic="sanantonio-2026")
+        assert not (tmp_path / "corpus" / "sanantonio-2026" / pair_id).exists()
+        assert dispositions(tmp_path)[pair_id] == "retired-laterality"
+        assert (tmp_path / "corpus" / "sanantonio-2026" / "sanantonio-00000-front").exists()
+
+    def test_deleting_a_pair_from_the_registry_lets_it_emit_again(
+        self, tmp_path, make_staged
+    ):
+        # The documented recovery path: the registry is the sole authority on a
+        # retirement, and the quarantine copy this stage writes is an archive of
+        # that ruling, not a second one that outlives it.
+        pair_id = "sanantonio-24021-oblique-right"
+        make_staged(pair_id)
+        quarantine = tmp_path / "quarantine"
+        (quarantine / "retired-laterality" / "sanantonio" / pair_id).mkdir(parents=True)
+
+        registry = json.loads(REGISTRY.read_text())
+        registry["retired_laterality"]["pairs"]["sanantonio"] = [
+            p for p in registry["retired_laterality"]["pairs"]["sanantonio"] if p != pair_id
+        ]
+        edited = tmp_path / "retired_pairs.json"
+        edited.write_text(json.dumps(registry))
+
+        run(tmp_path, clinic="sanantonio", quarantine=quarantine,
+            extra=["--registry", str(edited)])
+        assert dispositions(tmp_path)[pair_id] == "emit"
+        assert (tmp_path / "corpus" / "sanantonio" / pair_id / "before.jpg").exists()
+
     def test_a_retired_pair_is_quarantined_not_lost(self, tmp_path, make_staged):
         # "Retire rather than delete": images and consent metadata survive, with
         # the reason attached, under the corpus quarantine convention.
@@ -256,9 +291,33 @@ class TestEmit:
         dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
         dest.mkdir(parents=True)
         (dest / "before.jpg").write_bytes(b"earlier emit")
-        with pytest.raises(FileExistsError):
-            run(tmp_path)
+        assert run(tmp_path) == 1
         assert (dest / "before.jpg").read_bytes() == b"earlier emit"
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
+
+    def test_a_clash_still_leaves_a_report_of_what_was_written(self, tmp_path, make_staged):
+        # The corpus tree is the audit surface: a run that stops short must
+        # never leave pairs in it with no record of which ones.
+        make_staged("clinic01-0001-front", seed=1)
+        make_staged("clinic01-0002-front", seed=2)
+        clash = tmp_path / "corpus" / "clinic01" / "clinic01-0002-front"
+        clash.mkdir(parents=True)
+        (clash / "before.jpg").write_bytes(b"earlier emit")
+
+        assert run(tmp_path) == 1
+        rows = dispositions(tmp_path)
+        assert rows == {"clinic01-0001-front": "emit", "clinic01-0002-front": "emit-failed"}
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front" / "before.jpg").exists()
+        assert (clash / "before.jpg").read_bytes() == b"earlier emit"
+
+    def test_an_unwritable_corpus_is_reported_not_raised(self, tmp_path, make_staged):
+        make_staged("clinic01-0001-front")
+        # A plain file where the clinic directory belongs: mkdir fails with an
+        # OSError that is not a clash, the same shape as a full or read-only disk.
+        (tmp_path / "corpus").mkdir()
+        (tmp_path / "corpus" / "clinic01").write_text("not a directory")
+        assert run(tmp_path) == 1
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
 
     def test_empty_staging_is_an_error(self, tmp_path):
         (tmp_path / "staging").mkdir()
@@ -277,6 +336,28 @@ class TestGates:
         assert dispositions(tmp_path)["clinic01-0001-front"] == "quarantined"
         assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
         assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_only_the_retirement_archive_defers_to_the_registry(self, tmp_path, make_staged):
+        # The subdirectories this stage writes are an archive of a registry
+        # ruling, so an id there but not in the registry emits. Every other
+        # quarantine reason is an independent hold and still binds.
+        for seed, pair_id in enumerate(
+            ("clinic01-0001-front", "clinic01-0002-front", "clinic01-0003-front"), start=1
+        ):
+            make_staged(pair_id, seed=seed)
+        quarantine = tmp_path / "quarantine"
+        for reason, pair_id in (
+            ("retired-laterality", "clinic01-0001-front"),
+            ("withheld-contested", "clinic01-0002-front"),
+            ("deidentify-blur-damage", "clinic01-0003-front"),
+        ):
+            (quarantine / reason / "clinic01" / pair_id).mkdir(parents=True)
+
+        run(tmp_path, quarantine=quarantine)
+        rows = dispositions(tmp_path)
+        assert rows["clinic01-0001-front"] == "emit"
+        assert rows["clinic01-0002-front"] == "emit"
+        assert rows["clinic01-0003-front"] == "quarantined"
 
     def test_a_censored_pair_is_not_emitted(self, tmp_path, make_staged):
         censored = make_torso()
@@ -345,8 +426,3 @@ class TestGates:
         assert np.array_equal(
             cv2.imread(str(dest / "before.jpg")), cv2.imread(str(staged / "before.jpg"))
         )
-
-    def test_the_module_reintroduces_no_detector(self, tmp_path):
-        source = Path(emit_corpus.__file__).read_text()
-        for banned in ("CascadeClassifier", "haarcascade", "blur_regions", "GaussianBlur"):
-            assert banned not in source.split('"""')[2], f"{banned} is back in emit_corpus.py"

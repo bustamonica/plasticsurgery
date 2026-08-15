@@ -34,10 +34,18 @@ enumeration and not a rule on purpose: a rule like "every sanantonio lateral" is
 a live query over the staging tree, and a later re-annotation would silently
 widen or narrow a ruling the captain made over a fixed set of pairs.
 
+The registry is the sole authority on a retirement, and it is keyed by pair id
+alone. Pair ids are globally unique and already clinic-prefixed, so a ruling
+holds however `--clinic` is spelled; that argument only chooses the destination
+subdirectory. Deleting an id from the registry is therefore sufficient to let
+the pair emit again.
+
 Retiring is not deleting. The staged pair stays where it is, and `--quarantine`
 records a copy under the corpus quarantine convention
 (`<quarantine>/<reason>/<clinic>/<pair_id>/`) so the images and their consent
-metadata survive with the reason attached.
+metadata survive with the reason attached. That copy is an archive, not a second
+authority: the retirement subdirectories this stage writes are skipped when the
+tree is read back as a hold (see `quarantined_ids`).
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -68,17 +76,28 @@ QUARANTINE_DIRS = {
 }
 
 
-def load_registry(path: Path) -> dict[str, dict[str, str]]:
-    """Map clinic -> {pair_id: reason} for every pair the registry withholds."""
+def load_registry(path: Path) -> dict[str, str]:
+    """Map pair_id -> reason for every pair the registry withholds.
+
+    Keyed by pair id and not by clinic: the ids are globally unique and already
+    clinic-prefixed, so a misspelled or variant `--clinic` cannot quietly let a
+    retired pair through. A duplicate id would make that assumption false, so it
+    is refused here rather than silently collapsed.
+    """
     data = json.loads(path.read_text())
-    withheld: dict[str, dict[str, str]] = {}
+    withheld: dict[str, str] = {}
     for reason, section in (
         ("retired-laterality", data.get("retired_laterality", {})),
         ("withheld-contested", data.get("withheld_contested", {})),
     ):
-        for clinic, pairs in section.get("pairs", {}).items():
+        for pairs in section.get("pairs", {}).values():
             for pair_id in pairs:
-                withheld.setdefault(clinic, {})[pair_id] = reason
+                if pair_id in withheld:
+                    raise ValueError(
+                        f"{path}: {pair_id} is listed twice - pair ids must be unique "
+                        "for a ruling to be unambiguous"
+                    )
+                withheld[pair_id] = reason
     return withheld
 
 
@@ -88,13 +107,22 @@ def quarantined_ids(quarantine: Path | None) -> dict[str, str]:
     The corpus quarantine is <quarantine>/<reason>/<clinic>/<pair_id>/. A pair
     held there has been withdrawn from training by an earlier ruling and must
     not be re-emitted by this stage on its own initiative.
+
+    The retirement subdirectories this stage writes itself (`QUARANTINE_DIRS`)
+    are the exception, and are skipped: those are governed by
+    `retired_pairs.json`, so reading them back as a hold would double-count the
+    same ruling and make it irreversible by the registry edit that is meant to
+    undo it. Every other subdirectory holds unconditionally.
     """
     if quarantine is None or not quarantine.exists():
         return {}
+    archived = set(QUARANTINE_DIRS.values())
     held = {}
     for pair_dir in quarantine.glob("*/*/*"):
-        if pair_dir.is_dir():
-            held[pair_dir.name] = pair_dir.parent.parent.name
+        reason = pair_dir.parent.parent.name
+        if reason in archived or not pair_dir.is_dir():
+            continue
+        held[pair_dir.name] = reason
     return held
 
 
@@ -113,8 +141,7 @@ def read_image(path: Path) -> tuple[str, tuple[int, int], np.ndarray, bool]:
 
 def check_pair(
     folder: Path,
-    clinic: str,
-    withheld: dict[str, dict[str, str]],
+    withheld: dict[str, str],
     quarantine_held: dict[str, str],
     seen_hashes: dict[str, str],
 ) -> tuple[str, str]:
@@ -126,7 +153,7 @@ def check_pair(
     """
     pair_id = folder.name
 
-    reason = withheld.get(clinic, {}).get(pair_id)
+    reason = withheld.get(pair_id)
     if reason:
         return reason, "listed in retired_pairs.json"
 
@@ -179,6 +206,44 @@ def copy_pair(folder: Path, dest: Path) -> None:
         shutil.copyfile(folder / name, dest / name)
 
 
+def write_pairs(args: argparse.Namespace, pair_folders: list[Path], rows: list[dict]) -> int:
+    """Copy every decided pair to its destination. Returns the failure count.
+
+    A pair that cannot be written is recorded in its own row and the run carries
+    on, so the report always describes what actually landed on disk. The
+    never-overwrite rule is absolute: a clash costs that one pair, never the
+    pair already in the finished tree.
+    """
+    staged = {folder.name: folder for folder in pair_folders}
+    failures = 0
+    for row in rows:
+        folder = staged[row["pair_id"]]
+        disposition = row["disposition"]
+        if disposition == "emit":
+            try:
+                copy_pair(folder, args.corpus / args.clinic / row["pair_id"])
+            except OSError as e:
+                failures += 1
+                row["disposition"] = "emit-failed"
+                row["detail"] = str(e)
+                print(f"FAIL {row['pair_id']}: not emitted - {e}")
+            continue
+
+        sub = QUARANTINE_DIRS.get(disposition)
+        if not sub or not args.quarantine:
+            continue
+        dest = args.quarantine / sub / args.clinic / row["pair_id"]
+        if dest.exists():
+            continue
+        try:
+            copy_pair(folder, dest)
+        except OSError as e:
+            failures += 1
+            row["detail"] = f"{row['detail']} (quarantine copy failed: {e})"
+            print(f"FAIL {row['pair_id']}: held but not archived - {e}")
+    return failures
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("staging", type=Path, help="Clinic's staging directory")
@@ -211,40 +276,40 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     seen_hashes: dict[str, str] = {}
-    rows, counts = [], {}
+    rows: list[dict[str, str]] = []
     for folder in pair_folders:
-        disposition, detail = check_pair(
-            folder, args.clinic, withheld, quarantine_held, seen_hashes
-        )
-        counts[disposition] = counts.get(disposition, 0) + 1
+        disposition, detail = check_pair(folder, withheld, quarantine_held, seen_hashes)
         rows.append({"pair_id": folder.name, "disposition": disposition, "detail": detail})
+        if disposition != "emit":
+            print(f"HOLD {folder.name}: {disposition} - {detail}")
 
-        if disposition == "emit":
-            if not args.dry_run:
-                copy_pair(folder, args.corpus / args.clinic / folder.name)
-            continue
+    # The corpus tree is the audit surface, so whatever this run writes must be
+    # recorded even when it stops early: the report and the summary are written
+    # from `rows` in the finally block, and a pair that could not be written is
+    # rewritten there as its own disposition rather than raising out of main.
+    failures = 0
+    try:
+        if not args.dry_run:
+            failures = write_pairs(args, pair_folders, rows)
+    finally:
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            with args.report.open("w", newline="") as fh:
+                writer = csv.DictWriter(fh, fieldnames=["pair_id", "disposition", "detail"])
+                writer.writeheader()
+                writer.writerows(rows)
 
-        print(f"HOLD {folder.name}: {disposition} - {detail}")
-        sub = QUARANTINE_DIRS.get(disposition)
-        if sub and args.quarantine and not args.dry_run:
-            dest = args.quarantine / sub / args.clinic / folder.name
-            if not dest.exists():
-                copy_pair(folder, dest)
+        counts: dict[str, int] = {}
+        for row in rows:
+            counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
+        emitted = counts.get("emit", 0)
+        print(f"\n{args.clinic}: {len(pair_folders)} staged")
+        for disposition, count in sorted(counts.items(), key=lambda kv: -kv[1]):
+            print(f"  {count:4d}  {disposition}")
+        where = "would emit" if args.dry_run else f"-> {args.corpus / args.clinic}"
+        print(f"{emitted} emitted ({where})")
 
-    if args.report:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        with args.report.open("w", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=["pair_id", "disposition", "detail"])
-            writer.writeheader()
-            writer.writerows(rows)
-
-    emitted = counts.get("emit", 0)
-    print(f"\n{args.clinic}: {len(pair_folders)} staged")
-    for disposition, count in sorted(counts.items(), key=lambda kv: -kv[1]):
-        print(f"  {count:4d}  {disposition}")
-    where = "would emit" if args.dry_run else f"-> {args.corpus / args.clinic}"
-    print(f"{emitted} emitted ({where})")
-    return 0 if emitted > 0 else 1
+    return 0 if emitted > 0 and not failures else 1
 
 
 if __name__ == "__main__":

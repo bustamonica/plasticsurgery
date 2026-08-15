@@ -52,14 +52,18 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
    rejects censored/annotated images (scripts/censorship.py)
         │
         ▼                       training/data/staging/
-2. scripts/emit_corpus.py
-   carries staged pairs through to the FINISHED corpus tree, applying the
-   emit gates and the retirements in retired_pairs.json. A pair that never
-   reaches this tree is invisible to every corpus walk and dataset build,
-   however much material sits in staging. Copies bytes; re-encodes nothing.
         │
-        ▼                       <corpus>/<clinic>/<pair-id>/
-2b. scripts/deidentify.py
+        ├──▶ scripts/emit_corpus.py  ──▶  <corpus>/<clinic>/<pair-id>/
+        │      carries staged pairs through to the FINISHED corpus tree,
+        │      applying the emit gates and the retirements in
+        │      retired_pairs.json. A pair that never reaches that tree is
+        │      invisible to every corpus walk and dataset build, however much
+        │      material sits in staging. Copies bytes; re-encodes nothing.
+        │      This is a TERMINAL branch off staging - the corpus tree is the
+        │      durable record of what counts, and nothing below reads from it.
+        │
+        ▼
+2. scripts/deidentify.py
    re-encodes every image, stripping EXIF/GPS (optionally --crop-top)
         │
         ▼                       training/data/clean/
@@ -100,7 +104,9 @@ python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
 ```
 
 Always `--dry-run` first and read the per-disposition counts. `emit_corpus.py`
-never overwrites an existing corpus pair - a clash is an error, not a merge.
+never overwrites an existing corpus pair - a clash is an error, not a merge: the
+pair is recorded as `emit-failed` in the report and the run exits non-zero, so a
+partial emit is always auditable from the CSV it leaves behind.
 
 Audit `data/clean` visually before training — every image, every batch, to
 confirm the pair is actually the same patient in the same pose and that the
