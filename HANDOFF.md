@@ -55,9 +55,10 @@ Built and tested on synthetic data:
 
 - `training/scripts/ingest.py` — validates clinic deliveries; **rejects any
   pair without a `consent_ref`**; strips EXIF/GPS; dedupes; size checks.
-- `training/scripts/deidentify.py` — face detection + irreversible
-  pixelation (or top-crop); rejects no-face images unless explicitly
-  overridden; mandatory visual audit after.
+- `training/scripts/deidentify.py` — strips EXIF/GPS by re-encoding every
+  image (optional top-crop); no face detection, per the clinics' guarantee
+  that none is published (captain ruling 2026-08-14); mandatory visual
+  audit after.
 - `training/scripts/build_dataset.py` — builds instruction captions from the
   implant metadata using the same wording the site sends at inference time
   (`lib/prompt.ts`); train/val split; ai-toolkit layout + `manifest.jsonl`.
@@ -66,8 +67,8 @@ Built and tested on synthetic data:
   clinics.
 
 Governance already enforced by tooling: photo directories are gitignored
-(nothing sensitive can be committed), consent references are mandatory,
-de-identification is default-on.
+(nothing sensitive can be committed), consent references are mandatory, and
+de-identification strips metadata from every image it writes, with no opt-out.
 
 ## What's left (in rough order)
 

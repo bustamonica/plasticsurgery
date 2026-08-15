@@ -20,8 +20,15 @@ the hosted Gemini model in `app/api/generate/route.ts`.
 - Every pair MUST carry a `consent_ref` pointing to the signed clinic
   agreement it came from. `ingest.py` rejects pairs without one.
 - De-identification (`deidentify.py`) is mandatory before anything reaches a
-  training folder or leaves your machine: faces blurred or cropped, EXIF/GPS
-  stripped. The model only needs the chest region — it never needs a face.
+  training folder or leaves your machine. It strips EXIF/GPS by re-encoding
+  every image it writes — `ingest.py` does the same on the way in, and that
+  redundancy is deliberate. It does **not** detect or blur faces: the consented
+  clinics guarantee that no faces appear in what they publish, and the captain
+  holds that assurance (ruling 2026-08-14). The model only needs the chest
+  region.
+- Metadata stripping is not theoretical. A scan of all 5656 corpus images found
+  36 carrying EXIF, including `harrington-177-front`, whose images carry the
+  camera make and model and 2020 capture timestamps.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
 - Censored and annotated photos are rejected, not repaired (`censorship.py`).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
@@ -39,7 +46,7 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
         │
         ▼                       training/data/staging/
 2. scripts/deidentify.py
-   detects & blurs faces (or hard-crops the top of the image)
+   re-encodes every image, stripping EXIF/GPS (optionally --crop-top)
         │
         ▼                       training/data/clean/
 3. scripts/build_dataset.py
@@ -65,13 +72,13 @@ pip install -r requirements.txt
 python scripts/scrape_gallery.py --clinic drkolker --out data/raw --annotations annotations.json
 
 python scripts/ingest.py       data/raw data/staging
-python scripts/deidentify.py   data/staging data/clean        # add --allow-no-face after auditing a sample
+python scripts/deidentify.py   data/staging data/clean
 python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
 ```
 
-Audit `data/clean` visually before training — every image, every batch. You
-are checking two things: no identifiable faces survived, and the pair is
-actually the same patient/pose.
+Audit `data/clean` visually before training — every image, every batch, to
+confirm the pair is actually the same patient in the same pose and that the
+before/after direction is right.
 
 ## Synthetic smoke-test corpus
 
@@ -85,7 +92,6 @@ python scripts/generate_synthetic.py data/raw --count 100 --seed 42
 The "after" images are programmatic warps of the "before" images, sized by
 `volume_cc`, with balanced `clothing` coverage and unique pixels per pair (so
 the ingest dedup check is exercised too).
-The images are headless, so `deidentify.py` needs `--allow-no-face`.
 **Never mix these pairs into a real training corpus** - they teach the model
 nothing medically meaningful; they only prove the tooling works end to end.
 

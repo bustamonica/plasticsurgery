@@ -53,8 +53,10 @@ class TestCleanPhotos:
         assert detect_censorship(torso) == []
 
     def test_non_torso_frame_is_left_to_the_other_gates(self):
-        # Too little skin to reason about: the size and de-identification gates
-        # own this case, and the detector must not invent a reason.
+        # Too little skin to reason about: `ingest.py`'s size gate and the
+        # human visual audit own this case - de-identification does not, since
+        # it only strips metadata and never rejects on what the frame shows -
+        # and the detector must not invent a reason.
         assert detect_censorship(np.zeros((600, 600, 3), np.uint8)) == []
 
 
