@@ -222,14 +222,27 @@ PAIR_FILES = ("before.jpg", "after.jpg", "meta.json")
 
 
 def pair_matches(folder: Path, dest: Path) -> bool:
-    """True when the finished pair is the staged pair, byte for byte.
+    """True when the finished pair carries the staged pair's bytes.
 
-    Anything else in the destination - a missing half, an extra file, different
-    bytes - is a conflict rather than a re-run, and is treated as one.
+    All three files must be present and byte-identical; a missing half or a
+    changed byte is a conflict rather than a re-run. Anything *else* in the
+    destination directory is ignored, and the images are matched by stem rather
+    than by extension - the finished tree stores them as `.jpg`, `.jpeg`, `.png`
+    and `.webp` depending on the clinic. This recognition exists to let a
+    legitimate re-run succeed, so it must not be defeated by a `.DS_Store`
+    Finder drops into a pair directory: that would report real corruption where
+    there is none. The cost, taken knowingly, is that an unexpected extra file
+    in a finished pair is not this script's to surface.
     """
-    if {p.name for p in dest.iterdir()} != set(PAIR_FILES):
-        return False
-    return all((folder / name).read_bytes() == (dest / name).read_bytes() for name in PAIR_FILES)
+    for stem in ("before", "after"):
+        found = [p for p in dest.glob(f"{stem}.*") if p.is_file()]
+        if len(found) != 1 or found[0].read_bytes() != (folder / f"{stem}.jpg").read_bytes():
+            return False
+    finished_meta = dest / "meta.json"
+    return (
+        finished_meta.is_file()
+        and finished_meta.read_bytes() == (folder / "meta.json").read_bytes()
+    )
 
 
 def emit_state(folder: Path, dest: Path) -> tuple[str, str]:

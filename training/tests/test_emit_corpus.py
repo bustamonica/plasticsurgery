@@ -105,9 +105,13 @@ def view_of(pair_id: str) -> str:
     return next(view for view in VALID_VIEWS if pair_id.endswith(f"-{view}"))
 
 
-def dispositions(tmp_path, report=None) -> dict[str, str]:
+def report_rows(tmp_path, report=None) -> list[dict]:
     with (report or tmp_path / "report.csv").open() as fh:
-        return {row["pair_id"]: row["disposition"] for row in csv.DictReader(fh)}
+        return list(csv.DictReader(fh))
+
+
+def dispositions(tmp_path, report=None) -> dict[str, str]:
+    return {row["pair_id"]: row["disposition"] for row in report_rows(tmp_path, report)}
 
 
 # --- The retirement enumeration -------------------------------------------
@@ -315,6 +319,7 @@ class TestEmit:
         make_staged("sanantonio-00000-front", seed=2)
         make_staged("sanantonio-24021-oblique-right", seed=3)
         run(tmp_path, clinic="sanantonio")
+        assert len(report_rows(tmp_path)) == 3
         assert dispositions(tmp_path) == {
             "clinic01-0001-front": "other-clinic",
             "sanantonio-00000-front": "emit",
@@ -380,6 +385,47 @@ class TestEmit:
         }
         assert {p.name: p.stat().st_mtime_ns for p in dest.iterdir()} == written_at
         assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_a_stray_file_beside_an_emitted_pair_is_still_a_re_run(self, tmp_path, make_staged):
+        # Finder drops .DS_Store files into this tree. Reading one as a conflict
+        # would turn the ordinary second run into a report of corruption.
+        make_staged("clinic01-0001-front", seed=1)
+        assert run(tmp_path) == 0
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        (dest / ".DS_Store").write_bytes(b"\x00\x01Finder")
+
+        assert run(tmp_path) == 0
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "already-emitted"
+
+    def test_an_emitted_pair_under_another_extension_is_still_a_re_run(
+        self, tmp_path, make_staged
+    ):
+        # Finished pairs are stored as .jpg, .jpeg, .png or .webp depending on
+        # the clinic, so the same bytes under another name is the same pair.
+        staged = make_staged("clinic01-0001-front", seed=1)
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        dest.mkdir(parents=True)
+        (dest / "before.jpeg").write_bytes((staged / "before.jpg").read_bytes())
+        (dest / "after.png").write_bytes((staged / "after.jpg").read_bytes())
+        (dest / "meta.json").write_bytes((staged / "meta.json").read_bytes())
+
+        assert run(tmp_path) == 0
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "already-emitted"
+
+    @pytest.mark.parametrize("missing", ["before.jpg", "after.jpg", "meta.json"])
+    def test_a_half_written_corpus_pair_is_not_mistaken_for_a_re_run(
+        self, tmp_path, make_staged, missing
+    ):
+        staged = make_staged("clinic01-0001-front", seed=1)
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        dest.mkdir(parents=True)
+        for name in ("before.jpg", "after.jpg", "meta.json"):
+            if name != missing:
+                (dest / name).write_bytes((staged / name).read_bytes())
+
+        assert run(tmp_path) == 1
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
+        assert not (dest / missing).exists()
 
     def test_a_corpus_pair_that_differs_is_a_loud_failure(self, tmp_path, make_staged, capsys):
         # A destination that is NOT the staged pair is a real conflict: someone
