@@ -488,6 +488,157 @@ def test_influx_swiper_marina_narrative_specs():
     assert specs.age == 43
     assert specs.height == "5'7" and specs.weight_lbs == 123
     assert specs.left_cc == 255 and specs.right_cc == 255
+    # A narrative is prose, not a spec chart: it must keep flowing to summary
+    # (that is what parse_fill_volumes() reads), and it must not be mined for
+    # placement/incision even when, as here, it names one.
+    assert specs.summary.startswith("This 43 yr old")
+    assert specs.placement is None and specs.incision is None
+
+
+# ---------------------------------------------------------------------------
+# influx_swiper: the three patient-details layouts the Influx template emits.
+# Fixtures carry the verbatim spec block of the named lakeshore case.
+# ---------------------------------------------------------------------------
+
+
+def test_influx_swiper_bare_value_layout_recovers_specs():
+    """Bug A: every spec is its own unlabelled <p>, so nothing had a label."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_62.html"), "62", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc == 400 and specs.right_cc == 400
+    assert specs.placement == "submuscular"
+    assert specs.incision == "inframammary"
+    # The labelled placeholders the same block still prints carry no value and
+    # must not be the only thing recovered.
+    assert specs.fields == {}
+    assert specs.summary == "Breast Augmentation with Silicone Implants"
+    # 'Height#: n/a'/'Weight#: n/a': undocumented stays undocumented.
+    assert specs.height == "" and specs.weight_lbs is None
+    assert specs.height_cm is None and specs.weight_kg is None
+
+
+def test_influx_swiper_bare_value_layout_sided_volume_and_frame():
+    """Bug A + D: a bare volume line keeps the sides the clinic wrote."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_98.html"), "98", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    # 'R-450cc, L-485cc'
+    assert specs.left_cc == 485 and specs.right_cc == 450
+    assert sg.volume_cc(specs) == 468
+    assert specs.height == "5'8" and specs.weight_lbs == 131
+    assert specs.height_cm == 172.7 and specs.weight_kg == 59.4
+    assert specs.fields == {"Patient#": "207"}
+
+
+def test_influx_swiper_single_paragraph_layout_recovers_volume():
+    """Bug B: the whole block sits inside one wrapper <p>."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_124.html"), "124", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc == 345 and specs.right_cc == 345
+    assert specs.fields["Implant volume"] == "345cc"
+    assert specs.fields["Procedure"] == "Breast augmentation"
+    assert specs.age == 32 and specs.height == "5'2\"" and specs.weight_lbs == 128
+    assert specs.shape == "round" and specs.profile == "moderate"
+    assert specs.placement == "submuscular" and specs.incision == "inframammary"
+
+
+def test_influx_split_fields_reads_every_label_in_one_string():
+    """Bug B at the level it actually bites: one string, many labels.
+
+    partition(': ') splits once, so 'Procedure' used to absorb the rest of the
+    block and the 'Implant volume' lookup missed a number that was right there.
+    Verbatim flattened text of lakeshore case 124.
+    """
+    line = ("Procedure: Breast augmentation Implant Type: Silicone "
+            "Implant volume: 345cc Implant Cohesivity: Natrelle Inspira "
+            "Responsive Implant Implant Profile: Moderate Profile "
+            "Implant Texture: Smooth Implant Shape: Round "
+            "Implant Placement: Submuscular Incision: Inframammary "
+            "Age: 32 Height: 5'2\" Weight: 128 "
+            "Procedure Description: Breast augmentation with silicone breast implants")
+    fields, leftover = sg._influx_split_fields(line)
+    assert leftover == ""
+    assert dict(fields)["Implant volume"] == "345cc"
+    assert dict(fields)["Implant Placement"] == "Submuscular"
+    assert dict(fields)["Procedure"] == "Breast augmentation"
+    assert dict(fields)["Procedure Description"] == (
+        "Breast augmentation with silicone breast implants")
+
+
+def test_influx_split_fields_keeps_an_unknown_label():
+    fields, leftover = sg._influx_split_fields("Implant Warranty: 10 years")
+    assert fields == [("Implant Warranty", "10 years")]
+    assert leftover == ""
+
+
+def test_influx_swiper_bilateral_volume_averages_both_sides():
+    """Bug D: 'Implant volume: 405 cc (left side), 445 cc (right side)'."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_04.html"), "04", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc == 405 and specs.right_cc == 445
+    assert sg.volume_cc(specs) == 425  # the schema's average, not the left side
+    assert "asymmetric volumes (left 405cc, right 445cc)" in sg.build_notes(specs, None)
+
+
+def test_influx_swiper_unitless_bilateral_volume_stays_unread():
+    """Bug C is out of scope and must not drift: '339 & 371' has no unit.
+
+    Reading it as cc is an inference; only the captain may authorise it. The
+    rest of the case's specs are still recovered.
+    """
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_71.html"), "71", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc is None and specs.right_cc is None
+    assert sg.volume_cc(specs) is None
+    assert specs.profile == "moderate"
+    assert specs.placement == "submuscular" and specs.incision == "inframammary"
+    assert specs.height == "5'7" and specs.weight_lbs == 130
+
+
+def test_influx_swiper_labelled_layout_gains_only_chart_fields():
+    """The majority layout is untouched apart from the new chart metadata."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_01.html"), "01", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc == 445 and specs.right_cc == 445
+    assert specs.height_cm == 160.0 and specs.weight_kg == 59.0
+    assert specs.placement is None and specs.incision is None
+
+
+@pytest.mark.parametrize("height,expected", [
+    ("5'3", 160.0),
+    ("5'10", 177.8),
+    ("5'2\"", 157.5),
+    ("5’5", 165.1),
+    ("", None),
+    ("n/a", None),
+    ("5.0” - 5.5”", None),  # sixsurgery publishes a bucket, not a height
+    ("130", None),          # no unit documented
+])
+def test_height_to_cm(height, expected):
+    assert sg.height_to_cm(height) == expected
+
+
+def test_build_meta_carries_chart_fields():
+    specs = sg.CaseSpecs(shape="round", left_cc=405.0, right_cc=445.0,
+                         placement="submuscular", incision="inframammary",
+                         height_cm=165.1, weight_kg=65.8)
+    meta = sg.build_meta("lakeshore-04-front", "front", specs, {}, {}, None,
+                         "lakeshore-agreement-2026-08")
+    assert meta["volume_cc"] == 425
+    assert meta["placement"] == "submuscular"
+    assert meta["incision"] == "inframammary"
+    assert meta["height_cm"] == 165.1 and meta["weight_kg"] == 65.8
+
+
+def test_build_meta_omits_undocumented_chart_fields():
+    meta = sg.build_meta("clinic-01-front", "front", sg.CaseSpecs(shape="round"),
+                         {}, {}, None, "clinic-agreement-2026-08")
+    assert not {"placement", "incision", "height_cm", "weight_kg"} & set(meta)
 
 
 def test_austinweston_parse_case_excludes_thumbs_mobile():
