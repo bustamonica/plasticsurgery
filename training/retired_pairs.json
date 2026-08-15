@@ -1,5 +1,5 @@
 {
-  "_comment": "Pair ids that must never reach the finished corpus. Read by training/scripts/emit_corpus.py. Enumerated, not rule-derived, so a later change to a staging tree cannot silently widen a captain ruling.",
+  "_comment": "Pair ids that must never reach the finished corpus. Read by training/scripts/emit_corpus.py. Enumerated, not rule-derived, so a later change to a staging tree cannot silently widen a captain ruling. Gates the emit path only: an entry keeps a pair from being carried out of staging/ and does NOT remove one already in the finished corpus tree - that takes a change to the tree itself.",
   "retired_laterality": {
     "ruling": "captain, 2026-08-15",
     "evidence": "~/firstmate/data/ba-viz-laterality-audit/report.md",

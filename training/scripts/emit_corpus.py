@@ -61,7 +61,11 @@ widen or narrow a ruling the captain made over a fixed set of pairs.
 The registry is the sole authority on a retirement, and it is keyed by pair id
 alone rather than by clinic, so a ruling holds however `--clinic` is spelled.
 Deleting an id from the registry is therefore sufficient to let the pair emit
-again. Adding a *class* of withholding is not a data-only edit: a section this
+again. It gates this stage and only this stage: an entry keeps a pair from being
+carried out of `staging/`, and has no effect on a pair already sitting in the
+finished tree - nothing here reads that tree looking for pairs to withdraw, so
+removing one takes a change to the corpus tree itself. Do not read a registry
+entry as a statement that the pair is absent from every count. Adding a *class* of withholding is not a data-only edit: a section this
 stage does not know stops the run rather than being read as "no retirements"
 (see `load_registry`).
 

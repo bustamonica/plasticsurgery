@@ -131,8 +131,9 @@ variant the clinic uses (a script overlay can look different on a light vs
 dark backdrop and still be the same mark).
 
 Measured cost - heavenly, universal, on-body, across two backdrop families,
-and all 119 of its pairs excluded (which clinic carries which mark, and the
-verdict on each, is `training/clinic_watermarks.md`):
+and all 119 of its pairs ruled unusable (which clinic carries which mark, the
+verdict on each, and whether that verdict is actually enforced on disk, is
+`training/clinic_watermarks.md`):
 
 - Masking the watermark band (`masked_regions`, `dataset_schema.json`) is
   the correct, honest fix - but the band covers the breasts on essentially
