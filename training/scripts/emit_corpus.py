@@ -286,16 +286,22 @@ def main(argv: list[str] | None = None) -> int:
 
     withheld = load_registry(args.registry)
     quarantine_held = quarantined_ids(args.quarantine)
-    pair_folders = sorted(p.parent for p in args.staging.glob("*/meta.json"))
+    # Every pair directory, not just the ones carrying meta.json: ingest.py
+    # copies meta.json last, so an interrupted ingest leaves a pair without one,
+    # and that has to read as invalid-meta in the report rather than vanish from
+    # the arithmetic.
+    pair_folders = sorted(p for p in args.staging.glob("*") if p.is_dir())
     if not pair_folders:
         print(f"No staged pairs under {args.staging} - run ingest.py first")
         return 1
 
-    # Pair ids are clinic-prefixed, so a --clinic that matches none of them is
-    # operator error, not a naming variant. Left to run it would quietly open a
-    # new clinic subdirectory in the finished tree that nothing can undo: the
-    # never-overwrite guard cannot fire on destinations that are all new.
-    if not any(folder.name.startswith(args.clinic) for folder in pair_folders):
+    # Pair ids are '<clinic>-<case>-<view>', so a --clinic that matches none of
+    # them is operator error, not a naming variant. Matching up to the separator
+    # catches the dropped character as well as the added one; left to run either
+    # would quietly open a new clinic subdirectory in the finished tree that
+    # nothing can undo, since the never-overwrite guard cannot fire on
+    # destinations that are all new.
+    if not any(folder.name.startswith(f"{args.clinic}-") for folder in pair_folders):
         observed = sorted({folder.name.split("-")[0] for folder in pair_folders})
         print(
             f"--clinic '{args.clinic}' matches no staged pair id under {args.staging} "

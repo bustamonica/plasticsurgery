@@ -25,7 +25,7 @@ from PIL import Image
 
 import emit_corpus
 from conftest import make_torso
-from ingest import MIN_DIMENSION
+from ingest import MIN_DIMENSION, VALID_VIEWS
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
 CALIBRATED = {
@@ -93,6 +93,16 @@ def run(tmp_path, clinic="clinic01", quarantine=None, extra=(), staging=None, re
     if quarantine is not None:
         argv += ["--quarantine", str(quarantine)]
     return emit_corpus.main(argv + list(extra))
+
+
+def view_of(pair_id: str) -> str:
+    """The pair id's own view, by suffix rather than by segment position.
+
+    Some ids carry an extra case segment (`sanantonio-23818-2-side-right`), so
+    counting segments would build metadata the ingest schema rejects and the
+    fixture would no longer be an otherwise-emittable pair.
+    """
+    return next(view for view in VALID_VIEWS if pair_id.endswith(f"-{view}"))
 
 
 def dispositions(tmp_path, report=None) -> dict[str, str]:
@@ -192,7 +202,7 @@ class TestRetiredPairsNeverEmit:
                 make_staged(
                     pair_id,
                     staging=staging,
-                    view="-".join(pair_id.split("-")[2:]),
+                    view=view_of(pair_id),
                     size=(MIN_DIMENSION, MIN_DIMENSION),
                     seed=1000 + index * 100,
                 )
@@ -391,15 +401,31 @@ class TestEmit:
         assert rows["clinic01-0002-front"] == "pending"
         assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
 
+    @pytest.mark.parametrize("clinic", ["sanantonio-2026", "sanantoni", "sanantonios"])
     def test_a_clinic_argument_matching_no_staged_pair_is_refused(
-        self, tmp_path, make_staged, capsys
+        self, tmp_path, make_staged, capsys, clinic
     ):
         # A typo would silently open a new clinic subtree in the finished corpus
-        # that the never-overwrite guard cannot catch and nothing may undo.
+        # that the never-overwrite guard cannot catch and nothing may undo. A
+        # dropped character is as likely as an added one, so the match runs to
+        # the id separator rather than being a bare prefix.
         make_staged("sanantonio-00001-front")
-        assert run(tmp_path, clinic="sanantonio-2026") == 1
+        assert run(tmp_path, clinic=clinic) == 1
         assert not (tmp_path / "corpus").exists()
         assert "observed prefix: sanantonio" in capsys.readouterr().out
+
+    def test_a_staged_pair_without_meta_is_reported_not_skipped(self, tmp_path, make_staged):
+        # ingest.py copies meta.json last, so an interrupted ingest leaves the
+        # images alone in the pair directory. --report enumerates every staged
+        # pair, so that one has to read as invalid-meta rather than vanish.
+        make_staged("clinic01-0001-front", seed=1)
+        half_ingested = make_staged("clinic01-0002-front", seed=2)
+        (half_ingested / "meta.json").unlink()
+
+        run(tmp_path)
+        rows = dispositions(tmp_path)
+        assert rows == {"clinic01-0001-front": "emit", "clinic01-0002-front": "invalid-meta"}
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
 
     def test_empty_staging_is_an_error(self, tmp_path):
         (tmp_path / "staging").mkdir()
