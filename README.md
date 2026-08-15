@@ -8,8 +8,9 @@ realistic before & after preview with a comparison slider.
 Two of those options, the **teardrop** shape and the **extra-high** profile,
 are hidden by default because the training corpus does not yet back them.
 Set `NEXT_PUBLIC_ENABLE_UNBACKED_IMPLANT_OPTIONS=true` (see `.env.example`) and
-rebuild to offer them again; until then the configurator and `/api/generate`
-both reject them.
+rebuild to offer them again. Until then the configurator hides them (with round
+the only shape left, the shape picker shows it as fixed rather than as a
+choice), and `/api/generate` rejects them with a 400.
 
 Built with Next.js 15 (App Router), React 19, TypeScript and Tailwind CSS 4.
 
