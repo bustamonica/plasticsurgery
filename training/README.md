@@ -25,7 +25,8 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   redundancy is deliberate. It does **not** detect or blur faces: the consented
   clinics guarantee that no faces appear in what they publish, and the captain
   holds that assurance (ruling 2026-08-14). The model only needs the chest
-  region.
+  region. `emit_corpus.py` is not a way around this: it re-encodes nothing, so
+  it verifies instead and refuses to carry an image that still holds EXIF.
 - Metadata stripping is not theoretical. A scan of all 5656 corpus images found
   36 carrying EXIF, including `harrington-177-front`, whose images carry the
   camera make and model and 2020 capture timestamps.
@@ -155,9 +156,9 @@ guarantee that the optional chart/frame fields never reach a caption), caption
 assembly with its `clothing` variants, the censorship detector, the emit stage
 and its retirements (`retired_pairs.json` is asserted directly - count, shape
 and named exceptions - and again through the only code that can put a pair in
-the corpus), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's tests draw their own torsos -
-no patient imagery is ever committed. Two of them reference the real corpus by
-path and skip when it is not mounted.
+the corpus), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's
+tests draw their own torsos - no patient imagery is ever committed. Two of them
+reference the real corpus by path and skip when it is not mounted.
 
 ## Training on RunPod
 

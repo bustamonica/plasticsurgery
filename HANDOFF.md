@@ -18,7 +18,8 @@ Two tracks exist in this repo:
    Gemini image model (`app/api/generate/route.ts`).
 2. **The custom-model track** (`training/`) — tooling to eventually replace
    Gemini with our own model, fine-tuned on consented clinic before/after
-   photos. The pipeline is built; no real data has been processed yet.
+   photos. The pipeline is built and consented clinic photos are flowing
+   through it into the finished corpus tree; no training run has happened yet.
 
 ## State of the website: DONE and verified
 
@@ -42,7 +43,7 @@ Run it: `npm install && npm run dev` → http://localhost:3000. Real AI
 previews: put a key in `.env.local` (`GEMINI_API_KEY=...`, free at
 https://aistudio.google.com/apikey). See `README.md`.
 
-## State of the training track: TOOLING DONE, awaiting real data
+## State of the training track: TOOLING DONE, corpus being collected
 
 Decisions made (rationale in `training/README.md`):
 
@@ -55,6 +56,9 @@ Built and tested on synthetic data:
 
 - `training/scripts/ingest.py` — validates clinic deliveries; **rejects any
   pair without a `consent_ref`**; strips EXIF/GPS; dedupes; size checks.
+- `training/scripts/emit_corpus.py` - carries one clinic's staged pairs
+  through to the finished corpus tree, the only tree that counts; withheld
+  pairs are quarantined per `training/retired_pairs.json`, never deleted.
 - `training/scripts/deidentify.py` — strips EXIF/GPS by re-encoding every
   image (optional top-crop); no face detection, per the clinics' guarantee
   that none is published (captain ruling 2026-08-14); mandatory visual
