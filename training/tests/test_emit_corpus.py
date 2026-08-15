@@ -171,6 +171,52 @@ class TestRetirementRegistry:
         assert len(ids) == len(set(ids))
 
 
+class TestRegistryIsReadFailClosed:
+    """A registry this stage cannot fully read must stop it, not open the gate."""
+
+    def test_the_committed_registry_withholds_every_ruled_pair(self, registry):
+        withheld = emit_corpus.load_registry(REGISTRY)
+        retired = {
+            p for pairs in registry["retired_laterality"]["pairs"].values() for p in pairs
+        }
+        assert len(retired) == 176
+        assert all(withheld.get(p) == "retired-laterality" for p in retired)
+        assert withheld["sanantonio-24007-oblique-right"] == "withheld-contested"
+
+    def test_an_unrecognised_ruling_stops_the_run(self, tmp_path, make_staged):
+        # The next edit to this file is expected to add a withheld class. Read
+        # as "no retirements", it would emit the very pairs the ruling names.
+        pair_id = "sanantonio-90001-oblique-left"
+        make_staged(pair_id, view="oblique-left")
+        edited = json.loads(REGISTRY.read_text())
+        edited["retired_view_labels"] = {"pairs": {"sanantonio": [pair_id]}}
+        registry_path = tmp_path / "retired_pairs.json"
+        registry_path.write_text(json.dumps(edited))
+
+        with pytest.raises(ValueError, match="retired_view_labels"):
+            run(tmp_path, clinic="sanantonio", extra=["--registry", str(registry_path)])
+        assert not (tmp_path / "corpus").exists()
+
+    @pytest.mark.parametrize("break_it", ["drop-section", "drop-pairs", "typo-key"])
+    def test_a_section_this_stage_cannot_read_stops_the_run(
+        self, tmp_path, make_staged, break_it
+    ):
+        make_staged("sanantonio-90002-front")
+        edited = json.loads(REGISTRY.read_text())
+        if break_it == "drop-section":
+            del edited["withheld_contested"]
+        elif break_it == "drop-pairs":
+            del edited["retired_laterality"]["pairs"]
+        else:
+            edited["retired_lateralty"] = edited.pop("retired_laterality")
+        registry_path = tmp_path / "retired_pairs.json"
+        registry_path.write_text(json.dumps(edited))
+
+        with pytest.raises(ValueError):
+            run(tmp_path, clinic="sanantonio", extra=["--registry", str(registry_path)])
+        assert not (tmp_path / "corpus").exists()
+
+
 class TestRetiredPairsNeverEmit:
     """The acceptance criterion, exercised through the only code that can emit."""
 
@@ -400,8 +446,8 @@ class TestEmit:
     def test_an_emitted_pair_under_another_extension_is_still_a_re_run(
         self, tmp_path, make_staged
     ):
-        # Finished pairs are stored as .jpg, .jpeg, .png or .webp depending on
-        # the clinic, so the same bytes under another name is the same pair.
+        # The same bytes filed under another name are the same pair. A pair
+        # genuinely re-encoded into another format is not, and stays a conflict.
         staged = make_staged("clinic01-0001-front", seed=1)
         dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
         dest.mkdir(parents=True)

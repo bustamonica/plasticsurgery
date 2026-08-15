@@ -61,7 +61,9 @@ widen or narrow a ruling the captain made over a fixed set of pairs.
 The registry is the sole authority on a retirement, and it is keyed by pair id
 alone rather than by clinic, so a ruling holds however `--clinic` is spelled.
 Deleting an id from the registry is therefore sufficient to let the pair emit
-again.
+again. Adding a *class* of withholding is not a data-only edit: a section this
+stage does not know stops the run rather than being read as "no retirements"
+(see `load_registry`).
 
 Retiring is not deleting. The staged pair stays where it is, and `--quarantine`
 records a copy under the corpus quarantine convention
@@ -98,6 +100,14 @@ QUARANTINE_DIRS = {
     "withheld-contested": "withheld-contested",
 }
 
+# The withheld classes this stage knows how to honour: registry section -> the
+# disposition and quarantine subdirectory a pair in it is given.
+REGISTRY_SECTIONS = {
+    "retired_laterality": "retired-laterality",
+    "withheld_contested": "withheld-contested",
+}
+REGISTRY_PREAMBLE = ("_comment",)
+
 
 def load_registry(path: Path) -> dict[str, str]:
     """Map pair_id -> reason for every pair the registry withholds.
@@ -106,14 +116,36 @@ def load_registry(path: Path) -> dict[str, str]:
     clinic-prefixed, so a misspelled or variant `--clinic` cannot quietly let a
     retired pair through. A duplicate id would make that assumption false, so it
     is refused here rather than silently collapsed.
+
+    Fail-closed on a registry this stage cannot fully read. Both known sections
+    must be present with their `pairs` mapping, and an unrecognised top-level
+    section stops the run: reading it as "no retirements" would emit the very
+    pairs a ruling names, into a tree nothing can undo. The cost, taken
+    deliberately, is that adding a withheld class is a code change here and not
+    a data-only edit.
     """
     data = json.loads(path.read_text())
+
+    unknown = sorted(set(data) - set(REGISTRY_SECTIONS) - set(REGISTRY_PREAMBLE))
+    if unknown:
+        raise ValueError(
+            f"{path}: unrecognised section(s) {', '.join(unknown)}. This stage only "
+            f"honours {', '.join(REGISTRY_SECTIONS)}; a new withheld class has to be "
+            "added to REGISTRY_SECTIONS in emit_corpus.py (and given a quarantine "
+            "subdirectory in QUARANTINE_DIRS) before its pairs are withheld. Refusing "
+            "to run rather than emit pairs a ruling names."
+        )
+
     withheld: dict[str, str] = {}
-    for reason, section in (
-        ("retired-laterality", data.get("retired_laterality", {})),
-        ("withheld-contested", data.get("withheld_contested", {})),
-    ):
-        for pairs in section.get("pairs", {}).values():
+    for key, reason in REGISTRY_SECTIONS.items():
+        section = data.get(key)
+        if not isinstance(section, dict) or not isinstance(section.get("pairs"), dict):
+            raise ValueError(
+                f"{path}: section '{key}' is missing or carries no 'pairs' mapping. "
+                "Every known withheld class must be readable before this stage can "
+                "gate on the registry at all."
+            )
+        for pairs in section["pairs"].values():
             for pair_id in pairs:
                 if pair_id in withheld:
                     raise ValueError(
@@ -226,13 +258,18 @@ def pair_matches(folder: Path, dest: Path) -> bool:
 
     All three files must be present and byte-identical; a missing half or a
     changed byte is a conflict rather than a re-run. Anything *else* in the
-    destination directory is ignored, and the images are matched by stem rather
-    than by extension - the finished tree stores them as `.jpg`, `.jpeg`, `.png`
-    and `.webp` depending on the clinic. This recognition exists to let a
+    destination directory is ignored: this recognition exists to let a
     legitimate re-run succeed, so it must not be defeated by a `.DS_Store`
-    Finder drops into a pair directory: that would report real corruption where
+    Finder drops into a pair directory - that would report real corruption where
     there is none. The cost, taken knowingly, is that an unexpected extra file
     in a finished pair is not this script's to surface.
+
+    Matching the images by stem recognises the SAME BYTES filed under any
+    extension, nothing more. A finished pair genuinely stored in another format
+    (`.png`, `.webp`, or a re-encoded `.jpeg`) is a different encoding of the
+    photograph and cannot be byte-identical to the staged JPEG, so re-emitting
+    one reports as differing rather than as already emitted - deliberately, since
+    byte equality is the only check here that catches real corruption.
     """
     for stem in ("before", "after"):
         found = [p for p in dest.glob(f"{stem}.*") if p.is_file()]
