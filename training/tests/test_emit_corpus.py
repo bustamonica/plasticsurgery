@@ -311,13 +311,49 @@ class TestEmit:
         assert not (tmp_path / "corpus").exists()
 
     def test_report_enumerates_every_staged_pair_exactly_once(self, tmp_path, make_staged):
-        make_staged("clinic01-0001-front")
-        make_staged("clinic01-0002-front")
-        make_staged("sanantonio-24021-oblique-right")
+        make_staged("clinic01-0001-front", seed=1)
+        make_staged("sanantonio-00000-front", seed=2)
+        make_staged("sanantonio-24021-oblique-right", seed=3)
         run(tmp_path, clinic="sanantonio")
+        assert dispositions(tmp_path) == {
+            "clinic01-0001-front": "other-clinic",
+            "sanantonio-00000-front": "emit",
+            "sanantonio-24021-oblique-right": "retired-laterality",
+        }
+
+    def test_another_clinics_staged_pairs_are_never_written_under_this_clinic(
+        self, tmp_path, make_staged, capsys
+    ):
+        # ingest.py stages every clinic into one flat tree, so --clinic has to
+        # decide per pair. Misfiling one is unrecoverable: the never-overwrite
+        # guard cannot fire on a destination that is new, and nothing under
+        # raw/ or staging/ may be deleted to reconstruct the correct state.
+        make_staged("clinic01-0001-front", seed=1)
+        make_staged("clinic01-0002-front", seed=2)
+        make_staged("sanantonio-00000-front", seed=3)
+
+        assert run(tmp_path, clinic="sanantonio") == 0
         rows = dispositions(tmp_path)
-        assert len(rows) == 3
-        assert rows["sanantonio-24021-oblique-right"] == "retired-laterality"
+        assert rows["clinic01-0001-front"] == "other-clinic"
+        assert rows["clinic01-0002-front"] == "other-clinic"
+        assert {p.name for p in (tmp_path / "corpus").iterdir()} == {"sanantonio"}
+        assert {p.name for p in (tmp_path / "corpus" / "sanantonio").iterdir()} == {
+            "sanantonio-00000-front"
+        }
+        assert "2 staged pairs skipped as another clinic's" in capsys.readouterr().out
+
+    def test_another_clinics_retired_pair_is_not_archived_under_this_clinic(
+        self, tmp_path, make_staged
+    ):
+        # The quarantine copy is written under --clinic, so a retired pair that
+        # is not this clinic's must not be archived there either.
+        make_staged("drdanielbarrett-34421-oblique-right", seed=1)
+        make_staged("sanantonio-00000-front", seed=2)
+        quarantine = tmp_path / "quarantine"
+
+        run(tmp_path, clinic="sanantonio", quarantine=quarantine)
+        assert dispositions(tmp_path)["drdanielbarrett-34421-oblique-right"] == "other-clinic"
+        assert not (quarantine / "retired-laterality" / "sanantonio").exists()
 
     def test_an_existing_corpus_pair_is_never_overwritten(self, tmp_path, make_staged):
         make_staged("clinic01-0001-front")
@@ -327,6 +363,57 @@ class TestEmit:
         assert run(tmp_path) == 1
         assert (dest / "before.jpg").read_bytes() == b"earlier emit"
         assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
+
+    def test_a_second_run_carries_the_new_pairs_and_succeeds(self, tmp_path, make_staged):
+        # Staging is append-only, so this is the normal shape of every run after
+        # the first. Already-emitted pairs are not failures and are not rewritten.
+        make_staged("clinic01-0001-front", seed=1)
+        assert run(tmp_path) == 0
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        written_at = {p.name: p.stat().st_mtime_ns for p in dest.iterdir()}
+
+        make_staged("clinic01-0002-front", seed=2)
+        assert run(tmp_path) == 0
+        assert dispositions(tmp_path) == {
+            "clinic01-0001-front": "already-emitted",
+            "clinic01-0002-front": "emit",
+        }
+        assert {p.name: p.stat().st_mtime_ns for p in dest.iterdir()} == written_at
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_a_corpus_pair_that_differs_is_a_loud_failure(self, tmp_path, make_staged, capsys):
+        # A destination that is NOT the staged pair is a real conflict: someone
+        # has to look at it, so it stays a failure however the run is re-tried.
+        staged = make_staged("clinic01-0001-front")
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        dest.mkdir(parents=True)
+        for name in ("before.jpg", "after.jpg", "meta.json"):
+            (dest / name).write_bytes(b"a different pair emitted earlier")
+
+        assert run(tmp_path) == 1
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
+        for name in ("before.jpg", "after.jpg", "meta.json"):
+            assert (dest / name).read_bytes() == b"a different pair emitted earlier"
+        assert (staged / "before.jpg").exists()
+        assert "FAIL clinic01-0001-front" in capsys.readouterr().out
+
+    def test_a_run_that_holds_every_pair_is_not_a_failure(self, tmp_path, make_staged):
+        # Nothing went wrong: the ruling held every staged pair back.
+        make_staged("sanantonio-24021-oblique-right", seed=1)
+        make_staged("sanantonio-24143-side-left", seed=2)
+        assert run(tmp_path, clinic="sanantonio") == 0
+
+    def test_dry_run_predicts_what_the_real_run_will_do(self, tmp_path, make_staged):
+        make_staged("clinic01-0001-front", seed=1)
+        run(tmp_path)
+        make_staged("clinic01-0002-front", seed=2)
+
+        assert run(tmp_path, extra=["--dry-run"]) == 0
+        assert dispositions(tmp_path) == {
+            "clinic01-0001-front": "already-emitted",
+            "clinic01-0002-front": "emit",
+        }
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
 
     def test_a_clash_still_leaves_a_report_of_what_was_written(self, tmp_path, make_staged):
         # The corpus tree is the audit surface: a run that stops short must

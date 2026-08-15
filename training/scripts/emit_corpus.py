@@ -28,6 +28,27 @@ the full enumeration - one row per staged pair, emitted or not. A row reads
 landed rather than claiming pairs that are not there. Nothing under `staging/`
 is read destructively, moved or deleted: this is a carry-through.
 
+## One clinic per run
+
+`--clinic` selects both which staged pairs are carried and where they go.
+`ingest.py` writes a flat staging tree (`<staging>/<pair_id>/`), so
+`data/staging` mixes every clinic in `data/raw`; a pair whose id does not carry
+the `--clinic` prefix is another clinic's business and is reported as
+`other-clinic` rather than emitted under this one. Skipping is never silent -
+those pairs get their own row in the report and their own line in the summary,
+because a pair that quietly goes missing is the same class of fault as a pair
+quietly overwritten. A `--clinic` that matches no staged id at all is operator
+error and the run refuses.
+
+## Re-running
+
+Staging is append-only, so the second run over a clinic mostly meets pairs it
+already carried. A destination that is byte-identical to the staged pair reads
+as `already-emitted` and is not a failure; one that exists and *differs* is a
+real conflict, reads as `emit-failed` and is said loudly. Neither is ever
+rewritten - the never-overwrite rule is absolute. `--dry-run` consults the
+destinations too, so it predicts what the real run will do.
+
 ## Retirements
 
 `retired_pairs.json` (beside `dataset_schema.json`) enumerates pair ids that
@@ -38,10 +59,9 @@ a live query over the staging tree, and a later re-annotation would silently
 widen or narrow a ruling the captain made over a fixed set of pairs.
 
 The registry is the sole authority on a retirement, and it is keyed by pair id
-alone. Pair ids are globally unique and already clinic-prefixed, so a ruling
-holds however `--clinic` is spelled; that argument only chooses the destination
-subdirectory. Deleting an id from the registry is therefore sufficient to let
-the pair emit again.
+alone rather than by clinic, so a ruling holds however `--clinic` is spelled.
+Deleting an id from the registry is therefore sufficient to let the pair emit
+again.
 
 Retiring is not deleting. The staged pair stays where it is, and `--quarantine`
 records a copy under the corpus quarantine convention
@@ -198,6 +218,32 @@ def check_pair(
     return "emit", ""
 
 
+PAIR_FILES = ("before.jpg", "after.jpg", "meta.json")
+
+
+def pair_matches(folder: Path, dest: Path) -> bool:
+    """True when the finished pair is the staged pair, byte for byte.
+
+    Anything else in the destination - a missing half, an extra file, different
+    bytes - is a conflict rather than a re-run, and is treated as one.
+    """
+    if {p.name for p in dest.iterdir()} != set(PAIR_FILES):
+        return False
+    return all((folder / name).read_bytes() == (dest / name).read_bytes() for name in PAIR_FILES)
+
+
+def emit_state(folder: Path, dest: Path) -> tuple[str, str]:
+    """Decide an eligible pair against whatever is already in the finished tree."""
+    if not dest.exists():
+        return "emit", ""
+    if pair_matches(folder, dest):
+        return "already-emitted", f"{dest} is already this pair, byte for byte"
+    return "emit-failed", (
+        f"{dest} already exists and differs from the staged pair - refusing to "
+        "overwrite a finished corpus pair"
+    )
+
+
 def copy_pair(folder: Path, dest: Path) -> None:
     """Copy a pair verbatim. Never overwrites: an existing destination aborts.
 
@@ -213,7 +259,7 @@ def copy_pair(folder: Path, dest: Path) -> None:
         )
     dest.mkdir(parents=True)
     try:
-        for name in ("before.jpg", "after.jpg", "meta.json"):
+        for name in PAIR_FILES:
             shutil.copyfile(folder / name, dest / name)
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)
@@ -223,21 +269,24 @@ def copy_pair(folder: Path, dest: Path) -> None:
 def write_pairs(
     args: argparse.Namespace, decisions: list[tuple[Path, str, str]], rows: list[dict]
 ) -> int:
-    """Copy every decided pair to its destination. Returns the failure count.
+    """Copy every decided pair to its destination. Returns the archive-failure count.
 
     A row reads "emit" only once that pair is complete on disk: a run that stops
     part-way - a clash, an IO error, a Ctrl-C - leaves a report that under-states
     what landed rather than claiming pairs that are not there. The
     never-overwrite rule is absolute: a clash costs that one pair, never the
     pair already in the finished tree.
+
+    A pair that could not be emitted says so on its own row, so only the
+    quarantine archive - which keeps the ruling as its disposition - has a
+    failure to count here.
     """
-    failures = 0
+    archive_failures = 0
     for (folder, disposition, _), row in zip(decisions, rows):
         if disposition == "emit":
             try:
                 copy_pair(folder, args.corpus / args.clinic / folder.name)
             except OSError as e:
-                failures += 1
                 row["disposition"] = "emit-failed"
                 row["detail"] = str(e)
                 print(f"FAIL {folder.name}: not emitted - {e}")
@@ -254,17 +303,22 @@ def write_pairs(
         try:
             copy_pair(folder, dest)
         except OSError as e:
-            failures += 1
+            archive_failures += 1
             row["detail"] = f"{row['detail']} (quarantine copy failed: {e})"
             print(f"FAIL {folder.name}: held but not archived - {e}")
-    return failures
+    return archive_failures
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("staging", type=Path, help="Clinic's staging directory")
+    parser.add_argument("staging", type=Path, help="Staging directory to carry pairs from")
     parser.add_argument("corpus", type=Path, help="Root of the finished corpus tree")
-    parser.add_argument("--clinic", required=True, help="Clinic name (the corpus subdirectory)")
+    parser.add_argument(
+        "--clinic",
+        required=True,
+        help="Clinic name: carries only staged pairs whose id starts with it, "
+        "into that subdirectory of the corpus",
+    )
     parser.add_argument(
         "--registry",
         type=Path,
@@ -301,7 +355,8 @@ def main(argv: list[str] | None = None) -> int:
     # would quietly open a new clinic subdirectory in the finished tree that
     # nothing can undo, since the never-overwrite guard cannot fire on
     # destinations that are all new.
-    if not any(folder.name.startswith(f"{args.clinic}-") for folder in pair_folders):
+    prefix = f"{args.clinic}-"
+    if not any(folder.name.startswith(prefix) for folder in pair_folders):
         observed = sorted({folder.name.split("-")[0] for folder in pair_folders})
         print(
             f"--clinic '{args.clinic}' matches no staged pair id under {args.staging} "
@@ -314,21 +369,35 @@ def main(argv: list[str] | None = None) -> int:
     decisions: list[tuple[Path, str, str]] = []
     rows: list[dict[str, str]] = []
     for folder in pair_folders:
-        disposition, detail = check_pair(folder, withheld, quarantine_held, seen_hashes)
+        # ingest.py stages every clinic into one flat tree, so the prefix decides
+        # per pair whether this run owns it at all. Another clinic's pair is not
+        # a rejection and is never written under this --clinic; it is carried by
+        # that clinic's own run.
+        if not folder.name.startswith(prefix):
+            disposition, detail = "other-clinic", f"not a {args.clinic} pair id"
+        else:
+            disposition, detail = check_pair(folder, withheld, quarantine_held, seen_hashes)
+            if disposition == "emit":
+                disposition, detail = emit_state(
+                    folder, args.corpus / args.clinic / folder.name
+                )
+
         decisions.append((folder, disposition, detail))
         reported = "pending" if disposition == "emit" and not args.dry_run else disposition
         rows.append({"pair_id": folder.name, "disposition": reported, "detail": detail})
-        if disposition != "emit":
+        if disposition == "emit-failed":
+            print(f"FAIL {folder.name}: {detail}")
+        elif disposition not in ("emit", "other-clinic"):
             print(f"HOLD {folder.name}: {disposition} - {detail}")
 
     # The corpus tree is the audit surface, so whatever this run writes must be
     # recorded even when it stops early: the report and the summary are written
     # from `rows` in the finally block, and a pair that could not be written is
     # rewritten there as its own disposition rather than raising out of main.
-    failures = 0
+    archive_failures = 0
     try:
         if not args.dry_run:
-            failures = write_pairs(args, decisions, rows)
+            archive_failures = write_pairs(args, decisions, rows)
     finally:
         if args.report:
             args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -341,13 +410,19 @@ def main(argv: list[str] | None = None) -> int:
         for row in rows:
             counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
         emitted = counts.get("emit", 0)
+        skipped = counts.get("other-clinic", 0)
+        failed = counts.get("emit-failed", 0) + archive_failures
         print(f"\n{args.clinic}: {len(pair_folders)} staged")
         for disposition, count in sorted(counts.items(), key=lambda kv: -kv[1]):
             print(f"  {count:4d}  {disposition}")
         where = "would emit" if args.dry_run else f"-> {args.corpus / args.clinic}"
         print(f"{emitted} emitted ({where})")
+        if skipped:
+            print(f"{skipped} staged pairs skipped as another clinic's - run them under theirs")
+        if failed:
+            print(f"{failed} failures - see the rows above")
 
-    return 0 if emitted > 0 and not failures else 1
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
