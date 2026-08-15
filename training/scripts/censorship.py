@@ -310,8 +310,9 @@ def detect_censorship(image: np.ndarray) -> list[str]:
         return []
     skin = skin_mask(image)
     if skin.sum() < MIN_SKIN_FRACTION * skin.size:
-        # Not enough visible body to reason about; the size and de-identification
-        # gates own this case.
+        # Not enough visible body to reason about; `ingest.py`'s size gate and
+        # the human visual audit own this case. De-identification does not: it
+        # only strips metadata and never rejects on what the frame shows.
         return []
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
     body = body_silhouette(skin)

@@ -67,8 +67,8 @@ Built and tested on synthetic data:
   clinics.
 
 Governance already enforced by tooling: photo directories are gitignored
-(nothing sensitive can be committed), consent references are mandatory,
-de-identification is default-on.
+(nothing sensitive can be committed), consent references are mandatory, and
+de-identification strips metadata from every image it writes, with no opt-out.
 
 ## What's left (in rough order)
 
