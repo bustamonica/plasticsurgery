@@ -22,8 +22,11 @@ faces appear in what they publish and the captain holds that assurance (ruling
 existed.
 
 Every pair is admitted or refused for one recorded reason, and `--report` writes
-the full enumeration - one row per staged pair, emitted or not. Nothing under
-`staging/` is read destructively, moved or deleted: this is a carry-through.
+the full enumeration - one row per staged pair, emitted or not. A row reads
+`emit` only once that pair is complete in the finished tree; one still reading
+`pending` was decided but never written, so an interrupted run under-states what
+landed rather than claiming pairs that are not there. Nothing under `staging/`
+is read destructively, moved or deleted: this is a carry-through.
 
 ## Retirements
 
@@ -196,43 +199,56 @@ def check_pair(
 
 
 def copy_pair(folder: Path, dest: Path) -> None:
-    """Copy a pair verbatim. Never overwrites: an existing destination aborts."""
+    """Copy a pair verbatim. Never overwrites: an existing destination aborts.
+
+    The pair lands whole or not at all. `mkdir()` without `exist_ok` succeeding
+    proves the directory did not exist before this call, so tearing it down when
+    a copy fails part-way can only remove what this call itself wrote - the
+    finished corpus tree is never left holding half a pair, which a walk over
+    pair directories would read as a real one.
+    """
     if dest.exists():
         raise FileExistsError(
             f"{dest} already exists - refusing to overwrite a finished corpus pair"
         )
     dest.mkdir(parents=True)
-    for name in ("before.jpg", "after.jpg", "meta.json"):
-        shutil.copyfile(folder / name, dest / name)
+    try:
+        for name in ("before.jpg", "after.jpg", "meta.json"):
+            shutil.copyfile(folder / name, dest / name)
+    except BaseException:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
 
 
-def write_pairs(args: argparse.Namespace, pair_folders: list[Path], rows: list[dict]) -> int:
+def write_pairs(
+    args: argparse.Namespace, decisions: list[tuple[Path, str, str]], rows: list[dict]
+) -> int:
     """Copy every decided pair to its destination. Returns the failure count.
 
-    A pair that cannot be written is recorded in its own row and the run carries
-    on, so the report always describes what actually landed on disk. The
+    A row reads "emit" only once that pair is complete on disk: a run that stops
+    part-way - a clash, an IO error, a Ctrl-C - leaves a report that under-states
+    what landed rather than claiming pairs that are not there. The
     never-overwrite rule is absolute: a clash costs that one pair, never the
     pair already in the finished tree.
     """
-    staged = {folder.name: folder for folder in pair_folders}
     failures = 0
-    for row in rows:
-        folder = staged[row["pair_id"]]
-        disposition = row["disposition"]
+    for (folder, disposition, _), row in zip(decisions, rows):
         if disposition == "emit":
             try:
-                copy_pair(folder, args.corpus / args.clinic / row["pair_id"])
+                copy_pair(folder, args.corpus / args.clinic / folder.name)
             except OSError as e:
                 failures += 1
                 row["disposition"] = "emit-failed"
                 row["detail"] = str(e)
-                print(f"FAIL {row['pair_id']}: not emitted - {e}")
+                print(f"FAIL {folder.name}: not emitted - {e}")
+            else:
+                row["disposition"] = "emit"
             continue
 
         sub = QUARANTINE_DIRS.get(disposition)
         if not sub or not args.quarantine:
             continue
-        dest = args.quarantine / sub / args.clinic / row["pair_id"]
+        dest = args.quarantine / sub / args.clinic / folder.name
         if dest.exists():
             continue
         try:
@@ -240,7 +256,7 @@ def write_pairs(args: argparse.Namespace, pair_folders: list[Path], rows: list[d
         except OSError as e:
             failures += 1
             row["detail"] = f"{row['detail']} (quarantine copy failed: {e})"
-            print(f"FAIL {row['pair_id']}: held but not archived - {e}")
+            print(f"FAIL {folder.name}: held but not archived - {e}")
     return failures
 
 
@@ -275,11 +291,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No staged pairs under {args.staging} - run ingest.py first")
         return 1
 
+    # Pair ids are clinic-prefixed, so a --clinic that matches none of them is
+    # operator error, not a naming variant. Left to run it would quietly open a
+    # new clinic subdirectory in the finished tree that nothing can undo: the
+    # never-overwrite guard cannot fire on destinations that are all new.
+    if not any(folder.name.startswith(args.clinic) for folder in pair_folders):
+        observed = sorted({folder.name.split("-")[0] for folder in pair_folders})
+        print(
+            f"--clinic '{args.clinic}' matches no staged pair id under {args.staging} "
+            f"(observed prefix: {', '.join(observed)}) - refusing to open "
+            f"{args.corpus / args.clinic} in the finished corpus tree"
+        )
+        return 1
+
     seen_hashes: dict[str, str] = {}
+    decisions: list[tuple[Path, str, str]] = []
     rows: list[dict[str, str]] = []
     for folder in pair_folders:
         disposition, detail = check_pair(folder, withheld, quarantine_held, seen_hashes)
-        rows.append({"pair_id": folder.name, "disposition": disposition, "detail": detail})
+        decisions.append((folder, disposition, detail))
+        reported = "pending" if disposition == "emit" and not args.dry_run else disposition
+        rows.append({"pair_id": folder.name, "disposition": reported, "detail": detail})
         if disposition != "emit":
             print(f"HOLD {folder.name}: {disposition} - {detail}")
 
@@ -290,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     try:
         if not args.dry_run:
-            failures = write_pairs(args, pair_folders, rows)
+            failures = write_pairs(args, decisions, rows)
     finally:
         if args.report:
             args.report.parent.mkdir(parents=True, exist_ok=True)

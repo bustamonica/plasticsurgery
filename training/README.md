@@ -106,7 +106,12 @@ python scripts/build_dataset.py data/clean data/dataset --val-fraction 0.1
 Always `--dry-run` first and read the per-disposition counts. `emit_corpus.py`
 never overwrites an existing corpus pair - a clash is an error, not a merge: the
 pair is recorded as `emit-failed` in the report and the run exits non-zero, so a
-partial emit is always auditable from the CSV it leaves behind.
+partial emit is always auditable from the CSV it leaves behind. A pair lands
+whole or not at all, and a row reads `emit` only once it is complete in the
+finished tree; a row still reading `pending` was decided but never written, so
+an interrupted run under-states what landed rather than over-stating it. It also
+refuses outright when `--clinic` matches none of the staged pair ids, rather than
+opening a clinic subdirectory nobody meant to create.
 
 Audit `data/clean` visually before training — every image, every batch, to
 confirm the pair is actually the same patient in the same pose and that the

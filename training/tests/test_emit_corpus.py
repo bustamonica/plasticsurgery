@@ -15,6 +15,7 @@ pair in the corpus.
 
 import csv
 import json
+import shutil
 from pathlib import Path
 
 import cv2
@@ -24,6 +25,7 @@ from PIL import Image
 
 import emit_corpus
 from conftest import make_torso
+from ingest import MIN_DIMENSION
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
 CALIBRATED = {
@@ -79,22 +81,22 @@ def make_staged(tmp_path):
     return _make
 
 
-def run(tmp_path, clinic="clinic01", quarantine=None, extra=()):
+def run(tmp_path, clinic="clinic01", quarantine=None, extra=(), staging=None, report=None):
     argv = [
-        str(tmp_path / "staging"),
+        str(staging or tmp_path / "staging"),
         str(tmp_path / "corpus"),
         "--clinic",
         clinic,
         "--report",
-        str(tmp_path / "report.csv"),
+        str(report or tmp_path / "report.csv"),
     ]
     if quarantine is not None:
         argv += ["--quarantine", str(quarantine)]
     return emit_corpus.main(argv + list(extra))
 
 
-def dispositions(tmp_path) -> dict[str, str]:
-    with (tmp_path / "report.csv").open() as fh:
+def dispositions(tmp_path, report=None) -> dict[str, str]:
+    with (report or tmp_path / "report.csv").open() as fh:
         return {row["pair_id"]: row["disposition"] for row in csv.DictReader(fh)}
 
 
@@ -176,19 +178,33 @@ class TestRetiredPairsNeverEmit:
         assert dispositions(tmp_path)[pair_id] == "retired-laterality"
 
     def test_the_whole_ruling_is_held_back_at_once(self, tmp_path, make_staged, registry):
-        """Stage every one of the 176 retired ids; none may reach the corpus."""
-        for clinic, pairs in registry["retired_laterality"]["pairs"].items():
-            for pair_id in pairs:
-                (tmp_path / "staging" / pair_id).mkdir(parents=True)
-                (tmp_path / "staging" / pair_id / "meta.json").write_text("{}")
+        """Every one of the 176 retired ids, staged as an otherwise-emittable pair.
 
-        for clinic in ("sanantonio", "drdanielbarrett"):
-            make_staged(f"{clinic}-00000-front")
-            run(tmp_path, clinic=clinic)
-            emitted = {p.name for p in (tmp_path / "corpus" / clinic).iterdir()}
-            retired = set(registry["retired_laterality"]["pairs"][clinic])
-            assert not (emitted & retired)
-            assert emitted == {f"{clinic}-00000-front"}
+        Each carries valid metadata over distinct images above the size floor, so
+        the retirement gate is the only thing that can hold it back: delete that
+        check and every one of them emits. Each clinic gets its own staging tree,
+        so neither run is deciding the other's pairs.
+        """
+        for clinic, pairs in registry["retired_laterality"]["pairs"].items():
+            staging = tmp_path / f"staging-{clinic}"
+            report = tmp_path / f"report-{clinic}.csv"
+            for index, pair_id in enumerate(pairs):
+                make_staged(
+                    pair_id,
+                    staging=staging,
+                    view="-".join(pair_id.split("-")[2:]),
+                    size=(MIN_DIMENSION, MIN_DIMENSION),
+                    seed=1000 + index * 100,
+                )
+            control = f"{clinic}-00000-front"
+            make_staged(control, staging=staging, size=(MIN_DIMENSION, MIN_DIMENSION), seed=1)
+
+            run(tmp_path, clinic=clinic, staging=staging, report=report)
+
+            decided = dispositions(tmp_path, report=report)
+            assert not {p: decided[p] for p in pairs if decided[p] != "retired-laterality"}
+            assert decided[control] == "emit"
+            assert {p.name for p in (tmp_path / "corpus" / clinic).iterdir()} == {control}
 
     def test_a_retired_pair_reads_as_retired_even_if_it_would_also_fail_a_gate(
         self, tmp_path, make_staged
@@ -204,17 +220,24 @@ class TestRetiredPairsNeverEmit:
         run(tmp_path, clinic="drdanielbarrett")
         assert dispositions(tmp_path)["drdanielbarrett-90631-side-right"] == "retired-laterality"
 
-    def test_a_misspelled_clinic_argument_still_holds_the_ruling(self, tmp_path, make_staged):
-        # --clinic only chooses the destination subdirectory. Pair ids are
-        # globally unique and clinic-prefixed, so a variant spelling must not
-        # let a retired pair through into a fresh corpus subtree.
+    def test_the_registry_clinic_key_does_not_gate_the_ruling(self, tmp_path, make_staged):
+        # The lookup is keyed on the pair id, not on the clinic the registry
+        # happens to file it under: a pair retired under any key stays retired.
         pair_id = "sanantonio-24021-oblique-right"
-        make_staged(pair_id)
-        make_staged("sanantonio-00000-front")
-        run(tmp_path, clinic="sanantonio-2026")
-        assert not (tmp_path / "corpus" / "sanantonio-2026" / pair_id).exists()
+        make_staged(pair_id, view="oblique-right")
+        make_staged("sanantonio-00000-front", seed=41)
+
+        registry = json.loads(REGISTRY.read_text())
+        pairs = registry["retired_laterality"]["pairs"]
+        pairs["sanantonio"] = [p for p in pairs["sanantonio"] if p != pair_id]
+        pairs["sanantonio-2026-rescrape"] = [pair_id]
+        edited = tmp_path / "retired_pairs.json"
+        edited.write_text(json.dumps(registry))
+
+        run(tmp_path, clinic="sanantonio", extra=["--registry", str(edited)])
         assert dispositions(tmp_path)[pair_id] == "retired-laterality"
-        assert (tmp_path / "corpus" / "sanantonio-2026" / "sanantonio-00000-front").exists()
+        assert not (tmp_path / "corpus" / "sanantonio" / pair_id).exists()
+        assert (tmp_path / "corpus" / "sanantonio" / "sanantonio-00000-front").exists()
 
     def test_deleting_a_pair_from_the_registry_lets_it_emit_again(
         self, tmp_path, make_staged
@@ -318,6 +341,65 @@ class TestEmit:
         (tmp_path / "corpus" / "clinic01").write_text("not a directory")
         assert run(tmp_path) == 1
         assert dispositions(tmp_path)["clinic01-0001-front"] == "emit-failed"
+
+    def test_a_failed_copy_leaves_no_half_written_pair(
+        self, tmp_path, make_staged, monkeypatch
+    ):
+        # A pair lands whole or not at all: a corpus walk over pair directories
+        # must never meet one holding an image with no meta.json, and the fault
+        # must not make the pair permanently unemittable.
+        make_staged("clinic01-0001-front", seed=1)
+        make_staged("clinic01-0002-front", seed=2)
+        real_copyfile = shutil.copyfile
+
+        def fail_after_the_first_image(src, dst):
+            if Path(dst).name == "after.jpg" and Path(dst).parent.name == "clinic01-0002-front":
+                raise OSError(28, "No space left on device")
+            return real_copyfile(src, dst)
+
+        monkeypatch.setattr(emit_corpus.shutil, "copyfile", fail_after_the_first_image)
+        assert run(tmp_path) == 1
+        rows = dispositions(tmp_path)
+        assert rows["clinic01-0001-front"] == "emit"
+        assert rows["clinic01-0002-front"] == "emit-failed"
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+        monkeypatch.undo()
+        run(tmp_path)
+        assert dispositions(tmp_path)["clinic01-0002-front"] == "emit"
+
+    def test_an_interrupted_run_never_claims_a_pair_it_did_not_write(
+        self, tmp_path, make_staged, monkeypatch
+    ):
+        # Ctrl-C partway through: the report must under-state what landed rather
+        # than claim pairs that are not in the tree.
+        make_staged("clinic01-0001-front", seed=1)
+        make_staged("clinic01-0002-front", seed=2)
+        real_copyfile = shutil.copyfile
+
+        def interrupt_on_the_second_pair(src, dst):
+            if Path(dst).parent.name == "clinic01-0002-front":
+                raise KeyboardInterrupt
+            return real_copyfile(src, dst)
+
+        monkeypatch.setattr(emit_corpus.shutil, "copyfile", interrupt_on_the_second_pair)
+        with pytest.raises(KeyboardInterrupt):
+            run(tmp_path)
+
+        rows = dispositions(tmp_path)
+        assert rows["clinic01-0001-front"] == "emit"
+        assert rows["clinic01-0002-front"] == "pending"
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_a_clinic_argument_matching_no_staged_pair_is_refused(
+        self, tmp_path, make_staged, capsys
+    ):
+        # A typo would silently open a new clinic subtree in the finished corpus
+        # that the never-overwrite guard cannot catch and nothing may undo.
+        make_staged("sanantonio-00001-front")
+        assert run(tmp_path, clinic="sanantonio-2026") == 1
+        assert not (tmp_path / "corpus").exists()
+        assert "observed prefix: sanantonio" in capsys.readouterr().out
 
     def test_empty_staging_is_an_error(self, tmp_path):
         (tmp_path / "staging").mkdir()
