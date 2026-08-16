@@ -80,6 +80,10 @@ only keeps its pairs out of training if something on disk keeps them out too.
   `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark-staging-dup/heavenly/`
   and `.../retired-watermark-corpus-staging-dup/heavenly/` respectively (see
   the quarantine tree's `MANIFEST.md`).
+  Both new buckets are listed in `emit_corpus.py`'s `QUARANTINE_DIRS` so they
+  read as archives of the `retired_watermark` ruling rather than as holds of
+  their own - otherwise deleting heavenly from `retired_pairs.json` would free
+  only 56 of the 119, with the other 63 still pinned by a tree copy.
   **Verified now, and named precisely: zero `heavenly-*` directories in
   `clinic-corpus/heavenly/`, `clinic-corpus/_staging/`, or
   `clinic-corpus-staging/`** - every location a heavenly pair was ever found on

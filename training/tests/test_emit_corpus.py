@@ -431,6 +431,32 @@ class TestHeavenlyWatermarkRetirement:
         assert {p.name for p in held.iterdir()} == {"before.jpg", "after.jpg", "meta.json"}
         assert json.loads((held / "meta.json").read_text())["consent_ref"]
 
+    @pytest.mark.parametrize(
+        "reason",
+        ["retired-watermark-staging-dup", "retired-watermark-corpus-staging-dup"],
+    )
+    def test_the_duplicate_dump_archives_do_not_outlive_the_registry_entry(
+        self, tmp_path, make_staged, registry, reason
+    ):
+        # The 2026-08-16 pass archived 63 of the 119 into two extra buckets. An
+        # archive of a ruling must not become a second authority over it: with
+        # heavenly deleted from the registry, a pair sitting in one of those
+        # buckets has to emit like any other, not read back as `quarantined`.
+        pair_id = registry["retired_watermark"]["pairs"]["heavenly"][0]
+        make_staged(pair_id, view=view_of(pair_id))
+        quarantine = tmp_path / "quarantine"
+        (quarantine / reason / "heavenly" / pair_id).mkdir(parents=True)
+
+        edited_registry = json.loads(REGISTRY.read_text())
+        edited_registry["retired_watermark"]["pairs"]["heavenly"] = []
+        edited = tmp_path / "retired_pairs.json"
+        edited.write_text(json.dumps(edited_registry))
+
+        run(tmp_path, clinic="heavenly", quarantine=quarantine,
+            extra=["--registry", str(edited)])
+        assert dispositions(tmp_path)[pair_id] == "emit"
+        assert (tmp_path / "corpus" / "heavenly" / pair_id / "before.jpg").exists()
+
 
 class TestHeavenlyRetiredOnDisk:
     """The gap a registry entry alone cannot close: proof against the real
@@ -485,17 +511,22 @@ class TestHeavenlyRetiredOnDisk:
         # quarantine rather than discarded, even though they are provably
         # redundant with pairs already preserved elsewhere.
         heavenly_ids = set(registry["retired_watermark"]["pairs"]["heavenly"])
+        preserved = []
         for reason in ("retired-watermark-staging-dup", "retired-watermark-corpus-staging-dup"):
             held = QUARANTINE / reason / "heavenly"
-            if not held.exists():
-                pytest.skip(f"{held} not mounted")
+            # No skip here: @needs_quarantine already proved the tree is
+            # mounted, so a missing bucket means the copies were deleted, which
+            # is the exact loss this test exists to catch.
+            assert held.is_dir(), f"{held} is gone - the dump copies were not preserved"
             on_disk = {p.name for p in held.iterdir() if p.is_dir()}
-            assert on_disk, f"{held} is empty"
+            assert len(on_disk) == 63, f"{held} holds {len(on_disk)} pairs, expected 63"
             assert on_disk <= heavenly_ids, "every duplicate-dump id must be one of the 119"
+            preserved.append(on_disk)
             for pair_id in on_disk:
                 assert visible(held / pair_id) == {"before.jpg", "after.jpg", "meta.json"}
                 meta = json.loads((held / pair_id / "meta.json").read_text())
                 assert meta["consent_ref"]
+        assert preserved[0] == preserved[1], "both dumps held the same 63 ids"
 
 
 # --- Emit-stage behaviour --------------------------------------------------

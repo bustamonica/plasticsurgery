@@ -75,8 +75,8 @@ Retiring is not deleting. The staged pair stays where it is, and `--quarantine`
 records a copy under the corpus quarantine convention
 (`<quarantine>/<reason>/<clinic>/<pair_id>/`) so the images and their consent
 metadata survive with the reason attached. That copy is an archive, not a second
-authority: the retirement subdirectories this stage writes are skipped when the
-tree is read back as a hold (see `quarantined_ids`).
+authority: the retirement subdirectories are skipped when the tree is read back
+as a hold (see `quarantined_ids`).
 
 The 119 `retired_watermark` heavenly pairs are the one exception to "this stage
 is what retires a pair": they were already in the finished tree, not `staging/`,
@@ -84,7 +84,14 @@ so this script never touched them - they were moved out of
 `<corpus>/heavenly/` into `<quarantine>/retired-watermark/heavenly/` directly,
 by hand, once. The registry entry exists only to stop a future re-scrape or
 re-stage of heavenly from carrying them back in; see
-`~/firstmate/data/ba-viz-emit-backlog/quarantine/MANIFEST.md` for that move.
+`~/firstmate/data/ba-viz-emit-backlog/quarantine/MANIFEST.md` for that move. The
+same hand-move on 2026-08-16 cleared 63 of those ids out of two non-canonical
+duplicate-ingest dumps at the corpus root into
+`<quarantine>/retired-watermark-staging-dup/heavenly/` and
+`<quarantine>/retired-watermark-corpus-staging-dup/heavenly/`. Those two buckets
+are archives of the same registry entry, so they are listed in
+`QUARANTINE_DIRS` - not because this stage writes them, but so the registry
+stays the sole authority over all 119 rather than 56.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -108,11 +115,18 @@ DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
 
 # Quarantine subdirectory per retirement class, matching the existing tree at
 # ~/firstmate/data/ba-viz-emit-backlog/quarantine/ (deidentify-blur-damage/,
-# view-mislabel/).
+# view-mislabel/). Doubles as the set of buckets that are archives of a ruling
+# rather than holds in their own right, which is why the two heavenly
+# duplicate-dump buckets are listed here even though this stage never writes
+# them: their pairs are already named by `retired_pairs.json`, and reading them
+# back as unconditional holds would put 63 of the 119 beyond the registry edit
+# that is meant to undo the ruling.
 QUARANTINE_DIRS = {
     "retired-laterality": "retired-laterality",
     "withheld-contested": "withheld-contested",
     "retired-watermark": "retired-watermark",
+    "retired-watermark-staging-dup": "retired-watermark-staging-dup",
+    "retired-watermark-corpus-staging-dup": "retired-watermark-corpus-staging-dup",
 }
 
 # The withheld classes this stage knows how to honour: registry section -> the
@@ -179,11 +193,11 @@ def quarantined_ids(quarantine: Path | None) -> dict[str, str]:
     held there has been withdrawn from training by an earlier ruling and must
     not be re-emitted by this stage on its own initiative.
 
-    The retirement subdirectories this stage writes itself (`QUARANTINE_DIRS`)
-    are the exception, and are skipped: those are governed by
-    `retired_pairs.json`, so reading them back as a hold would double-count the
-    same ruling and make it irreversible by the registry edit that is meant to
-    undo it. Every other subdirectory holds unconditionally.
+    The retirement subdirectories (`QUARANTINE_DIRS`) are the exception, and are
+    skipped: those are governed by `retired_pairs.json`, so reading them back as
+    a hold would double-count the same ruling and make it irreversible by the
+    registry edit that is meant to undo it. Every other subdirectory holds
+    unconditionally.
     """
     if quarantine is None or not quarantine.exists():
         return {}
