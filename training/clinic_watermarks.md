@@ -86,9 +86,24 @@ only keeps its pairs out of training if something on disk keeps them out too.
   only 56 of the 119, with the other 63 still pinned by a tree copy.
   **Verified now, and named precisely: zero `heavenly-*` directories in
   `clinic-corpus/heavenly/`, `clinic-corpus/_staging/`, or
-  `clinic-corpus-staging/`** - every location a heavenly pair was ever found on
-  disk - and zero heavenly pairs reach `build_dataset.py`'s output when run
-  over the whole corpus.
+  `clinic-corpus-staging/`** - the finished tree plus the two duplicate-ingest
+  dumps this retirement swept, which is every corpus-tree location - and zero
+  heavenly pairs reach `build_dataset.py`'s output when run over the whole
+  corpus.
+  That claim is about the corpus trees and stops there. Outside them, 212
+  `heavenly-*` pair directories deliberately remain as the working record of
+  the clean-up attempts: 106 in `~/firstmate/data/ba-viz-heavenly-inpaint/staging/`
+  (the discredited "99.4% removed" inpaint run) and 53 each in
+  `~/firstmate/data/ba-viz-heavenly-inpaint-rerun/staging2/` and
+  `.../work/out/` (the corrected re-clean that was never run and, per the
+  retirement brief, deliberately **not promoted** - kept only as evidence,
+  pending any future captain decision to reopen heavenly).
+  They are a preserved decision, not a gap, and
+  `~/firstmate/data/report/heavenly/NO-PAIRS.md` scopes them the same way. They
+  are also the reason the registry entry is not redundant: `emit_corpus.py`
+  takes the staging tree as a positional argument, so pointing it at one of
+  those trees is an ordinary invocation, and `retired_pairs.json` is what
+  refuses it.
 - **wny**: all 10 pairs are live in the finished tree, 9 of them hanging on the
   open `wny-after-only-watermark` decision.
   Same shape, one decision away.
