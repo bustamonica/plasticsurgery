@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -5,6 +6,19 @@ import pytest
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
+
+# The consented corpus and its quarantine tree live outside the repo and are
+# never committed. Tests that touch them skip rather than fail when absent -
+# and the two trees can be absent independently, so they gate separately.
+CORPUS = Path(os.path.expanduser("~/firstmate/data/clinic-corpus"))
+QUARANTINE = Path(os.path.expanduser("~/firstmate/data/ba-viz-emit-backlog/quarantine"))
+needs_corpus = pytest.mark.skipif(
+    not CORPUS.exists(), reason="clinic corpus not mounted (it lives outside the repo)"
+)
+needs_quarantine = pytest.mark.skipif(
+    not QUARANTINE.exists(),
+    reason="quarantine tree not mounted (it lives outside the repo)",
+)
 
 
 @pytest.fixture()

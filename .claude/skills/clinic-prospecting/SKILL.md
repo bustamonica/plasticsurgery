@@ -142,9 +142,10 @@ verdict on each, and whether that verdict is actually enforced on disk, is
 - A GPU inpainting attempt cost $6.75 (RunPod, H100) and *reported* 99.4%
   removal; a visual audit of the delivered images then found **38 still
   legibly watermarked and 22 more with a partial residual**, and a third look
-  found the remainder no cleaner. Two clean-up passes, each overstating its
-  own success. See the self-measurement lesson below for why every one of
-  those metrics read optimistically.
+  found the remainder no cleaner. Three clean-up passes, each overstating its
+  own success, and the clinic was discarded outright in the end. See the
+  self-measurement lesson below for why every one of those metrics read
+  optimistically.
 - Off-body watermarks are cheap by comparison: wny's "WNY PLASTIC SURGERY"
   band sits at the bottom 9% of the after-image frame only, never touching
   the breasts, and needs no mask - but being on the *after* image alone

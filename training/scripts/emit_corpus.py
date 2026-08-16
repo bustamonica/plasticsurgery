@@ -53,7 +53,9 @@ destinations too, so it predicts what the real run will do.
 
 `retired_pairs.json` (beside `dataset_schema.json`) enumerates pair ids that
 must never reach the finished tree - currently the 176 laterality labels the
-captain retired on 2026-08-15, plus one pair withheld as contested. It is an
+captain retired on 2026-08-15, one pair withheld as contested, and all 119
+heavenly pairs the captain retired the same day for an on-body watermark that
+three clean-up passes each failed to remove. It is an
 enumeration and not a rule on purpose: a rule like "every sanantonio lateral" is
 a live query over the staging tree, and a later re-annotation would silently
 widen or narrow a ruling the captain made over a fixed set of pairs.
@@ -75,6 +77,14 @@ records a copy under the corpus quarantine convention
 metadata survive with the reason attached. That copy is an archive, not a second
 authority: the retirement subdirectories this stage writes are skipped when the
 tree is read back as a hold (see `quarantined_ids`).
+
+The 119 `retired_watermark` heavenly pairs are the one exception to "this stage
+is what retires a pair": they were already in the finished tree, not `staging/`,
+so this script never touched them - they were moved out of
+`<corpus>/heavenly/` into `<quarantine>/retired-watermark/heavenly/` directly,
+by hand, once. The registry entry exists only to stop a future re-scrape or
+re-stage of heavenly from carrying them back in; see
+`~/firstmate/data/ba-viz-emit-backlog/quarantine/MANIFEST.md` for that move.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -102,6 +112,7 @@ DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
 QUARANTINE_DIRS = {
     "retired-laterality": "retired-laterality",
     "withheld-contested": "withheld-contested",
+    "retired-watermark": "retired-watermark",
 }
 
 # The withheld classes this stage knows how to honour: registry section -> the
@@ -109,6 +120,7 @@ QUARANTINE_DIRS = {
 REGISTRY_SECTIONS = {
     "retired_laterality": "retired-laterality",
     "withheld_contested": "withheld-contested",
+    "retired_watermark": "retired-watermark",
 }
 REGISTRY_PREAMBLE = ("_comment",)
 

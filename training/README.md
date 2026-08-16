@@ -157,8 +157,11 @@ assembly with its `clothing` variants, the censorship detector, the emit stage
 and its retirements (`retired_pairs.json` is asserted directly - count, shape
 and named exceptions - and again through the only code that can put a pair in
 the corpus), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's
-tests draw their own torsos - no patient imagery is ever committed. Two of them
-reference the real corpus by path and skip when it is not mounted.
+tests draw their own torsos - no patient imagery is ever committed. Four tests
+reference the real corpus and its quarantine tree by path and skip when those
+are not mounted: two in the detector's suite, and two asserting that heavenly's
+retirement is real on disk and not merely registered (a registry entry gates the
+emit path only - see `clinic_watermarks.md`).
 
 ## Training on RunPod
 
