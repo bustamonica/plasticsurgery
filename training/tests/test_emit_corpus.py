@@ -26,7 +26,6 @@ the gap a registry-only fix would have left open.
 
 import csv
 import json
-import os
 import shutil
 from pathlib import Path
 
@@ -36,15 +35,10 @@ import pytest
 from PIL import Image
 
 import emit_corpus
-from conftest import make_torso
+from conftest import CORPUS, QUARANTINE, make_torso, needs_corpus, needs_quarantine
 from ingest import MIN_DIMENSION, VALID_VIEWS
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
-CORPUS = Path(os.path.expanduser("~/firstmate/data/clinic-corpus"))
-QUARANTINE = Path(os.path.expanduser("~/firstmate/data/ba-viz-emit-backlog/quarantine"))
-needs_corpus = pytest.mark.skipif(
-    not CORPUS.exists(), reason="clinic corpus not mounted (it lives outside the repo)"
-)
 CALIBRATED = {
     "sanantonio-23999-oblique-right",
     "sanantonio-24007-oblique-right",
@@ -129,6 +123,16 @@ def report_rows(tmp_path, report=None) -> list[dict]:
 
 def dispositions(tmp_path, report=None) -> dict[str, str]:
     return {row["pair_id"]: row["disposition"] for row in report_rows(tmp_path, report)}
+
+
+def visible(directory: Path) -> set[str]:
+    """Entry names in `directory`, minus the OS's own droppings.
+
+    Finder leaves `.DS_Store` behind in any folder it is pointed at, which
+    `emit_corpus.py` already tolerates. An exact listing would turn one Finder
+    visit into a red test claiming a retirement failed.
+    """
+    return {p.name for p in directory.iterdir() if not p.name.startswith(".")}
 
 
 # --- The retirement enumeration -------------------------------------------
@@ -437,17 +441,17 @@ class TestHeavenlyRetiredOnDisk:
     def test_the_finished_tree_holds_no_heavenly_pairs(self):
         heavenly_dir = CORPUS / "heavenly"
         assert heavenly_dir.exists(), "the clinic folder itself must survive, empty"
-        assert list(heavenly_dir.iterdir()) == []
+        assert visible(heavenly_dir) == set()
 
     @needs_corpus
+    @needs_quarantine
     def test_every_retired_pair_is_preserved_in_quarantine(self, registry):
         held = QUARANTINE / "retired-watermark" / "heavenly"
         heavenly_ids = set(registry["retired_watermark"]["pairs"]["heavenly"])
         on_disk = {p.name for p in held.iterdir() if p.is_dir()}
         assert on_disk == heavenly_ids
         for pair_id in heavenly_ids:
-            files = {p.name for p in (held / pair_id).iterdir()}
-            assert files == {"before.jpg", "after.jpg", "meta.json"}
+            assert visible(held / pair_id) == {"before.jpg", "after.jpg", "meta.json"}
             meta = json.loads((held / pair_id / "meta.json").read_text())
             assert meta["consent_ref"]
 

@@ -5,17 +5,12 @@ committed. The real corpus is only referenced by path, in the tests at the
 bottom, which skip when it is not mounted.
 """
 
-import os
-from pathlib import Path
-
 import cv2
 import numpy as np
 import pytest
 
 from censorship import detect_censorship
-from conftest import SKIN_BGR, make_torso
-
-CORPUS = Path(os.path.expanduser("~/firstmate/data/clinic-corpus"))
+from conftest import CORPUS, SKIN_BGR, make_torso, needs_corpus
 
 
 def kinds(reasons):
@@ -140,10 +135,6 @@ class TestReasons:
 
 sixsurgery_dir = CORPUS / ".scraper-cache" / "images" / "sixsurgery"
 clean_pair_dir = CORPUS / "drkolker" / "raw" / "drkolker" / "drkolker-74-front"
-
-needs_corpus = pytest.mark.skipif(
-    not CORPUS.exists(), reason="clinic corpus not mounted (it lives outside the repo)"
-)
 
 
 @needs_corpus
