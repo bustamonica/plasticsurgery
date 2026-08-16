@@ -35,7 +35,7 @@ confirming on representative full-size images.
 | **drdanielbarrett** | "BARRETT PLASTIC SURGERY" wordmark + figure logo, translucent | across the **lower abdomen**, every image | **yes**, off-breast | acceptable - emitted 2026-08-15 |
 | **drkolker** | "ADAM R. KOLKER, MD" | bottom of frame, over the waistband/jeans | off-body relative to the anatomy | acceptable - emitted 2026-08-15 |
 | **sanantonio** | none | - | - | clean; 200-image average shows no overlay |
-| heavenly | script "Heavenly / PLASTIC SURGERY" lockup, diagonal | y 0.21-0.68 of frame - **over the breasts** | **yes, over breast tissue** | ruled unusable, all 119 pairs - **but not enforced: all 119 are live in the finished corpus tree today** (see below). Two clean-up passes each overstated their own success; see `~/firstmate/data/report/README.md` |
+| heavenly | script "Heavenly / PLASTIC SURGERY" lockup, diagonal | y 0.21-0.68 of frame - **over the breasts** | **yes, over breast tissue** | **retired, all 119 pairs - enforced 2026-08-15/16.** Captain ruling: "For the uncleaned heavenly data, let's just discard it and not use it for training." Moved out of the finished tree into `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark/heavenly/`, registered in `training/retired_pairs.json` (`retired_watermark`). Three clean-up passes each overstated their own success; see `~/firstmate/data/report/README.md` |
 | wny | "WNY PLASTIC SURGERY" | lower torso, y 0.91-0.98, **after image only** | **yes**, off-breast | open captain decision `wny-after-only-watermark`: clear of the breasts, but perfectly correlated with the training label. **Not enforced either: all 10 pairs are live in the finished tree** (see below) |
 | harrington | faint caption | very bottom of frame, below the subject | no | acceptable |
 | mitchellbrown | "Photos courtesy of Dr. Mitchell Brown, TorontoPlasticSurgery.com" | white margin below the subject | no | acceptable |
@@ -57,15 +57,16 @@ has opaque circles over the nipples.
 A verdict in the table above is a documented *intent*.
 Nothing in the pipeline reads this file, so a row that says a clinic is excluded
 only keeps its pairs out of training if something on disk keeps them out too.
-Today, two of them do not.
 
-- **heavenly**: all 119 pairs are LIVE in the finished corpus tree
-  (`clinic-corpus/heavenly/`).
-  They carry no `training/retired_pairs.json` entry and no quarantine hold, so
-  every corpus count, dataset build and training run picks them up today.
-  The exclusion is a documented intent awaiting a captain ruling - the
-  reconciliation of whether heavenly is 46-clean or 0-clean is still open - and
-  not an enforced state.
+- **heavenly**: enforced.
+  All 119 pairs were moved out of the finished corpus tree
+  (`clinic-corpus/heavenly/`, now empty) into
+  `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark/heavenly/`
+  on the captain's 2026-08-15 ruling to discard the clinic outright. They carry
+  a `training/retired_pairs.json` entry (`retired_watermark`) that blocks
+  re-emission if heavenly is ever re-staged. Verified: zero `heavenly-*`
+  directories under the finished tree, and zero heavenly pairs reach
+  `build_dataset.py`'s output when run over the whole corpus.
 - **wny**: all 10 pairs are live in the finished tree, 9 of them hanging on the
   open `wny-after-only-watermark` decision.
   Same shape, one decision away.

@@ -11,10 +11,22 @@ corpus is that not one of them reaches the finished tree. So the enumeration is
 asserted directly - count, shape and the four named exceptions - and then
 asserted again through the emit stage, which is the only thing that can put a
 pair in the corpus.
+
+The third is heavenly's 119-pair `retired_watermark` ruling. It is unlike the
+other two: those pairs were held back from `staging/`, but heavenly's were
+already emitted, so the registry entry could not remove them by itself (see
+`emit_corpus.py`'s module docstring) - a direct move out of the finished tree
+did that part. What the registry and this stage still own is making sure the
+ruling holds if heavenly is ever re-scraped: `TestHeavenlyWatermarkRetirement`
+proves a re-staged heavenly pair is held back exactly like the 176 are, and
+`TestHeavenlyRetiredOnDisk` (skipped when the real corpus is not mounted)
+proves the finished tree is actually empty and the quarantine copy is intact -
+the gap a registry-only fix would have left open.
 """
 
 import csv
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -28,6 +40,11 @@ from conftest import make_torso
 from ingest import MIN_DIMENSION, VALID_VIEWS
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
+CORPUS = Path(os.path.expanduser("~/firstmate/data/clinic-corpus"))
+QUARANTINE = Path(os.path.expanduser("~/firstmate/data/ba-viz-emit-backlog/quarantine"))
+needs_corpus = pytest.mark.skipif(
+    not CORPUS.exists(), reason="clinic corpus not mounted (it lives outside the repo)"
+)
 CALIBRATED = {
     "sanantonio-23999-oblique-right",
     "sanantonio-24007-oblique-right",
@@ -336,6 +353,103 @@ class TestRetiredPairsNeverEmit:
         assert json.loads((held / "meta.json").read_text())["consent_ref"]
         # ...and the staged original is untouched.
         assert (staged / "before.jpg").exists()
+
+
+# --- The heavenly watermark retirement --------------------------------------
+
+
+class TestHeavenlyWatermarkRetirement:
+    """Captain ruling, 2026-08-15: discard heavenly outright - it contributes
+    zero. `retired_pairs.json`'s `retired_watermark` section enumerates its 119
+    pairs; this stage's job is to make sure the ruling holds if heavenly is
+    ever re-scraped or re-staged, since the pairs it already held were removed
+    from the finished tree by hand, not by this stage.
+    """
+
+    def test_retires_exactly_the_119_heavenly_pairs(self, registry):
+        pairs = registry["retired_watermark"]["pairs"]["heavenly"]
+        assert len(pairs) == 119
+        assert len(set(pairs)) == len(pairs)
+        assert all(p.startswith("heavenly-") for p in pairs)
+
+    def test_every_retired_pair_carries_a_reason(self, registry):
+        assert registry["retired_watermark"]["why"].strip()
+        assert registry["retired_watermark"]["ruling"].strip()
+
+    def test_no_id_collides_with_another_ruling(self, registry):
+        # A pair id must be unique across sections for load_registry() to
+        # accept the file at all (it raises on a duplicate); assert that here
+        # too so the reason a bad edit fails is obvious from this test alone.
+        other_ids = {
+            p
+            for section in ("retired_laterality", "withheld_contested")
+            for pairs in registry[section]["pairs"].values()
+            for p in pairs
+        }
+        heavenly_ids = set(registry["retired_watermark"]["pairs"]["heavenly"])
+        assert not (other_ids & heavenly_ids)
+
+    def test_the_committed_registry_withholds_every_heavenly_pair(self, registry):
+        withheld = emit_corpus.load_registry(REGISTRY)
+        heavenly_ids = registry["retired_watermark"]["pairs"]["heavenly"]
+        assert len(heavenly_ids) == 119
+        assert all(withheld.get(p) == "retired-watermark" for p in heavenly_ids)
+
+    @pytest.mark.parametrize("index", [0, 1, 118])
+    def test_a_re_staged_heavenly_pair_is_held_back(
+        self, tmp_path, make_staged, registry, index
+    ):
+        # The acceptance criterion this class exists for: even if heavenly's
+        # raw material is scraped again from scratch, the ordinary emit path
+        # cannot carry a retired pair back into the finished tree.
+        pair_id = registry["retired_watermark"]["pairs"]["heavenly"][index]
+        make_staged(pair_id, view=view_of(pair_id))
+        make_staged("heavenly-00000-front", seed=999)
+        run(tmp_path, clinic="heavenly")
+        assert not (tmp_path / "corpus" / "heavenly" / pair_id).exists()
+        assert dispositions(tmp_path)[pair_id] == "retired-watermark"
+        assert (tmp_path / "corpus" / "heavenly" / "heavenly-00000-front").exists()
+
+    def test_a_re_staged_heavenly_pair_is_quarantined_not_lost(
+        self, tmp_path, make_staged, registry
+    ):
+        pair_id = registry["retired_watermark"]["pairs"]["heavenly"][0]
+        make_staged(pair_id, view=view_of(pair_id))
+        quarantine = tmp_path / "quarantine"
+        run(tmp_path, clinic="heavenly", quarantine=quarantine)
+
+        held = quarantine / "retired-watermark" / "heavenly" / pair_id
+        assert {p.name for p in held.iterdir()} == {"before.jpg", "after.jpg", "meta.json"}
+        assert json.loads((held / "meta.json").read_text())["consent_ref"]
+
+
+class TestHeavenlyRetiredOnDisk:
+    """The gap a registry entry alone cannot close: proof against the real
+    corpus, not just the registry file or a synthetic staging tree. A prior
+    worker's finding was that `retired_pairs.json` gates the emit path only
+    and does nothing about a pair already in the finished tree - which is
+    exactly how heavenly sat "excluded on paper" while 119 pairs stayed live
+    for weeks. These tests are skipped, not passed, when the real corpus is
+    not mounted - they must never read as green when they proved nothing.
+    """
+
+    @needs_corpus
+    def test_the_finished_tree_holds_no_heavenly_pairs(self):
+        heavenly_dir = CORPUS / "heavenly"
+        assert heavenly_dir.exists(), "the clinic folder itself must survive, empty"
+        assert list(heavenly_dir.iterdir()) == []
+
+    @needs_corpus
+    def test_every_retired_pair_is_preserved_in_quarantine(self, registry):
+        held = QUARANTINE / "retired-watermark" / "heavenly"
+        heavenly_ids = set(registry["retired_watermark"]["pairs"]["heavenly"])
+        on_disk = {p.name for p in held.iterdir() if p.is_dir()}
+        assert on_disk == heavenly_ids
+        for pair_id in heavenly_ids:
+            files = {p.name for p in (held / pair_id).iterdir()}
+            assert files == {"before.jpg", "after.jpg", "meta.json"}
+            meta = json.loads((held / pair_id / "meta.json").read_text())
+            assert meta["consent_ref"]
 
 
 # --- Emit-stage behaviour --------------------------------------------------
