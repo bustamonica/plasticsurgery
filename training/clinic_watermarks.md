@@ -99,8 +99,14 @@ only keeps its pairs out of training if something on disk keeps them out too.
   retirement brief, deliberately **not promoted** - kept only as evidence,
   pending any future captain decision to reopen heavenly).
   They are a preserved decision, not a gap, and
-  `~/firstmate/data/report/heavenly/NO-PAIRS.md` scopes them the same way. They
-  are also the reason the registry entry is not redundant: `emit_corpus.py`
+  `~/firstmate/data/report/heavenly/NO-PAIRS.md` scopes them the same way.
+  One more heavenly directory sits *inside* `clinic-corpus/` and is also not a
+  gap: `clinic-corpus/.scraper-cache/images/heavenly/` holds the 63 cached
+  source downloads, which is scraper intake rather than a pair tree - it holds
+  no `heavenly-*` pair directory, and raw intake is never deleted (see
+  `README.md`'s "retired, not deleted").
+  The remaining trees are also the reason the registry entry is not
+  redundant: `emit_corpus.py`
   takes the staging tree as a positional argument, so pointing it at one of
   those trees is an ordinary invocation, and `retired_pairs.json` is what
   refuses it.
