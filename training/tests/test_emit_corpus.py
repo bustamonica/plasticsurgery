@@ -21,7 +21,12 @@ ruling holds if heavenly is ever re-scraped: `TestHeavenlyWatermarkRetirement`
 proves a re-staged heavenly pair is held back exactly like the 176 are, and
 `TestHeavenlyRetiredOnDisk` (skipped when the real corpus is not mounted)
 proves the finished tree is actually empty and the quarantine copy is intact -
-the gap a registry-only fix would have left open.
+the gap a registry-only fix would have left open. It also checks two
+leftover duplicate-ingest dumps at the corpus root (`_staging/`,
+`clinic-corpus-staging/`) that turned out to hold 63 heavenly pairs each even
+after the first retirement pass - the same "present, uncounted, one careless
+walk away" shape as the original defect, just in a second location no
+training script reads but a person might.
 """
 
 import csv
@@ -444,6 +449,24 @@ class TestHeavenlyRetiredOnDisk:
         assert visible(heavenly_dir) == set()
 
     @needs_corpus
+    def test_no_leftover_duplicate_ingest_dump_holds_heavenly_pairs_either(self):
+        # clinic-corpus/_staging/ and the sibling clinic-corpus-staging/ are
+        # pre-existing duplicate partial-ingest dumps at the corpus ROOT, not
+        # inside any <clinic>/ subdirectory, so they are outside the
+        # finished-tree definition and no training script reads them. That
+        # made them exactly the shape of risk this retirement exists to close:
+        # present on disk, invisible to the count everyone trusts, one
+        # careless walk away from re-entering a dataset. Both were found to
+        # still hold 63 heavenly-prefixed pair directories each after the
+        # first retirement pass and were cleared on 2026-08-16; this guards
+        # against either reappearing.
+        for staging_dump in (CORPUS / "_staging", CORPUS.parent / "clinic-corpus-staging"):
+            if not staging_dump.exists():
+                continue
+            leftover = [p.name for p in staging_dump.iterdir() if p.name.startswith("heavenly-")]
+            assert leftover == [], f"{staging_dump} still holds heavenly pairs: {leftover}"
+
+    @needs_corpus
     @needs_quarantine
     def test_every_retired_pair_is_preserved_in_quarantine(self, registry):
         held = QUARANTINE / "retired-watermark" / "heavenly"
@@ -454,6 +477,25 @@ class TestHeavenlyRetiredOnDisk:
             assert visible(held / pair_id) == {"before.jpg", "after.jpg", "meta.json"}
             meta = json.loads((held / pair_id / "meta.json").read_text())
             assert meta["consent_ref"]
+
+    @needs_quarantine
+    def test_the_leftover_dump_duplicates_are_preserved_too_not_deleted(self, registry):
+        # "Retire, not delete" applies to the duplicate-dump copies exactly as
+        # it does to the 119 finished-tree pairs above: moved intact into
+        # quarantine rather than discarded, even though they are provably
+        # redundant with pairs already preserved elsewhere.
+        heavenly_ids = set(registry["retired_watermark"]["pairs"]["heavenly"])
+        for reason in ("retired-watermark-staging-dup", "retired-watermark-corpus-staging-dup"):
+            held = QUARANTINE / reason / "heavenly"
+            if not held.exists():
+                pytest.skip(f"{held} not mounted")
+            on_disk = {p.name for p in held.iterdir() if p.is_dir()}
+            assert on_disk, f"{held} is empty"
+            assert on_disk <= heavenly_ids, "every duplicate-dump id must be one of the 119"
+            for pair_id in on_disk:
+                assert visible(held / pair_id) == {"before.jpg", "after.jpg", "meta.json"}
+                meta = json.loads((held / pair_id / "meta.json").read_text())
+                assert meta["consent_ref"]
 
 
 # --- Emit-stage behaviour --------------------------------------------------

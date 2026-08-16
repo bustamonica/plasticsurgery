@@ -64,20 +64,27 @@ only keeps its pairs out of training if something on disk keeps them out too.
   `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark/heavenly/`
   on the captain's 2026-08-15 ruling to discard the clinic outright. They carry
   a `training/retired_pairs.json` entry (`retired_watermark`) that blocks
-  re-emission if heavenly is ever re-staged. Verified precisely: zero
-  `heavenly-*` directories in the finished-tree shape
-  (`clinic-corpus/<clinic>/<pair-id>/`, i.e. `clinic-corpus/heavenly/`), and
-  zero heavenly pairs reach `build_dataset.py`'s output when run over the whole
-  corpus.
-  That claim does not cover `~/firstmate/data/clinic-corpus/_staging/` and
-  `~/firstmate/data/clinic-corpus-staging/`, which each still hold 63
-  `heavenly-*` pair directories. Those are pre-existing, non-canonical
-  duplicate-ingest artifacts from 2026-08-12 (`~/firstmate/data/report/`'s
-  README has recorded them since 2026-08-15 as "duplicate partial ingest
-  runs... counted nowhere in this report"); no training script reads either
-  path as an input, so they are outside the finished-tree definition and
-  outside this retirement - named here only so the verification above is not
-  misread as covering them.
+  re-emission if heavenly is ever re-staged.
+  A first verification pass checked only the finished-tree shape
+  (`clinic-corpus/<clinic>/<pair-id>/`) and missed that two pre-existing,
+  non-canonical duplicate-ingest dumps at the corpus **root** -
+  `~/firstmate/data/clinic-corpus/_staging/` and
+  `~/firstmate/data/clinic-corpus-staging/`, dated 2026-08-12, documented in
+  `~/firstmate/data/report/README.md` since 2026-08-15 as "duplicate partial
+  ingest runs... counted nowhere in this report" - each still held 63
+  `heavenly-*` pair directories, a pre-inpaint snapshot of 63 of the 119. No
+  training script reads either path as an input, so they were never a route
+  back into a dataset build, but they were exactly the shape of risk this
+  retirement exists to close: present on disk, invisible to the count everyone
+  trusts. Both were cleared on 2026-08-16, moved intact into
+  `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark-staging-dup/heavenly/`
+  and `.../retired-watermark-corpus-staging-dup/heavenly/` respectively (see
+  the quarantine tree's `MANIFEST.md`).
+  **Verified now, and named precisely: zero `heavenly-*` directories in
+  `clinic-corpus/heavenly/`, `clinic-corpus/_staging/`, or
+  `clinic-corpus-staging/`** - every location a heavenly pair was ever found on
+  disk - and zero heavenly pairs reach `build_dataset.py`'s output when run
+  over the whole corpus.
 - **wny**: all 10 pairs are live in the finished tree, 9 of them hanging on the
   open `wny-after-only-watermark` decision.
   Same shape, one decision away.
