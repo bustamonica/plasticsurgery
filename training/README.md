@@ -167,10 +167,11 @@ pass did not reach.
 
 ## Training on RunPod
 
-1. Create a pod: 1× A100 80GB, the official PyTorch template (Python >= 3.10, torch per the ai-toolkit README), attach a volume.
+1. Create a pod: 1× 80GB card, the official PyTorch template, `--ports 22/tcp`
+   (without the port flag SSH is never mapped and the pod bills unreachable).
 2. `git clone https://github.com/ostris/ai-toolkit && cd ai-toolkit && git checkout 6d8afa5684000b69db97cc40504a972a85615e3b && pip install -r requirements.txt`
    (the pinned commit our config was validated against; if you take a newer one, re-diff `config/examples/train_lora_qwen_image_edit_2509_32gb.yaml` first)
-3. Upload `data/dataset/` to the volume (e.g. `runpodctl send` or rsync over SSH).
+3. Upload `data/dataset/` — **as one archive, not as a directory** (see below).
 4. Copy `configs/qwen_edit_lora.yaml` into `ai-toolkit/config/`, adjust paths,
    and sync its keys with the current example config in the ai-toolkit repo
    (`config/examples/`) — the toolkit evolves quickly.
@@ -178,6 +179,56 @@ pass did not reach.
 6. Checkpoints + sample grids land in `output/`. Evaluate on the val split:
    the samples are generated from val control images with val captions —
    compare against the real "after" photos.
+
+### Measured facts, 2026-08-16/17 (H100, 1902 pairs)
+
+These were paid for; do not re-derive them.
+
+| | Measured |
+| --- | --- |
+| bf16 (`quantize: false`), H100 PCIe | 16.5 s/optimizer-step |
+| bf16, H100 80GB HBM3 (SXM) | 10.5–10.9 s/step |
+| Committed uint3 32GB recipe, H100 PCIe | 24.0 s/step (45% slower) |
+| Billed rate, secure cloud + 120GB disk | H100 PCIe/SXM ≈ $2.9–3.3/h |
+
+- **Price per hour is the wrong metric; cost per step is nearly identical across
+  every 80GB card** (H100 SXM $0.0152, A100 SXM4 $0.0149, A100 PCIe $0.0142 at
+  the rates above). So pick on wall-clock exposure, not sticker price: the H100
+  finishes in half the time, halving the window for a host fault or reclaim.
+- The catalogue `lowestPrice` GraphQL field quotes a **cheaper tier than
+  `--cloud-type SECURE` actually bills**. Read the pod's own `costPerHr` after
+  creation before trusting any budget arithmetic.
+- Ubuntu 24.04 images have a PEP 668 externally-managed Python: a bare
+  `pip install` refuses. Use `python3 -m venv --system-site-packages`, which
+  both satisfies PEP 668 and inherits the image's CUDA-matched torch.
+- Quantization is not needed on an 80GB card. The committed config carries
+  ai-toolkit's 32GB recipe (uint3 + accuracy-recovery adapter + `low_vram`) for
+  portability; `quantize: false` is ~45% faster and fits 80GB with room.
+
+### Never `scp -r` the dataset
+
+`scp -r` opens a transfer per file, so the dataset's **file count** is the
+constraint, not its size. Measured on the same 366MB / 5707-file dataset:
+5.4 min, 21.7 min, then a `connection reset` failure after **134.8 min** — which
+is 57, 228 and 1417 ms per file across three hosts. Link bandwidth to these pods
+is only ~0.9 MB/s, so one stream takes ~7 min; the rest was pure per-file
+overhead. Tar it and send verified chunks with resume: the same payload then
+landed in 7.1 min with an MD5 match.
+
+### Guard the run, and watch the guard fire
+
+Three separate guards on this project have reported "armed" and then done
+nothing: `runpodctl pod terminate` (not a real subcommand — it exits 0 without
+terminating; use `pod delete` plus a `podTerminate` mutation and re-verify
+through the API), a `subprocess` timeout that never triggered, and an idle
+watchdog that let a 2h15m upload run under a 45-minute rule.
+
+That last one is the instructive failure: it probed disk-used for "progress",
+and files *were* landing, so the idle clock reset at every poll. **An idle
+detector cannot see a phase progressing far too slowly to finish.** Give every
+phase a hard wall-clock budget as well, run both checks on a thread that never
+touches the phase it watches (a main thread blocked in a syscall cannot report
+its own stall), and test that each one fires before relying on it.
 
 Rules of thumb: ~1,000 pairs = first signs of life; 3,000–5,000 well-labeled
 pairs = production candidate. Under ~500 pairs, expect it to memorize rather
