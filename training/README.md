@@ -215,6 +215,28 @@ is only ~0.9 MB/s, so one stream takes ~7 min; the rest was pure per-file
 overhead. Tar it and send verified chunks with resume: the same payload then
 landed in 7.1 min with an MD5 match.
 
+### A checkpoint that cannot leave the pod is not an artifact
+
+**Pull every checkpoint the moment it is written, and treat a failed pull as
+fatal.** On 2026-08-17 a 1600-step run completed, wrote 8 checkpoints, and
+delivered nothing: the harvest step used plain `scp -r` on the 6GB output
+directory, it died with `connection reset by peer`, the failure was caught and
+logged as `harvest failed`, and training carried on for three more hours to a
+machine whose only exit route was already known to be broken. The pod was then
+reclaimed when the balance hit zero and took every checkpoint with it. Cost:
+the whole $58 balance, no model.
+
+Two rules follow, and the first is the one that was actually violated:
+
+- The same per-file fragility applies in BOTH directions. The upload had
+  already been fixed with chunk-and-verify; the download had not, though the
+  measurement that justified the fix applied equally to it.
+- A failed egress is not a warning. If a checkpoint cannot be retrieved, the
+  run has no product, so it must abort at that point rather than continue
+  billing. `pull_checkpoints.py` in the run's work directory does the chunked,
+  MD5-verified, resumable pull and also checks the safetensors header parses -
+  a file that arrived is not the same as a file that loads.
+
 ### Guard the run, and watch the guard fire
 
 Three separate guards on this project have reported "armed" and then done
