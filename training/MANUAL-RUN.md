@@ -256,3 +256,15 @@ Be sceptical of it in these specific ways:
 - Compare everything against the **base model with no LoRA loaded**. If stock
   Qwen-Image-Edit already separates 300cc from 600cc as well as the fine-tune does,
   the fine-tune added nothing on that axis.
+
+## Before you launch anything: run the smoke test
+
+```bash
+python3 training/scripts/smoke_test.py
+```
+
+Seconds, no network, no money. It drives the whole chain — upload, unpack,
+launch, pidfile liveness, checkpoint-detect, download, md5, safetensors-load,
+egress-failure, terminate — against a 3MB stand-in using the same command
+strings the real path uses. Every failure this project hit was in that chain,
+so a green smoke test is what "the plumbing works" means. Expect 10/10.
