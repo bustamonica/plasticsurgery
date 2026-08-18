@@ -167,6 +167,23 @@ pass did not reach.
 
 ## Training on RunPod
 
+**To run one by hand, follow [`MANUAL-RUN.md`](MANUAL-RUN.md)** - exact commands,
+measured costs, and the traps, written so a person gets a checkpoint on local disk
+without any driver code. The notes below are the why behind it.
+
+### Every local guard sleeps when the laptop does
+
+A run lost an entire balance this way: the Mac entered Idle Sleep 29 seconds after
+the last poll and stayed asleep ~7h while the pod billed at $3.32/h. Neither the
+poll loop nor the watchdog thread was scheduled, so nothing fired and nothing was
+logged - the run simply had a seven-hour hole in it. `pmset -g log` confirmed 450
+minutes of sleep across a 420-minute window.
+
+So: run under `caffeinate -i`, and set `--terminate-after` to the run estimate plus
+an hour rather than a nominal 24h. **The provider-side deadline is the only guard
+that survives a sleeping laptop**, which also means an earlier "the subprocess
+timeout never fired" diagnosis was wrong - the process was suspended, not hung.
+
 1. Create a pod: 1× 80GB card, the official PyTorch template, `--ports 22/tcp`
    (without the port flag SSH is never mapped and the pod bills unreachable).
 2. `git clone https://github.com/ostris/ai-toolkit && cd ai-toolkit && git checkout 6d8afa5684000b69db97cc40504a972a85615e3b && pip install -r requirements.txt`
