@@ -31,8 +31,14 @@ config:
 
       save:
         dtype: bf16
-        save_every: 500
-        max_step_saves_to_keep: 4
+        # Every 200 steps, keeping all 20 of them. A rented pod can vanish
+        # mid-run (a spot reclaim, a zeroed balance, a host fault), and the
+        # cost of a lost run is a fresh multi-hour rental. Keeping every save
+        # also lets the best checkpoint be chosen after the fact rather than
+        # assuming the last one is it - a LoRA over ~1900 pairs is well into
+        # overfitting range by step 4000, so the last save may not be the best.
+        save_every: 200
+        max_step_saves_to_keep: 20
 
       datasets:
         - folder_path: /workspace/data/dataset/train/target
@@ -78,8 +84,25 @@ config:
         neg: ""
         seed: 42
         walk_seed: true
-        # Point these at a few VAL control images + their captions so the
-        # sample grid doubles as an eval set the model never trained on.
+        # VAL control images with their own captions, so the sample grid is an
+        # eval on pairs the model never trained on (the split is by patient, so
+        # these people appear nowhere in train).
+        #
+        # The first four are each pair's real caption - the comparison is
+        # against the actual "after" photo. The last two re-use ONE control
+        # image at 300 cc and 600 cc with everything else held identical, so
+        # the grid shows the volume axis separating (or failing to) while the
+        # run is still going, rather than only at the end.
         samples:
-          - prompt: "Edit this photo to simulate the outcome of breast augmentation surgery with 350 cc round implants giving even fullness and visible roundness in the upper breast, using a balanced moderate-plus profile. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same."
-            ctrl_img_1: /workspace/data/dataset/val/control/PICK_A_VAL_PAIR.jpg
+          - prompt: "The photograph is a front view. Edit this photo to simulate the outcome of breast augmentation surgery with 400 cc implants. The change should read as a clearly noticeable increase of roughly one and a half to two cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/ablavsky-108-front.jpg
+          - prompt: "The photograph is a front view. Edit this photo to simulate the outcome of breast augmentation surgery with 450 cc implants, using a high profile with noticeable forward projection and a rounder look. The change should read as a clearly noticeable increase of roughly one and a half to two cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/austinweston-14-front.jpg
+          - prompt: "The photograph is a side profile with the subject's left side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 505 cc implants, using a high profile with noticeable forward projection and a rounder look. The change should read as a clearly noticeable increase of roughly one and a half to two cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/coastal-98-side-left.jpg
+          - prompt: "The photograph is an oblique three-quarter view with the subject's left side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 400 cc implants. The change should read as a clearly noticeable increase of roughly one and a half to two cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/ablavsky-108-oblique-left.jpg
+          - prompt: "The photograph is a front view. Edit this photo to simulate the outcome of breast augmentation surgery with 300 cc implants. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/ablavsky-108-front.jpg
+          - prompt: "The photograph is a front view. Edit this photo to simulate the outcome of breast augmentation surgery with 600 cc implants. The change should read as a full increase of roughly two to two and a half cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+            ctrl_img_1: /workspace/data/dataset/val/control/ablavsky-108-front.jpg

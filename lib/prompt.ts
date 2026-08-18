@@ -1,12 +1,14 @@
+// Explicit .ts extension, and `import type` for the type-only bindings: Node's
+// test runner resolves ESM specifiers verbatim and only strips types, so
+// lib/prompt.test.ts cannot load this module otherwise.
+import type { ImplantShape, PreviewConfig } from "./implants.ts";
 import {
-  ImplantShape,
-  PreviewConfig,
   findBrand,
   findProfile,
   findShape,
   VOLUME_MAX,
   VOLUME_MIN,
-} from "./implants";
+} from "./implants.ts";
 
 function sizeLanguage(cc: number): string {
   return cc < 250
@@ -53,6 +55,14 @@ export function buildEditPrompt(config: PreviewConfig): string {
 /** Clothing states the custom model is trained on (dataset_schema.json). */
 export type CustomModelClothing = "nude" | "bra" | "top";
 
+/** Views the custom model is trained on (dataset_schema.json). */
+export type CustomModelView =
+  | "front"
+  | "oblique-left"
+  | "oblique-right"
+  | "side-left"
+  | "side-right";
+
 /** Inputs for the custom-model prompt, mirroring a training meta.json. */
 export interface CustomModelPromptInput {
   volumeCc: number;
@@ -60,6 +70,12 @@ export interface CustomModelPromptInput {
   profileId?: string;
   brandId?: string;
   clothing?: CustomModelClothing;
+  /**
+   * Which projection the uploaded photo is. Every training caption states one,
+   * so a caller that omits it puts the model in a regime it never saw. Supply
+   * it whenever the view is known.
+   */
+  view?: CustomModelView;
 }
 
 // Keep in sync with CLOTHING_LANGUAGE in training/scripts/build_dataset.py.
@@ -67,6 +83,21 @@ const CUSTOM_MODEL_CLOTHING_LANGUAGE: Record<CustomModelClothing, string> = {
   nude: "The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area.",
   bra: "The subject is wearing a bra; adjust only the breast size and shape under the existing bra and keep the bra itself unchanged.",
   top: "The subject is wearing a top; adjust only the breast size and shape under the existing top and keep the top itself unchanged.",
+};
+
+// Keep in sync with VIEW_LANGUAGE in training/scripts/build_dataset.py.
+// Laterality follows the corpus convention: '-left' means the subject's LEFT
+// side faces the camera.
+const CUSTOM_MODEL_VIEW_LANGUAGE: Record<CustomModelView, string> = {
+  front: "The photograph is a front view.",
+  "oblique-left":
+    "The photograph is an oblique three-quarter view with the subject's left side toward the camera.",
+  "oblique-right":
+    "The photograph is an oblique three-quarter view with the subject's right side toward the camera.",
+  "side-left":
+    "The photograph is a side profile with the subject's left side toward the camera.",
+  "side-right":
+    "The photograph is a side profile with the subject's right side toward the camera.",
 };
 
 /**
@@ -93,14 +124,21 @@ export function buildCustomModelPrompt(input: CustomModelPromptInput): string {
       ? "identity, pose, skin tone, lighting and background"
       : "identity, pose, skin tone, clothing, lighting and background";
 
-  const parts = [
+  const parts: string[] = [];
+  if (input.view) {
+    parts.push(CUSTOM_MODEL_VIEW_LANGUAGE[input.view]);
+  }
+  parts.push(
+    // An unknown profile drops its clause rather than defaulting to a moderate
+    // one - the training captions do the same, so the model never learned
+    // profile language from a pair that had none. Mirrors build_caption().
     `Edit this photo to simulate the outcome of breast augmentation surgery with ${cc} cc ${
       shape?.promptDescriptor ?? "implants"
-    }, using ${profile?.promptDescriptor ?? "a balanced profile"}${
+    }${profile ? `, using ${profile.promptDescriptor}` : ""}${
       brand ? `, in the style of ${brand.promptDescriptor}` : ""
     }. The change should read as ${sizeLanguage(cc)}.`,
     `Keep the person's ${preserve} exactly the same.`,
-  ];
+  );
   if (input.clothing) {
     parts.push(CUSTOM_MODEL_CLOTHING_LANGUAGE[input.clothing]);
   }

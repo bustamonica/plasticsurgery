@@ -1,0 +1,121 @@
+{
+  "_comment": "Golden captions for the cross-language parity contract. build_caption() in training/scripts/build_dataset.py and buildCustomModelPrompt() in lib/prompt.ts must both reproduce every `caption` here byte for byte - the model is trained on the Python side's output and served the TypeScript side's, so any drift silently serves the model an instruction format it never saw. training/tests/test_captions.py and lib/prompt.test.ts each read this file; neither owns it. `meta` is a training meta.json (dataset_schema.json); `input` is the same case as CustomModelPromptInput.",
+  "cases": [
+    {
+      "name": "front view, full spec",
+      "meta": {
+        "pair_id": "clinic01-0001",
+        "view": "front",
+        "shape": "round",
+        "volume_cc": 350,
+        "profile": "moderate-plus",
+        "brand": "mentor",
+        "clothing": "nude",
+        "consent_ref": "ref"
+      },
+      "input": {
+        "view": "front",
+        "shape": "round",
+        "volumeCc": 350,
+        "profileId": "moderate-plus",
+        "brandId": "mentor",
+        "clothing": "nude"
+      },
+      "caption": "The photograph is a front view. Edit this photo to simulate the outcome of breast augmentation surgery with 350 cc round implants giving even fullness and visible roundness in the upper breast, using a balanced moderate-plus profile, in the style of soft cohesive silicone gel implants with a natural feel. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+    },
+    {
+      "name": "oblique-left, no profile recorded, no brand",
+      "meta": {
+        "pair_id": "clinic01-0002",
+        "view": "oblique-left",
+        "shape": "round",
+        "volume_cc": 415,
+        "clothing": "nude",
+        "consent_ref": "ref"
+      },
+      "input": {
+        "view": "oblique-left",
+        "shape": "round",
+        "volumeCc": 415,
+        "clothing": "nude"
+      },
+      "caption": "The photograph is an oblique three-quarter view with the subject's left side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 415 cc round implants giving even fullness and visible roundness in the upper breast. The change should read as a clearly noticeable increase of roughly one and a half to two cup sizes. Keep the person's identity, pose, skin tone, lighting and background exactly the same. The subject is photographed nude from the waist up; render realistic natural skin and anatomy in the chest area."
+    },
+    {
+      "name": "oblique-right, high profile, unknown shape, clothed",
+      "meta": {
+        "pair_id": "clinic01-0003",
+        "view": "oblique-right",
+        "shape": "unknown",
+        "volume_cc": 245,
+        "profile": "high",
+        "clothing": "bra",
+        "consent_ref": "ref"
+      },
+      "input": {
+        "view": "oblique-right",
+        "shape": "unknown",
+        "volumeCc": 245,
+        "profileId": "high",
+        "clothing": "bra"
+      },
+      "caption": "The photograph is an oblique three-quarter view with the subject's right side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 245 cc implants, using a high profile with noticeable forward projection and a rounder look. The change should read as a subtle increase of roughly half to one cup size. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same. The subject is wearing a bra; adjust only the breast size and shape under the existing bra and keep the bra itself unchanged."
+    },
+    {
+      "name": "side-left, teardrop, extra-high, motiva",
+      "meta": {
+        "pair_id": "clinic01-0004",
+        "view": "side-left",
+        "shape": "teardrop",
+        "volume_cc": 605,
+        "profile": "extra-high",
+        "brand": "motiva",
+        "consent_ref": "ref"
+      },
+      "input": {
+        "view": "side-left",
+        "shape": "teardrop",
+        "volumeCc": 605,
+        "profileId": "extra-high",
+        "brandId": "motiva"
+      },
+      "caption": "The photograph is a side profile with the subject's left side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 605 cc anatomical teardrop implants giving a gently sloped upper breast and fuller lower pole, a natural-looking result, using an extra-high profile with maximum forward projection, in the style of modern ergonomic silicone implants that settle into a soft natural teardrop when upright. The change should read as a full increase of roughly two to two and a half cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same."
+    },
+    {
+      "name": "side-right, moderate profile, top",
+      "meta": {
+        "pair_id": "clinic01-0005",
+        "view": "side-right",
+        "shape": "round",
+        "volume_cc": 700,
+        "profile": "moderate",
+        "brand": "sientra",
+        "clothing": "top",
+        "consent_ref": "ref"
+      },
+      "input": {
+        "view": "side-right",
+        "shape": "round",
+        "volumeCc": 700,
+        "profileId": "moderate",
+        "brandId": "sientra",
+        "clothing": "top"
+      },
+      "caption": "The photograph is a side profile with the subject's right side toward the camera. Edit this photo to simulate the outcome of breast augmentation surgery with 700 cc round implants giving even fullness and visible roundness in the upper breast, using a moderate profile with a wide base and gentle forward projection, in the style of high-strength cohesive silicone gel implants. The change should read as a dramatic increase of roughly two and a half or more cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same. The subject is wearing a top; adjust only the breast size and shape under the existing top and keep the top itself unchanged."
+    },
+    {
+      "name": "no view and no profile recorded - both clauses absent",
+      "meta": {
+        "pair_id": "clinic01-0006",
+        "shape": "round",
+        "volume_cc": 310,
+        "consent_ref": "ref"
+      },
+      "input": {
+        "shape": "round",
+        "volumeCc": 310
+      },
+      "caption": "Edit this photo to simulate the outcome of breast augmentation surgery with 310 cc round implants giving even fullness and visible roundness in the upper breast. The change should read as a natural-looking increase of roughly one to one and a half cup sizes. Keep the person's identity, pose, skin tone, clothing, lighting and background exactly the same."
+    }
+  ]
+}

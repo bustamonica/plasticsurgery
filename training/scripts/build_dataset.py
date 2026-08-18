@@ -5,6 +5,20 @@ Generates an instruction caption per pair from its metadata, using the same
 vocabulary as the website's prompt builder (lib/prompt.ts) so the wording the
 model is trained on matches the wording it will receive at inference time.
 
+The caption is what makes an axis controllable, so it states all three the
+product exposes: the exact volume in cc, the implant profile, and the view.
+None of them is ever defaulted - an unrecorded profile drops its clause rather
+than claiming a moderate one, because a caption is a training label and a
+guessed label teaches the guess.
+
+Source: either the flat `data/clean` tree deidentify.py writes, or the finished
+corpus tree emit_corpus.py writes (<corpus>/<clinic>/<pair-id>/). Prefer the
+corpus tree for a real run - it is the only one with the retirements in
+retired_pairs.json actually applied.
+
+Every image is re-encoded on the way out, so nothing bound for a training pod
+carries source metadata (see write_stripped).
+
 Output (ai-toolkit paired-editing layout + a tool-agnostic manifest):
   <out>/train/target/<pair_id>.jpg   after image (what the model should produce)
   <out>/train/target/<pair_id>.txt   instruction caption
@@ -23,6 +37,10 @@ import shutil
 import sys
 from pathlib import Path
 
+import cv2
+
+from deidentify import encode_stripped
+
 # Keep in sync with lib/implants.ts and lib/prompt.ts.
 SHAPE_LANGUAGE = {
     "round": "round implants giving even fullness and visible roundness in the upper breast",
@@ -32,11 +50,40 @@ SHAPE_LANGUAGE = {
     ),
 }
 
+# Profile is OMITTED, never defaulted, when the clinic did not record it. 61% of
+# the corpus carries no profile; asserting "a balanced profile" on those pairs
+# taught the model that an unrecorded outcome was a moderate one, which is the
+# opposite of teaching the projection axis. Omission means profile wording is
+# only ever seen alongside a pair that genuinely carries that profile - the same
+# rule `brand` has always followed. Keep in sync with PROFILES in lib/implants.ts.
 PROFILE_LANGUAGE = {
     "moderate": "a moderate profile with a wide base and gentle forward projection",
     "moderate-plus": "a balanced moderate-plus profile",
     "high": "a high profile with noticeable forward projection and a rounder look",
     "extra-high": "an extra-high profile with maximum forward projection",
+}
+
+# The `view` field in dataset_schema.json. Without this the model is never told
+# which projection it is looking at, so it cannot be asked for one at inference.
+# Laterality follows the corpus convention (AGENTS.md): 'oblique-left' /
+# 'side-left' means the subject's LEFT side faces the camera.
+# Keep in sync with CUSTOM_MODEL_VIEW_LANGUAGE in lib/prompt.ts.
+VIEW_LANGUAGE = {
+    "front": "The photograph is a front view.",
+    "oblique-left": (
+        "The photograph is an oblique three-quarter view with the subject's "
+        "left side toward the camera."
+    ),
+    "oblique-right": (
+        "The photograph is an oblique three-quarter view with the subject's "
+        "right side toward the camera."
+    ),
+    "side-left": (
+        "The photograph is a side profile with the subject's left side toward the camera."
+    ),
+    "side-right": (
+        "The photograph is a side profile with the subject's right side toward the camera."
+    ),
 }
 
 BRAND_LANGUAGE = {
@@ -79,9 +126,12 @@ def size_language(cc: int) -> str:
 
 
 def build_caption(meta: dict) -> str:
+    # The literal figure, never bucketed or rounded: 10 cc granularity at
+    # inference depends on the model having seen the exact number in training.
     cc = meta["volume_cc"]
     shape = SHAPE_LANGUAGE.get(meta.get("shape", ""), "implants")
-    profile = PROFILE_LANGUAGE.get(meta.get("profile", ""), "a balanced profile")
+    view = VIEW_LANGUAGE.get(meta.get("view", ""))
+    profile = PROFILE_LANGUAGE.get(meta.get("profile", ""))
     brand = BRAND_LANGUAGE.get(meta.get("brand", ""))
     clothing = meta.get("clothing")
     preserve = "identity, pose, skin tone, lighting and background"
@@ -89,9 +139,13 @@ def build_caption(meta: dict) -> str:
         # No clothing to preserve in a nude photo; for clothed (or unknown)
         # pairs, explicitly pin the clothing.
         preserve = "identity, pose, skin tone, clothing, lighting and background"
-    parts = [
+    parts = []
+    if view:
+        parts.append(view)
+    parts += [
         f"Edit this photo to simulate the outcome of breast augmentation surgery "
-        f"with {cc} cc {shape}, using {profile}"
+        f"with {cc} cc {shape}"
+        + (f", using {profile}" if profile else "")
         + (f", in the style of {brand}" if brand else "")
         + f". The change should read as {size_language(cc)}.",
         f"Keep the person's {preserve} exactly the same.",
@@ -99,6 +153,85 @@ def build_caption(meta: dict) -> str:
     if clothing in CLOTHING_LANGUAGE:
         parts.append(CLOTHING_LANGUAGE[clothing])
     return " ".join(parts)
+
+
+def find_pair_folders(src: Path) -> "tuple[list[Path], list[str]]":
+    """Collect pair folders from either source layout, and say what was skipped.
+
+    Two trees feed this stage. `data/clean` (deidentify.py's output) is flat:
+    <src>/<pair-id>/. The finished corpus is partitioned by clinic:
+    <corpus>/<clinic>/<pair-id>/. Only the corpus tree has the retirements
+    applied, so it is the honest source for a real run.
+
+    Top-level entries starting with '_' or '.' are NOT clinics and are skipped:
+    `clinic-corpus/_staging/` is a pre-emit leftover that both duplicates
+    finished pairs and still holds retired ones, so walking it would silently
+    re-admit pairs a captain ruling removed.
+    """
+    pair_folders: list[Path] = []
+    notes: list[str] = []
+    for entry in sorted(src.iterdir()):
+        if not entry.is_dir():
+            continue
+        if entry.name.startswith(("_", ".")):
+            held = len(list(entry.glob("*/meta.json"))) + (entry / "meta.json").exists()
+            notes.append(f"skipped non-clinic directory {entry.name}/ ({held} pair folder(s))")
+            continue
+        if (entry / "meta.json").exists():
+            pair_folders.append(entry)
+            continue
+        nested = sorted(p.parent for p in entry.glob("*/meta.json"))
+        if nested:
+            pair_folders.extend(nested)
+    return pair_folders, notes
+
+
+def load_pair(folder: Path) -> "tuple[dict, Path, Path] | None":
+    """Read a pair, or return None (with a reason on stdout) if it cannot train.
+
+    Corpus images are not uniformly .jpg - the tree mixes .jpg, .jpeg, .png and
+    .webp - so the extension is discovered, never assumed.
+    """
+    meta = json.loads((folder / "meta.json").read_text())
+    if meta.get("volume_cc") is None:
+        print(f"  skip {folder.name}: no volume_cc, so no caption can state the size")
+        return None
+    befores = sorted(folder.glob("before.*"))
+    afters = sorted(folder.glob("after.*"))
+    if not befores or not afters:
+        print(f"  skip {folder.name}: missing a before/after image")
+        return None
+    return meta, befores[0], afters[0]
+
+
+def write_stripped(src: Path, dest: Path) -> None:
+    """Write `src` to `dest` as JPEG carrying no metadata from the source file.
+
+    Re-encode rather than copy: this is the last stage before the images leave
+    the machine for a training pod, and a byte copy carries whatever the source
+    held. That is not theoretical - 14 images in the finished corpus carry
+    Photoshop tags and capture timestamps, so a corpus-sourced build that copied
+    bytes would ship them. `cv2.imread` hands `encode_stripped` a bare pixel
+    array, so the strip works by construction (see deidentify.py). It also
+    normalises the corpus's mixed .jpg/.jpeg/.png/.webp into the single
+    extension the trainer config can assume.
+    """
+    image = cv2.imread(str(src))
+    if image is None:
+        raise ValueError(f"could not decode {src}")
+    dest.write_bytes(encode_stripped(image))
+
+
+def case_id(meta: dict) -> str:
+    """The patient a pair belongs to: the pair id minus its view suffix.
+
+    One patient publishes up to five views. Splitting per pair would put the
+    same patient in train and val, and the val sample grid - the only evidence
+    the run produces - would then be scored on a patient the model memorised.
+    """
+    pair_id = meta["pair_id"]
+    suffix = f"-{meta.get('view', '')}"
+    return pair_id[: -len(suffix)] if suffix != "-" and pair_id.endswith(suffix) else pair_id
 
 
 def main() -> int:
@@ -109,23 +242,48 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    pair_folders = sorted(p.parent for p in args.clean.glob("*/meta.json"))
-    if not pair_folders:
-        print(f"No clean pairs under {args.clean} — run deidentify.py first")
+    candidates, notes = find_pair_folders(args.clean)
+    for note in notes:
+        print(note)
+    if not candidates:
+        print(f"No pairs under {args.clean} — run deidentify.py or emit_corpus.py first")
         return 1
 
-    random.Random(args.seed).shuffle(pair_folders)
-    val_count = max(1, int(len(pair_folders) * args.val_fraction)) if len(pair_folders) > 1 else 0
+    pairs = []
+    seen: dict[str, Path] = {}
+    for folder in candidates:
+        loaded = load_pair(folder)
+        if loaded is None:
+            continue
+        meta, before, after = loaded
+        pair_id = meta["pair_id"]
+        if pair_id in seen:
+            print(f"Duplicate pair_id {pair_id}: {seen[pair_id]} and {folder}")
+            return 1
+        seen[pair_id] = folder
+        pairs.append((meta, before, after))
+    if not pairs:
+        print(f"No usable pairs under {args.clean}")
+        return 1
+    print(f"{len(pairs)} usable of {len(candidates)} pair folder(s) under {args.clean}")
+
+    # Split by patient, not by pair, so no patient spans train and val.
+    cases = sorted({case_id(meta) for meta, _, _ in pairs})
+    random.Random(args.seed).shuffle(cases)
+    val_case_count = max(1, int(len(cases) * args.val_fraction)) if len(cases) > 1 else 0
+    val_cases = set(cases[:val_case_count])
+    pairs.sort(key=lambda p: p[0]["pair_id"])
 
     if args.out.exists():
         shutil.rmtree(args.out)
     manifest_path = args.out / "manifest.jsonl"
     args.out.mkdir(parents=True)
 
+    counts = {"train": 0, "val": 0}
     with manifest_path.open("w") as manifest:
-        for i, folder in enumerate(pair_folders):
-            split = "val" if i < val_count else "train"
-            meta = json.loads((folder / "meta.json").read_text())
+        for meta, before, after in pairs:
+            split = "val" if case_id(meta) in val_cases else "train"
+            counts[split] += 1
             caption = build_caption(meta)
             pair_id = meta["pair_id"]
 
@@ -134,8 +292,15 @@ def main() -> int:
             target_dir.mkdir(parents=True, exist_ok=True)
             control_dir.mkdir(parents=True, exist_ok=True)
 
-            shutil.copyfile(folder / "after.jpg", target_dir / f"{pair_id}.jpg")
-            shutil.copyfile(folder / "before.jpg", control_dir / f"{pair_id}.jpg")
+            # Re-encode rather than copy: this is the last stage before the
+            # images leave the machine for a training pod, and a byte copy
+            # carries whatever metadata the source held. It is not theoretical -
+            # 14 finished-corpus images carry Photoshop tags and capture
+            # timestamps, so a corpus-sourced build that copied bytes would ship
+            # them. Re-encoding also normalises the corpus's mixed .jpg/.jpeg/
+            # .png/.webp into one extension the trainer config can assume.
+            write_stripped(after, target_dir / f"{pair_id}.jpg")
+            write_stripped(before, control_dir / f"{pair_id}.jpg")
             (target_dir / f"{pair_id}.txt").write_text(caption + "\n")
 
             manifest.write(
@@ -152,11 +317,13 @@ def main() -> int:
                 + "\n"
             )
 
-    train_count = len(pair_folders) - val_count
-    print(f"Dataset built: {train_count} train / {val_count} val -> {args.out}")
-    if train_count < 500:
+    print(
+        f"Dataset built: {counts['train']} train / {counts['val']} val "
+        f"({len(cases) - val_case_count}/{val_case_count} patients) -> {args.out}"
+    )
+    if counts["train"] < 500:
         print(
-            f"NOTE: {train_count} training pairs is below the ~500 minimum where "
+            f"NOTE: {counts['train']} training pairs is below the ~500 minimum where "
             "fine-tunes start to generalize — treat runs as smoke tests until there is more data."
         )
     return 0
