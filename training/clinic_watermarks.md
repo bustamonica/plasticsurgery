@@ -36,7 +36,7 @@ confirming on representative full-size images.
 | **drkolker** | "ADAM R. KOLKER, MD" | bottom of frame, over the waistband/jeans | off-body relative to the anatomy | acceptable - emitted 2026-08-15 |
 | **sanantonio** | none | - | - | clean; 200-image average shows no overlay |
 | heavenly | script "Heavenly / PLASTIC SURGERY" lockup, diagonal | y 0.21-0.68 of frame - **over the breasts** | **yes, over breast tissue** | **retired, all 119 pairs - enforced 2026-08-15/16.** Captain ruling: "For the uncleaned heavenly data, let's just discard it and not use it for training." Moved out of the finished tree into `~/firstmate/data/ba-viz-emit-backlog/quarantine/retired-watermark/heavenly/`, registered in `training/retired_pairs.json` (`retired_watermark`). Three clean-up passes each overstated their own success; see `~/firstmate/data/report/README.md` |
-| wny | "WNY PLASTIC SURGERY" | lower torso, y 0.91-0.98, **after image only** | **yes**, off-breast | **DECIDED 2026-08-19: cropped, not tolerated.** The mark is clear of the breasts but sits on the after image alone, which correlates it perfectly with the training label. `ClinicConfig.bottom_crop_px=60` (mark top measured 51px from the bottom) trims both halves at emit; before/after high-pass asymmetry 11.5 -> 1.30. 9 of 10 pairs re-emitted cropped, `wny-19-front` excluded below the 400px floor |
+| wny | "WNY PLASTIC SURGERY" | lower torso, y 0.91-0.98, **after image only** | **yes**, off-breast | **DECIDED 2026-08-19: cropped, not tolerated.** The mark is clear of the breasts but sits on the after image alone, which correlates it perfectly with the training label. `ClinicConfig.bottom_crop_px=60` (mark top measured 51px from the bottom) trims both halves at emit; before/after high-pass asymmetry 11.5 -> 1.30. 9 of 10 pairs re-emitted cropped; the crop costs 0 pairs to the 400px floor (every half is 508px on its short side after it), and `wny-19-front` is excluded for carrying no `volume_cc`, which is a spec gate and nothing to do with the crop |
 | harrington | faint caption | very bottom of frame, below the subject | no | acceptable |
 | mitchellbrown | "Photos courtesy of Dr. Mitchell Brown, TorontoPlasticSurgery.com" | white margin below the subject | no | acceptable |
 | drrohrich | "© Rod J. Rohrich MD - http://drrohrich.com" (28 of 45) | white margin between panels | no | not the blocker (resolution is) |
@@ -112,9 +112,12 @@ only keeps its pairs out of training if something on disk keeps them out too.
   refuses it.
 - **wny**: resolved 2026-08-19. The `wny-after-only-watermark` question is
   closed - the captain ruled that a corner or edge-band mark is cropped rather
-  than tolerated, so the 9 viable pairs are live in the finished tree *cropped*,
-  and `wny-19-front` is excluded for falling below the 400px floor after the
-  crop. This is enforced in code (`bottom_crop_px`), not just documented.
+  than tolerated, so the 9 viable pairs are live in the finished tree *cropped*.
+  The crop costs this clinic 0 pairs: measured after it, every half is 508px on
+  its short side, nowhere near the 400px floor. `wny-19-front` is excluded for
+  carrying no `volume_cc` - `ingest.py`'s `validate_meta` rejects it on that
+  ground, not on size. This is enforced in code (`bottom_crop_px`), not just
+  documented.
   Same shape, one decision away.
 - **sixsurgery**: withheld *in fact*.
   Nothing was ever emitted there - 0 pairs in the finished tree - so its

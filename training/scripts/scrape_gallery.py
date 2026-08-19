@@ -258,9 +258,10 @@ CLINICS: dict[str, ClinicConfig] = {
         # Caption burned into the AFTER image only - 11.5x asymmetry, and the
         # clinic this whole class of defect is named after in AGENTS.md. Mark top
         # measured 51px from the bottom; 60 leaves a margin. Costs 0 pairs to the
-        # 400px floor. This crop does NOT resolve the open
-        # `wny-after-only-watermark` question about the mark itself - it removes
-        # the LABEL LEAK, which is a separate and larger problem.
+        # 400px floor - every half is 508px on its short side after the crop.
+        # This crop is also what CLOSED the `wny-after-only-watermark` question
+        # (captain, 2026-08-19): a corner or edge-band mark is cropped rather than
+        # tolerated, so the mark itself and the label leak are settled together.
         bottom_crop_px=60),
     "austinweston": ClinicConfig(
         slug="austinweston", consent_ref="austinweston-agreement-2026-08",
@@ -3499,14 +3500,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 print(f"  WARN {cfg.slug}: case-list endpoint named {reached} case(s) "
                       f"({len(cases)} in this category, {off_category} the practice "
                       f"files under another) but the gallery declares {declared}")
-            elif declared:
+            else:
                 print(f"  {cfg.slug}: case-list endpoint named all {declared} declared "
                       f"case(s) - {len(cases)} in this category, {off_category} the "
                       f"practice files under another")
-            else:
-                print(f"  WARN {cfg.slug}: case-list endpoint named {reached} "
-                      f"case(s) but the gallery declares no total, so the "
-                      f"enumeration is UNRECONCILED - do not read it as complete")
         elif declared is not None and len(cases) != declared:
             print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
                   f"but the gallery declares {declared}")

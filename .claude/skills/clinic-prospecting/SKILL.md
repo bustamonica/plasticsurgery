@@ -144,13 +144,23 @@ after-half peak, so 1.0 is "no one-sided mark":
 
 | clinic | pairs | mark on | ratio before -> after fix | crop | cost to the 400px floor |
 | --- | ---: | --- | --- | ---: | ---: |
-| roth | 162 | AFTER half | 16.9 -> 1.17 | 175px | 3 |
-| wny | 10 | AFTER half | 11.5 -> 1.30 | 60px | 1 |
-| camp | 299 | AFTER half | 7.4 -> 1.25 | 110px | 54 |
-| tccs | 743 | BEFORE half | 96.4% of pairs -> 0.0% | 130px | 27 |
+| roth | 162 | AFTER half | 16.9 -> 1.17 | 175px | 0 |
+| wny | 10 | AFTER half | 11.5 -> 1.30 | 60px | 0 |
+| camp | 299 | AFTER half | 7.4 -> 1.25 | 110px | 53 |
+| tccs | 743 | BEFORE half | 96.4% of pairs -> 0.0% | 130px | 9 |
 
 **1214 pairs across four clinics carried this** - a little under half of
 everything collected - and every one of them would have trained.
+
+The floor column is what the 400px gate ITSELF rejected, measured on the cropped
+images, and it is smaller than people assume: 62 pairs total, and the two
+largest crops in the table cost nothing at all. Measure it, do not estimate it,
+and do not blend it with the other gates - 60 camp pairs land below 400px after
+the crop but 7 of those were already going to be rejected for carrying no
+`volume_cc`, so 53 is the floor's own count; roth's smallest cropped half is
+462px and wny's is 508px, so neither clinic loses a pair to the floor however
+much the ratio column suggests a big crop should hurt. wny's one exclusion,
+`wny-19-front`, is a missing `volume_cc` and has nothing to do with the crop.
 
 Four things the fix has to get right:
 
@@ -205,7 +215,7 @@ verdict on each, and whether that verdict is actually enforced on disk, is
   and the clinic was discarded outright in the end. See the self-measurement
   lesson below for why every one of those metrics read optimistically.
 - Inpainting is not the tool for an edge-band mark. A free crop solved all four
-  clinics in 4a for the price of 85 pairs; heavenly's inpainting cost $28 across
+  clinics in 4a for the price of 62 pairs; heavenly's inpainting cost $28 across
   three passes and still failed.
 
 ---
