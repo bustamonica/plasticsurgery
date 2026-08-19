@@ -546,7 +546,10 @@ class PoliteFetcher:
                     raise
                 self.retries_made += 1
                 backoff = max(5.0, floor - self.delay, self.delay * 2 ** attempt)
-                print(f"  retry {attempt}/{attempts - 1} in {backoff:.0f}s "
+                # MAX_ATTEMPTS - 1, not the whole loop budget: the `retry_waits`
+                # allowance belongs to the validate path below, and a transport
+                # failure never reaches it.
+                print(f"  retry {attempt}/{MAX_ATTEMPTS - 1} in {backoff:.0f}s "
                       f"after {type(exc).__name__} on {url}")
                 continue
             data = resp.content
@@ -588,6 +591,21 @@ def crop_bottom(data: bytes, rows: int) -> bytes:
         buf = io.BytesIO()
         out.save(buf, "JPEG", quality=95)
         return buf.getvalue()
+
+
+def emitted_image_name(stem: str, url: str, bottom_crop_px: int) -> str:
+    """The filename one half of a pair is written under.
+
+    An uncropped half keeps the source URL's own extension, because this corpus
+    legitimately mixes .jpg/.jpeg/.png/.webp and a scan that globs `before.*`
+    depends on the name being true. A CROPPED half cannot: `crop_bottom` re-encodes
+    to JPEG, so writing it under the source's extension would put JPEG bytes in a
+    `before.webp`. The extension follows the encoding, never the source.
+    """
+    if bottom_crop_px:
+        return f"{stem}.jpg"
+    ext = Path(urlsplit(url).path).suffix or ".jpg"
+    return f"{stem}{ext.lower()}"
 
 
 def image_cache_key(clinic: str, url: str) -> str:
@@ -2170,6 +2188,18 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
                   f"{len(paths)} case path(s) collected before that point are "
                   f"kept.")
             raise EtnaEndpointError(str(exc), paths) from exc
+        except (ValueError, OSError) as exc:
+            # The backend-failure page is not the only way this endpoint fails: a
+            # truncated body raises JSONDecodeError, a bad base64 fragment raises
+            # binascii.Error, and a connection reset or a persistent 5xx raises a
+            # requests error (both ValueError and OSError subclasses). All of them
+            # used to escape past the handler above and abort the clinic run,
+            # discarding exactly the pages EtnaEndpointError.paths exists to keep.
+            print(f"  WARN {slug}: endpoint sweep {tag} ABANDONED at position "
+                  f"{position} - {type(exc).__name__}: {exc}. "
+                  f"{len(paths)} case path(s) collected before that point are "
+                  f"kept.")
+            raise EtnaEndpointError(f"{type(exc).__name__}: {exc}", paths) from exc
         state, html = etna_decode_ajax(raw)
         page = etna_ajax_case_paths(html)
         for path in page:
@@ -2179,22 +2209,55 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
         # never signal a short page. Only the cards actually returned can.
         if len(page) < page_size:
             break
-        position = state.get("next_returned_position", position + page_size)
+        # The state block is the failing backend's own output, so it is untrusted
+        # input: a full page returned with a `next_returned_position` that does not
+        # advance would re-request the same cache key forever, and after the first
+        # pass that is a pure cache read - no network call, no politeness sleep and
+        # no output. A silent hang, not a visible failure. The position only ever
+        # moves forward, by at least one page.
+        try:
+            advertised = int(state.get("next_returned_position", 0))
+        except (TypeError, ValueError):
+            advertised = 0
+        position = max(advertised, position + page_size)
     return paths
 
 
-def etna_endpoint_case_paths(cfg: ClinicConfig, fetcher: "PoliteFetcher",
-                             listing_html: str, total: int) -> list[str]:
-    """Every case path the gallery's own case-list endpoint will name.
+def endpoint_grant_document(cfg: ClinicConfig,
+                            grant_root: Path | None = None) -> Path:
+    """The site owner's case-list endpoint grant, verified present on disk.
 
-    Refuses outright for a clinic with no `endpoint_grant`: the grant is what makes
-    this request permitted at all, and a caller must not be able to reach the
-    endpoint by passing a slug the grant does not cover.
+    A grant is a document, not a string. Checking only that `endpoint_grant` is
+    set means a stale or mistyped path opens the endpoint exactly as wide as a
+    real one, and this corpus's standing lesson is that a documented permission is
+    only intent until something on disk enforces it. Relative paths resolve
+    against `grant_root` (the corpus root the run is given), so the check is made
+    against the same tree the grant was filed in.
     """
     if not cfg.endpoint_grant:
         raise PermissionError(
             f"{cfg.slug}: no endpoint access grant on file; the gallery case-list "
             f"endpoint must not be requested for this clinic")
+    path = Path(cfg.endpoint_grant)
+    if not path.is_absolute():
+        path = Path(grant_root if grant_root is not None else Path.cwd()) / path
+    if not path.is_file():
+        raise PermissionError(
+            f"{cfg.slug}: endpoint access grant {path} is not on disk; the "
+            f"gallery case-list endpoint must not be requested without it")
+    return path
+
+
+def etna_endpoint_case_paths(cfg: ClinicConfig, fetcher: "PoliteFetcher",
+                             listing_html: str, total: int,
+                             grant_root: Path | None = None) -> list[str]:
+    """Every case path the gallery's own case-list endpoint will name.
+
+    Refuses outright unless the clinic's `endpoint_grant` document is present: the
+    grant is what makes this request permitted at all, and a caller must not be
+    able to reach the endpoint by passing a slug the grant does not cover.
+    """
+    endpoint_grant_document(cfg, grant_root)
     config = etna_ajax_config(listing_html)
     if config is None:
         print(f"  WARN {cfg.slug}: listing declares no gallery endpoint")
@@ -2524,40 +2587,78 @@ ETNA_PRACTICE_SUBJECT_RE = re.compile(
 # comfortable with..." - both are pure augmentations that name a lift, and both
 # are the marina precedent from AGENTS.md: a narrative that names a procedure may
 # be explaining the options rather than reporting this patient's.
-ETNA_NEGATED_PROCEDURE_RE = re.compile(
+#
+# A negation is scoped to the MENTION it governs, never to the sentence. Scanning
+# the whole sentence for a negation token and passing on a hit reverses the
+# screen's own default: any sentence carrying one is whitelisted no matter what
+# else it reports, so `She underwent a "mommy makeover" including an
+# abdominoplasty and breast augmentation.` (tccs 240) read as pure on the strength
+# of "including an", and `She underwent a breast augmentation and a mastopexy, but
+# did not want liposuction.` read as pure on the strength of a negation covering a
+# DIFFERENT procedure. So every other-procedure mention in a sentence has to be
+# excused on its own, and one unexcused mention excludes the case.
+#
+# Cues are directional, because that is what separates a named-but-not-done
+# mention from a done one. "which she had considered for years" sits AFTER the
+# lift it describes and does not unmake it; "she considered a lift" sits before
+# one that never happened. Likewise "tummy tuck instead of a staged approach" is
+# a tummy tuck, while "instead of a lift" is not a lift.
+ETNA_NEGATION_BEFORE_RE = re.compile(
     r"\b(no lift|not (?:a |an |the )?(?:lift|need|require|candidate)|without|"
     r"declined|declines|refused|avoid(?:ed|ing|s)?|"
     r"discuss(?:ed|ing|es)?|explore(?:d|s)? options|explore|"
-    r"options include|including a|including an|or a combination|"
+    r"options include|"
     r"consider(?:ed|ing|s)?|would (?:have )?(?:require|need|likely)|"
-    r"may help|might help|can be done|could be done|in the future|"
-    r"at a later time|should she|if she (?:wants|wishes)|"
+    r"may help|might help|can be done|could be done|"
+    r"should she|if she (?:wants|wishes)|"
     r"offered the option|option of|elected to have the|"
-    r"instead of|rather than|as opposed to|alone, or|"
+    r"instead of|rather than|as opposed to|"
     r"did not|didn't|does not|doesn't|was not|were not|"
     r"chose not|opted not|opted against|elected not|decided against|"
     r"but no|no need|unnecessary|was told (?:she|he|they)|told her that|"
     r"recommend(?:ed)? against|able to avoid)\b", re.I)
+ETNA_NEGATION_AFTER_RE = re.compile(
+    r"\b(discuss(?:ed|ing|es)?|declined|declines|refused|without|"
+    r"avoid(?:ed|ing|s)?|able to avoid|"
+    r"or a combination|alone, or|in the future|at a later time|"
+    r"unnecessary|not (?:required|needed|necessary|performed|done)|"
+    r"may help|might help|"
+    r"was (?:not|never) (?:performed|done|needed|required))\b", re.I)
+# How far a cue may sit from the mention it governs. Measured over every cached
+# Etna case description (1181 of them): the widest real gap before a mention is
+# tccs 224's "offered the option of a breast augmentation alone, or augmentation
+# in conjunction with a lift" at 77 characters, and the widest after one is tccs
+# 696's "breast lift ... but she was adamant about avoiding" at 59. Widening past
+# these re-admits nothing; narrowing below them drops pure augmentations.
+ETNA_NEGATION_BEFORE_WINDOW = 80
+ETNA_NEGATION_AFTER_WINDOW = 72
 ETNA_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def etna_mention_is_negated(sentence: str, start: int, end: int) -> bool:
+    """Whether the other-procedure mention at [start:end) is named but not done."""
+    before = sentence[max(0, start - ETNA_NEGATION_BEFORE_WINDOW):start]
+    if ETNA_NEGATION_BEFORE_RE.search(before):
+        return True
+    after = sentence[end:end + ETNA_NEGATION_AFTER_WINDOW]
+    return bool(ETNA_NEGATION_AFTER_RE.search(after))
 
 
 def etna_combined_procedure_evidence(description: str) -> str | None:
     """The sentence showing this case is not a pure implant augmentation.
 
     Returns None only when every sentence naming another procedure is either the
-    practice advertising itself or a statement that the procedure did not happen.
-    Anything else excludes the case. See the comment block above for why the
-    default is exclusion rather than inclusion.
+    practice advertising itself or names procedures that every one of its mentions
+    says did not happen. Anything else excludes the case. See the comment block
+    above for why the default is exclusion rather than inclusion.
     """
     for sentence in ETNA_SENTENCE_SPLIT_RE.split(description or ""):
         scanned = ETNA_GYM_LIFT_RE.sub(" ", sentence)
-        if not ETNA_OTHER_PROCEDURE_RE.search(scanned):
-            continue
         if ETNA_PRACTICE_SUBJECT_RE.search(scanned):
             continue
-        if ETNA_NEGATED_PROCEDURE_RE.search(scanned):
-            continue
-        return sentence.strip()
+        for m in ETNA_OTHER_PROCEDURE_RE.finditer(scanned):
+            if not etna_mention_is_negated(scanned, m.start(), m.end()):
+                return sentence.strip()
     return None
 
 
@@ -3128,7 +3229,8 @@ def _fetch_seed(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | None:
 
 
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
-                  gallery_endpoint: bool = False) -> list[CaseData]:
+                  gallery_endpoint: bool = False,
+                  grant_root: Path | None = None) -> list[CaseData]:
     if cfg.kind == "drkolker":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -3286,6 +3388,19 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                        else f"{cfg.slug}_listing.html")
         listing = fetcher.get(listing_url, listing_key).decode("utf-8", "replace")
         declared = etna_declared_total(listing)
+        if gallery_endpoint and not declared:
+            # The declared total is the denominator this route reconciles against,
+            # and reconciliation is the whole reason the endpoint route exists.
+            # Sweeping to a total of 0 enumerates NOTHING, falls back to the 12
+            # cases the listing renders, and reports that as a clean run - a 98%
+            # under-collection with a zero exit status. That is the same silent
+            # truncation that turned 582 declared cases into a confident 450, so
+            # the route refuses instead of degrading.
+            raise RuntimeError(
+                f"{cfg.slug}: the gallery listing declares no case total, so an "
+                f"endpoint sweep cannot be reconciled against one. Refusing to "
+                f"enumerate rather than report an unverifiable count as complete "
+                f"(check the EII_GALLERY_JS state block in {listing_key}).")
         root = etna_gallery_root(gallery_path)
         to_visit = [f"{gallery_path}{cid}/"
                     for cid in etna_list_seed_cases(listing, gallery_path)]
@@ -3298,8 +3413,8 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             # target category's cases sit in. Running both would spend all of that
             # to re-derive a list the endpoint already gave, and the declared-total
             # reconciliation below is what proves the endpoint did not come short.
-            for path in etna_endpoint_case_paths(cfg, fetcher, listing,
-                                                 declared or 0):
+            for path in etna_endpoint_case_paths(cfg, fetcher, listing, declared,
+                                                 grant_root=grant_root):
                 if path not in to_visit:
                     to_visit.append(path)
         else:
@@ -3389,8 +3504,9 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                       f"case(s) - {len(cases)} in this category, {off_category} the "
                       f"practice files under another")
             else:
-                print(f"  {cfg.slug}: case-list endpoint named {reached} case(s); "
-                      f"the gallery declares no total")
+                print(f"  WARN {cfg.slug}: case-list endpoint named {reached} "
+                      f"case(s) but the gallery declares no total, so the "
+                      f"enumeration is UNRECONCILED - do not read it as complete")
         elif declared is not None and len(cases) != declared:
             print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
                   f"but the gallery declares {declared}")
@@ -3500,6 +3616,11 @@ def main() -> int:
                              "endpoint_grant on the clinic's config: the site "
                              "owner's grant is what makes that request permitted, "
                              "and it covers the case list only.")
+    parser.add_argument("--grant-root", type=Path, default=None,
+                        help="Directory a clinic's endpoint_grant path resolves "
+                             "against (default: the current directory). The grant "
+                             "document must be present there before the gallery "
+                             "case-list endpoint is requested.")
     args = parser.parse_args()
 
     cfg = CLINICS[args.clinic]
@@ -3515,10 +3636,15 @@ def main() -> int:
     enumerator = fetcher
     if args.prefetch and not args.offline:
         enumerator = PoliteFetcher(cache_dir, delay=args.delay, offline=True)
-    if args.gallery_endpoint and not cfg.endpoint_grant:
-        parser.error(f"{cfg.slug} has no gallery case-list endpoint grant on file; "
-                     f"--gallery-endpoint must not be used for this clinic")
-    cases = collect_cases(cfg, enumerator, gallery_endpoint=args.gallery_endpoint)
+    if args.gallery_endpoint:
+        # Verified BEFORE anything is fetched, not on the way into the sweep.
+        try:
+            endpoint_grant_document(cfg, args.grant_root)
+        except PermissionError as exc:
+            parser.error(f"{exc}; --gallery-endpoint must not be used for this "
+                         f"clinic")
+    cases = collect_cases(cfg, enumerator, gallery_endpoint=args.gallery_endpoint,
+                          grant_root=args.grant_root)
     if args.cases:
         wanted = set(args.cases.split(","))
         cases = [c for c in cases if c.case_id in wanted]
@@ -3606,10 +3732,11 @@ def main() -> int:
                                       ("after", pair.after_url)):
                         full_url = (url if url.startswith("http")
                                     else cfg.base_url + url)
-                        ext = Path(urlsplit(full_url).path).suffix or ".jpg"
                         data = fetcher.get(full_url,
                                            image_cache_key(cfg.slug, full_url))
-                        (pair_dir / f"{stem}{ext.lower()}").write_bytes(
+                        name = emitted_image_name(stem, full_url,
+                                                  cfg.bottom_crop_px)
+                        (pair_dir / name).write_bytes(
                             crop_bottom(data, cfg.bottom_crop_px))
             except requests.exceptions.HTTPError as exc:
                 # One image missing from the CDN must not end the clinic. tccs

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import requests
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -1401,6 +1402,39 @@ def test_etna_fully_enumerated_clinics_hold_no_endpoint_grant(slug):
     assert sg.CLINICS[slug].endpoint_grant is None
 
 
+def _grant_root(tmp_path):
+    """A corpus root with the endpoint access grant document actually filed in it.
+
+    The gate resolves ClinicConfig.endpoint_grant against this root, so a test
+    that reaches the endpoint has to put the grant on disk exactly as a real run
+    does.
+    """
+    path = tmp_path / sg.CLINICS["tccs"].endpoint_grant
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("Gallery case-list endpoint access granted 2026-08-18.\n")
+    return tmp_path
+
+
+def test_etna_endpoint_refuses_a_grant_path_that_is_not_on_disk(tmp_path):
+    """A grant is a document, not a string.
+
+    A stale or mistyped `endpoint_grant` would otherwise open the endpoint exactly
+    as wide as a real grant: the permission was obtained from twelve practices
+    individually and its boundary is the case list alone, so it is enforced
+    against the tree the grant was filed in rather than against prose.
+    """
+    cfg = sg.CLINICS["tccs"]
+    assert cfg.endpoint_grant
+    with pytest.raises(PermissionError, match="not on disk"):
+        sg.etna_endpoint_case_paths(cfg, None, "", 60, grant_root=tmp_path)
+
+
+def test_etna_endpoint_accepts_the_grant_once_it_is_filed(tmp_path):
+    """The same clinic passes the gate when the document really is there."""
+    assert sg.endpoint_grant_document(
+        sg.CLINICS["tccs"], _grant_root(tmp_path)).is_file()
+
+
 class _RecordingSession:
     """Serves a scripted list of endpoint responses and records what was sent."""
 
@@ -1498,7 +1532,8 @@ def test_etna_endpoint_second_sweep_runs_only_when_the_first_is_short(
              for i in range(1, 4)]
     session = _RecordingSession([_ajax_payload(paths, 3, 3, next_position=4)])
     f = _fetcher(tmp_path, monkeypatch, session)
-    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=3)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=3,
+                                     grant_root=_grant_root(tmp_path))
     assert got == paths
     assert len(session.posts) == 1
 
@@ -1516,7 +1551,8 @@ def test_etna_endpoint_second_sweep_uses_a_different_page_size(
         _ajax_payload(second, 1, 2, next_position=2),
     ])
     f = _fetcher(tmp_path, monkeypatch, session)
-    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=2)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=2,
+                                     grant_root=_grant_root(tmp_path))
     assert got == first + second
     sizes = [p[1]["case_count"] for p in session.posts]
     assert sizes == [str(sg.ETNA_AJAX_PAGE_SIZE),
@@ -1528,7 +1564,8 @@ def test_etna_endpoint_posts_to_the_declared_url_with_the_action_query(
     listing = load_fixture("etna_tccs_listing_endpoint.html")
     session = _RecordingSession([_ajax_payload([], 0, 0)])
     f = _fetcher(tmp_path, monkeypatch, session)
-    sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=1)
+    sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=1,
+                               grant_root=_grant_root(tmp_path))
     url, body = session.posts[0]
     assert url == TCCS_ENDPOINT + "?action=gallery_category_results"
     assert body["action"] == "gallery_category_results"
@@ -1541,9 +1578,12 @@ def test_etna_endpoint_is_cached_so_a_rerun_costs_no_requests(tmp_path, monkeypa
     f = sg.PoliteFetcher(tmp_path, delay=0)
     f.session = session
     monkeypatch.setattr(sg.time, "sleep", lambda s: None)
-    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, 1) == paths
+    grant = _grant_root(tmp_path)
+    assert sg.etna_endpoint_case_paths(
+        sg.CLINICS["tccs"], f, listing, 1, grant_root=grant) == paths
     offline = sg.PoliteFetcher(tmp_path, delay=0, offline=True)
-    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], offline, listing, 1) == paths
+    assert sg.etna_endpoint_case_paths(
+        sg.CLINICS["tccs"], offline, listing, 1, grant_root=grant) == paths
     assert len(session.posts) == 1
 
 
@@ -1556,7 +1596,9 @@ def test_etna_endpoint_sweep_is_cache_bounded_offline(tmp_path, monkeypatch):
     """
     listing = load_fixture("etna_tccs_listing_endpoint.html")
     offline = sg.PoliteFetcher(tmp_path, delay=0, offline=True)
-    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], offline, listing, 50) == []
+    assert sg.etna_endpoint_case_paths(
+        sg.CLINICS["tccs"], offline, listing, 50,
+        grant_root=_grant_root(tmp_path)) == []
 
 
 def test_etna_endpoint_route_reads_the_listing_under_its_own_cache_key(
@@ -1604,7 +1646,8 @@ def test_etna_endpoint_route_reads_the_listing_under_its_own_cache_key(
 
     session = _ListingSession()
     f = _fetcher(tmp_path, monkeypatch, session)
-    sg.collect_cases(cfg, f, gallery_endpoint=True)
+    sg.collect_cases(cfg, f, gallery_endpoint=True,
+                     grant_root=_grant_root(tmp_path))
     assert (tmp_path / "tccs_listing_endpoint.html").exists()
     # The shared entry is untouched: same bytes, still the stale total.
     assert (tmp_path / "tccs_listing.html").read_text() == stale
@@ -1715,7 +1758,8 @@ def test_etna_second_sweep_still_runs_after_the_first_is_abandoned(
         + [_ajax_error_payload(50, 60)] * 4
         + [_ajax_payload([b], 1, 60, next_position=2)])
     f = _fetcher(tmp_path, monkeypatch, session)
-    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=60)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=60,
+                                     grant_root=_grant_root(tmp_path))
     assert got == first + [b]
 
 
@@ -1777,6 +1821,157 @@ def test_etna_abandoned_sweep_keeps_the_pages_that_did_succeed(
     assert excinfo.value.paths == paths
 
 
+def test_etna_endpoint_sweep_never_repeats_a_position(tmp_path, monkeypatch):
+    """A `next_returned_position` that does not advance must not loop forever.
+
+    The state block is the flaky backend's own output, so it is untrusted input.
+    A FULL page returned with a stuck position re-requests the same cache key,
+    and after the first pass that is a pure cache read - no network call, no
+    politeness sleep, no output. The run hangs silently instead of failing.
+    """
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    session = _RecordingSession([_ajax_payload(paths, 2, 6, next_position=1)] * 8)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    real = f.post_form
+    calls = []
+
+    def counted(*a, **kw):
+        calls.append(a[0])
+        if len(calls) > 6:
+            raise AssertionError(
+                "sweep kept re-requesting a position that never advanced")
+        return real(*a, **kw)
+
+    monkeypatch.setattr(f, "post_form", counted)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=6, page_size=2, tag="a")
+    assert got == paths
+    assert [p[1]["first_returned_position"] for p in session.posts] == ["1", "3", "5"]
+
+
+def test_etna_endpoint_sweep_survives_a_non_numeric_position(tmp_path, monkeypatch):
+    """A malformed state value falls back to one page forward, not to a crash."""
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    session = _RecordingSession([
+        _ajax_payload(paths, 2, 4, next_position="soon"),
+        _ajax_payload(["/gallery/breast/breast-augmentation/3/"], 3, 4,
+                      next_position=None),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=4, page_size=2, tag="a")
+    assert got == paths + ["/gallery/breast/breast-augmentation/3/"]
+    assert [p[1]["first_returned_position"] for p in session.posts] == ["1", "3"]
+
+
+def test_etna_truncated_body_still_keeps_the_pages_that_succeeded(
+        tmp_path, monkeypatch):
+    """The backend-failure page is not the only way this endpoint fails.
+
+    A truncated body raises JSONDecodeError out of `validate`, which used to
+    escape the sweep entirely and abort the clinic run - discarding exactly the
+    pages EtnaEndpointError.paths exists to keep.
+    """
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    session = _RecordingSession(
+        [_ajax_payload(paths, 2, 100, next_position=3)]
+        + [b'{"_html": "dGhpcyBpcyB0cnVuY2F0ZW'] * 8)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.EtnaEndpointError) as excinfo:
+        sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                               total=100, page_size=2, tag="a")
+    assert excinfo.value.paths == paths
+
+
+def test_etna_http_failure_still_keeps_the_pages_that_succeeded(
+        tmp_path, monkeypatch):
+    """A persistent 5xx is a requests.HTTPError, not an EtnaEndpointError."""
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    good = _ajax_payload(paths, 2, 100, next_position=3)
+
+    class _FailsAfterOnePage:
+        headers = {}
+
+        def __init__(self):
+            self.calls = 0
+
+        def post(self, url, files=None, timeout=None):
+            self.calls += 1
+            served = self.calls == 1
+
+            class R:
+                status_code = 200 if served else 503
+                content = good if served else b""
+
+                def raise_for_status(self):
+                    if not served:
+                        raise requests.exceptions.HTTPError("503 Server Error")
+
+            return R()
+
+    f = _fetcher(tmp_path, monkeypatch, _FailsAfterOnePage())
+    with pytest.raises(sg.EtnaEndpointError) as excinfo:
+        sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                               total=100, page_size=2, tag="a")
+    assert excinfo.value.paths == paths
+
+
+class _ListingThenAjaxSession:
+    """Serves one listing on GET and an empty endpoint page on every POST."""
+
+    headers = {}
+
+    def __init__(self, listing: str):
+        self.listing = listing.encode()
+        self.gets = []
+        self.posts = []
+
+    def get(self, url, timeout=None):
+        self.gets.append(url)
+        body = self.listing
+
+        class R:
+            status_code = 200
+            content = body
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+    def post(self, url, files=None, timeout=None):
+        self.posts.append(url)
+
+        class R:
+            status_code = 200
+            content = _ajax_payload([], 0, 0)
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def test_etna_endpoint_route_refuses_a_listing_with_no_declared_total(
+        tmp_path, monkeypatch):
+    """No declared total means no reconciliation, and no reconciliation is the
+    whole failure this route exists to prevent.
+
+    Sweeping to a total of 0 enumerates nothing, falls back to the 12 cases the
+    listing renders, and exits zero - a ~98% under-collection reported as a clean
+    run. That is how 582 declared cases became a confident 450.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html").replace(
+        '"total":579', '"grand_total":579')
+    assert sg.etna_declared_total(listing) is None
+    session = _ListingThenAjaxSession(listing)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(RuntimeError, match="declares no case total"):
+        sg.collect_cases(sg.CLINICS["tccs"], f, gallery_endpoint=True,
+                         grant_root=_grant_root(tmp_path))
+    assert session.posts == []
+
+
 # ---------------------------------------------------------------------------
 # etna: purity - the image slug is necessary but not sufficient
 # ---------------------------------------------------------------------------
@@ -1798,6 +1993,33 @@ def test_etna_abandoned_sweep_keeps_the_pages_that_did_succeed(
     "Breast Augmentation with Nipple Reduction",
     "Our patient, 34, was able to achieve her desired result by using fat "
     "injections, which were taken during her Tummy Tuck procedure.",
+    # A negation ANYWHERE in the sentence used to whitelist the whole sentence,
+    # so each of these reported a combined procedure and read as pure. The cue
+    # has to govern the mention it excuses, and every mention has to be excused.
+    'She underwent a "mommy makeover" including an abdominoplasty and breast '
+    'augmentation.',
+    "Our patient received a breast augmentation with a breast lift, including a "
+    "tummy tuck.",
+    # The negation covers a DIFFERENT procedure from the one that happened.
+    "She underwent a breast augmentation and a mastopexy, but did not want "
+    "liposuction.",
+    # "considered" sits after the lift it describes and does not unmake it.
+    "Dr. Camp performed a breast augmentation with a breast lift, which she had "
+    "considered for years.",
+    # "instead of" governs the alternative, not the tummy tuck.
+    "She had a breast augmentation and tummy tuck instead of a staged approach.",
+    # Verbatim, and the two the sentence-level screen actually admitted to the
+    # corpus. colville 432: a nipple reduction really was performed, excused by
+    # an unrelated "After considering" 95 characters earlier.
+    "After considering her needs and lifestyle, I suggested a course of action "
+    "that consisted of performing a nipple reduction and using Allergan "
+    "Natrelle Style SSM 275cc implants for augmentation.",
+    # tccs 668: she avoided the ANCHOR mastopexy and had a periareolar one.
+    '42 year-old woman with mild ptosis or drooping bilaterally and wished to '
+    'avoid classic mastopexy "anchor" scars; had round saline implants '
+    '(slightly larger on the left by 45cc) placed submuscularly, with a '
+    '"Benelli" or "donut" periareolar (around the nipple) mastopexy '
+    'bilaterally, to better position the nipples.',
 ])
 def test_etna_combined_procedure_is_excluded(sentence):
     assert sg.etna_combined_procedure_evidence(sentence) is not None
@@ -1830,6 +2052,21 @@ def test_etna_combined_procedure_is_excluded(sentence):
     "lifting, she wanted an outcome that delivered fullness.",
     "I used a muscle-preserving technique to support her daily activities, such "
     "as frequent exercise and lifting weights.",
+    # Verbatim, and the widest real gaps between a cue and the mention it
+    # governs - these are what set the two window sizes. tccs 224 (77 before):
+    # the next sentence reads "She chose to undergo augmentation alone".
+    "She was offered the option of a breast augmentation alone, or augmentation "
+    "in conjunction with a lift, given the relaxed shape of her breasts.",
+    # tccs 696 (59 after): she declined the recommended lift.
+    "It was recommended that she undergo a concomitant breast lift with a "
+    "submuscular augmentation, but she was adamant about avoiding external "
+    "breast scars, and was willing to accept an implant that sat a little "
+    "lower.",
+    # hasen 67: "lifting her nipples" is the effect of the implant, not a
+    # mastopexy, and the cue that says so sits after it.
+    "To improve appearance, I lowered the inframammary fold to allow room for "
+    "the breast implant and give the illusion of lifting her nipples without "
+    "the need for a breast lift (mastopexy).",
 ])
 def test_etna_pure_augmentation_is_kept(sentence):
     assert sg.etna_combined_procedure_evidence(sentence) is None
@@ -1899,6 +2136,33 @@ def test_crop_bottom_is_a_no_op_at_zero():
 def test_crop_bottom_refuses_to_crop_away_the_whole_image():
     with pytest.raises(ValueError):
         sg.crop_bottom(_jpeg(100, 100), 100)
+
+
+@pytest.mark.parametrize("url", [
+    "https://x.test/img/case-1-front.webp",
+    "https://x.test/img/case-1-front.PNG",
+    "https://x.test/img/case-1-front.jpeg",
+])
+def test_uncropped_halves_keep_the_source_extension(url):
+    """The corpus legitimately mixes .jpg/.jpeg/.png/.webp and a `before.*` scan
+    depends on the name being true to the bytes."""
+    assert sg.emitted_image_name("before", url, 0) == (
+        "before" + Path(url).suffix.lower())
+
+
+@pytest.mark.parametrize("url", [
+    "https://x.test/img/case-1-front.webp",
+    "https://x.test/img/case-1-front.png",
+    "https://x.test/img/case-1-front.jpg",
+])
+def test_cropped_halves_are_named_for_the_encoding_not_the_source(url):
+    """crop_bottom re-encodes to JPEG, so a cropped half can only be a .jpg.
+
+    Writing JPEG bytes into a `before.webp` is how a corpus starts lying about
+    its own files - latent today only because no clinic yet combines a bottom
+    crop with the non-composite emit branch.
+    """
+    assert sg.emitted_image_name("before", url, 130) == "before.jpg"
 
 
 @pytest.mark.parametrize("slug,crop", [
