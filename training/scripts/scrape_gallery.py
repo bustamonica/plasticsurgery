@@ -69,6 +69,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import io
 import json
 import re
 import sys
@@ -137,6 +138,25 @@ class ClinicConfig:
     base_url: str
     gallery_paths: list[str]
     kind: str  # parser implementation key
+    # Rows trimmed from the BOTTOM of both halves of every pair, after the
+    # composite split.
+    #
+    # This exists for one reason and it is not cosmetic. tccs burns a colour-wheel
+    # logo and a THE CENTER FOR COSMETIC SURGERY wordmark into the bottom-left of
+    # the composite - which, because the composite splits at the midpoint, puts it
+    # on the BEFORE half of 743 of 743 pairs and on 0 after halves. A mark that
+    # perfectly correlates with the before/after label is a poisoned axis, not a
+    # blemish: an edit model can satisfy "make the breasts larger" by learning to
+    # remove a logo, and that would score as success in evaluation while teaching
+    # nothing about augmentation. wny has the same defect inverted (a caption on
+    # every AFTER image and none on the before).
+    #
+    # The crop is applied to BOTH halves equally so the two never differ in
+    # framing - a framing difference would be the same correlated-with-the-label
+    # artifact in another form. It removes lower abdomen, well below the breasts,
+    # which is why a free crop is the right tool here rather than masking or
+    # inpainting: heavenly's three inpaint passes cost $28 and still failed.
+    bottom_crop_px: int = 0
     # Reference to the site owner's grant of access to the gallery's own case-list
     # endpoint (`admin-ajax.php`, which these robots.txt files otherwise disallow).
     #
@@ -343,7 +363,11 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna",
-        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
+        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md",
+        # 130px clears the logo on 742 of 743 measured before halves (its top
+        # edge sits 122px from the bottom at the median, 124px at p95) with a
+        # small margin. See ClinicConfig.bottom_crop_px for why this matters.
+        bottom_crop_px=130),
 }
 
 
@@ -528,6 +552,26 @@ class PoliteFetcher:
             path.write_bytes(data)
             return data
         raise RuntimeError("unreachable")  # pragma: no cover
+
+
+def crop_bottom(data: bytes, rows: int) -> bytes:
+    """Trim `rows` pixels off the bottom of an encoded image.
+
+    Re-encodes, which is what every stage of this pipeline already does; the
+    corpus's last-mile builder re-encodes again on the way out.
+    """
+    from PIL import Image
+
+    if rows <= 0:
+        return data
+    with Image.open(io.BytesIO(data)) as im:
+        im = im.convert("RGB")
+        if rows >= im.height:
+            raise ValueError(f"bottom crop of {rows}px exceeds image height {im.height}")
+        out = im.crop((0, 0, im.width, im.height - rows))
+        buf = io.BytesIO()
+        out.save(buf, "JPEG", quality=95)
+        return buf.getvalue()
 
 
 def image_cache_key(clinic: str, url: str) -> str:
@@ -3521,8 +3565,10 @@ def main() -> int:
                     rows, cols = pair.grid_shape
                     before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
                     after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
-                    (pair_dir / "before.jpg").write_bytes(before_data)
-                    (pair_dir / "after.jpg").write_bytes(after_data)
+                    (pair_dir / "before.jpg").write_bytes(
+                        crop_bottom(before_data, cfg.bottom_crop_px))
+                    (pair_dir / "after.jpg").write_bytes(
+                        crop_bottom(after_data, cfg.bottom_crop_px))
                 elif pair.split_composite:
                     full_url = (pair.before_url
                                 if pair.before_url.startswith("http")
@@ -3535,8 +3581,10 @@ def main() -> int:
                         print(f"    SKIP {pair.key}: {exc}")
                         skipped += 1
                         continue
-                    (pair_dir / "before.jpg").write_bytes(before_data)
-                    (pair_dir / "after.jpg").write_bytes(after_data)
+                    (pair_dir / "before.jpg").write_bytes(
+                        crop_bottom(before_data, cfg.bottom_crop_px))
+                    (pair_dir / "after.jpg").write_bytes(
+                        crop_bottom(after_data, cfg.bottom_crop_px))
                 else:
                     for stem, url in (("before", pair.before_url),
                                       ("after", pair.after_url)):
@@ -3545,7 +3593,8 @@ def main() -> int:
                         ext = Path(urlsplit(full_url).path).suffix or ".jpg"
                         data = fetcher.get(full_url,
                                            image_cache_key(cfg.slug, full_url))
-                        (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
+                        (pair_dir / f"{stem}{ext.lower()}").write_bytes(
+                            crop_bottom(data, cfg.bottom_crop_px))
             except requests.exceptions.HTTPError as exc:
                 # One image missing from the CDN must not end the clinic. tccs
                 # publishes case 11336 with a front photograph that 404s, and an

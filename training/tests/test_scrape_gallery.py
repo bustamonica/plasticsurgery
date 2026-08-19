@@ -1868,3 +1868,48 @@ def test_etna_pure_case_with_a_negated_lift_still_emits_pairs():
             'implants but no lift. Implant Size: 350cc</p></div>')
     case = sg.etna_parse_case(html, "8", "x", BREAST_AUG_GALLERY)
     assert [p.key for p in case.pairs] == ["front"]
+
+
+# ---------------------------------------------------------------------------
+# A watermark on one half only is correlated with the label
+# ---------------------------------------------------------------------------
+
+
+def _jpeg(w, h, colour=(180, 140, 120)):
+    import io as _io
+    from PIL import Image as _Image
+    buf = _io.BytesIO()
+    _Image.new("RGB", (w, h), colour).save(buf, "JPEG")
+    return buf.getvalue()
+
+
+def test_crop_bottom_trims_the_requested_rows():
+    import io as _io
+    from PIL import Image as _Image
+    out = sg.crop_bottom(_jpeg(850, 637), 130)
+    with _Image.open(_io.BytesIO(out)) as im:
+        assert im.size == (850, 507)
+
+
+def test_crop_bottom_is_a_no_op_at_zero():
+    data = _jpeg(100, 100)
+    assert sg.crop_bottom(data, 0) is data
+
+
+def test_crop_bottom_refuses_to_crop_away_the_whole_image():
+    with pytest.raises(ValueError):
+        sg.crop_bottom(_jpeg(100, 100), 100)
+
+
+def test_tccs_carries_a_bottom_crop_and_the_other_etna_clinics_do_not():
+    """tccs's mark lands on the BEFORE half of every pair, and on no after half.
+
+    A mark perfectly correlated with the before/after label lets an edit model
+    satisfy "make the breasts larger" by removing a logo - a poisoned axis rather
+    than a blemish. The crop is what breaks that correlation.
+    """
+    assert sg.CLINICS["tccs"].bottom_crop_px == 130
+    for slug in ("camp", "kochcarlisle", "ablavsky", "colville", "roth",
+                 "southeastern", "northraleigh", "hasen", "curtsinger",
+                 "coastal", "wmips"):
+        assert sg.CLINICS[slug].bottom_crop_px == 0, slug
