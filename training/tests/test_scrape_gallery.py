@@ -862,3 +862,445 @@ def test_notes_keep_view_label_provenance_with_description():
     )
     assert "Clinic description" in meta["notes"]
     assert "view labels" in meta["notes"]
+
+
+# ---------------------------------------------------------------------------
+# etna parser family (Etna Interactive; 2026-08-15 consented batch)
+#
+# One parser serves twelve clinics, which is exactly the condition that invited
+# the lakeshore single-layout mistake (218 pairs lost silently). Every
+# description layout the batch publishes gets its own behavioural test below,
+# pinned to a fixture holding the clinic's verbatim published page text.
+# ---------------------------------------------------------------------------
+
+BREAST_AUG_GALLERY = "/gallery/breast/breast-augmentation/"
+
+
+def etna_case(fixture: str, case_id: str, gallery_path: str = BREAST_AUG_GALLERY):
+    return sg.etna_parse_case(load_fixture(fixture), case_id, "x", gallery_path)
+
+
+# -- layout A: labelled <strong>Label:</strong>value separated by <br> --------
+
+
+def test_etna_layout_a_labelled_strong_fields():
+    case = etna_case("etna_southeastern_case_191.html", "191")
+    specs = case.specs
+    assert specs.fields["Implant Size (Left)"] == "325cc"
+    assert specs.fields["Implant Size (Right)"] == "325cc"
+    assert specs.fields["Implant Type"] == "Saline"
+    assert (specs.left_cc, specs.right_cc) == (325.0, 325.0)
+    assert sg.volume_cc(specs) == 325
+    assert specs.age == 46
+    assert specs.height == "5'5"
+    assert specs.height_cm == 165.1
+    assert specs.weight_lbs == 130
+    assert specs.weight_kg == 59.0
+
+
+# -- layout B: labelled <br> list with a sided 'Filled to' sub-block ----------
+
+
+def test_etna_layout_b_sided_filled_to_volumes():
+    case = etna_case("etna_roth_case_219.html", "219",
+                     "/before-after/breast/breast-augmentation/")
+    specs = case.specs
+    # The implanted volume is the FINAL fill (480), not the 420 shell size.
+    assert (specs.left_cc, specs.right_cc) == (480.0, 480.0)
+    assert sg.volume_cc(specs) == 480
+    assert specs.placement == "submuscular"
+    assert specs.incision == "periareolar"
+    assert specs.shape == "round"
+    assert specs.profile == "high"
+
+
+# -- layout C: chart fields run together with NO delimiter --------------------
+
+
+def test_etna_layout_c_undelimited_chart_splits_every_field():
+    """northraleigh concatenates its chart with no separator at all.
+
+    'Approach: InframammaryPlacement: SubfascialImplant size: 350 cc' has no
+    word boundary before 'Placement', so a \\b-anchored label scan (or a split
+    at the first ': ') yields ONE field whose value swallows the whole chart -
+    the lakeshore failure mode. Every field must come back separately.
+    """
+    case = etna_case("etna_northraleigh_case_18.html", "18",
+                     "/before-and-after/breast/breast-augmentation/")
+    specs = case.specs
+    assert specs.fields["Approach"] == "Inframammary"
+    assert specs.fields["Placement"] == "Subfascial"
+    assert specs.fields["Implant size"] == "350 cc"
+    assert specs.fields["Implant type"].startswith("Smooth round")
+    # The value must stop at the next label rather than run on into it.
+    assert "Placement" not in specs.fields["Approach"]
+    assert sg.volume_cc(specs) == 350
+    assert specs.placement == "subfascial"
+    assert specs.incision == "inframammary"
+
+
+def test_etna_undelimited_labels_do_not_split_mid_word_generally():
+    """The camel-case label boundary must not fire on ordinary capitalised prose."""
+    fields, leftover = sg._etna_split_fields(
+        "She discussed her BreastAugmentation options with Dr. Smith")
+    assert fields == []
+    assert leftover.startswith("She discussed")
+
+
+# -- layout D: narrative prose carrying the volume ----------------------------
+
+
+def test_etna_layout_d_narrative_prose_volume():
+    case = etna_case("etna_coastal_case_122.html", "122")
+    specs = case.specs
+    assert sg.volume_cc(specs) == 470
+    assert specs.shape == "round"
+    assert specs.profile == "extra-high"
+    assert "Breast Augmentation in Boston" in specs.summary
+    # Placement/incision come from CHART text only. This case names both in
+    # prose, and prose is not a chart (the marina precedent: a narrative may be
+    # explaining the options rather than reporting this patient's).
+    assert specs.placement is None
+    assert specs.incision is None
+
+
+# -- layout E: short unlabelled prose -----------------------------------------
+
+
+def test_etna_layout_e_short_prose_bilateral_volume():
+    case = etna_case("etna_wmips_case_9344.html", "9344")
+    assert sg.volume_cc(case.specs) == 370
+    assert case.specs.brand == "mentor"
+
+
+def test_etna_layout_e_sided_prose_possessive_phrasing():
+    """'385cc ... on her right, and a 325cc ... on her left' must keep its sides.
+
+    Without the possessive form both sides fall through to the unsided
+    fallback, which records the volumes in publication order and labels them
+    backwards in notes. The average is right either way; the sides are not.
+    """
+    case = etna_case("etna_kochcarlisle_case_276.html", "276",
+                     "/photo-gallery/breast-procedures/breast-augmentation/")
+    specs = case.specs
+    assert specs.right_cc == 385.0
+    assert specs.left_cc == 325.0
+    assert sg.volume_cc(specs) == 355
+
+
+# -- layout F: 'No case details for this patient.' ----------------------------
+
+
+def test_etna_layout_f_no_case_details_yields_no_volume():
+    case = etna_case("etna_ablavsky_case_483.html", "483")
+    assert case.specs.fields == {}
+    assert case.specs.summary == ""
+    assert sg.volume_cc(case.specs) is None
+
+
+# -- layout G: no .case-description element at all ----------------------------
+
+
+def test_etna_layout_g_missing_description_block_is_recorded():
+    case = etna_case("etna_curtsinger_case_159.html", "159",
+                     "/gallery/plastic-surgery/breast-augmentation/")
+    assert sg.volume_cc(case.specs) is None
+    assert any("no .case-description" in w for w in case.warnings)
+
+
+# -- views: named filenames document laterality, positional ones do not -------
+
+
+def test_etna_named_view_filenames_document_view_and_laterality():
+    case = etna_case("etna_roth_case_219.html", "219",
+                     "/before-after/breast/breast-augmentation/")
+    assert [(p.key, p.view_hint) for p in case.pairs] == [
+        ("front", "front"),
+        ("left-oblique", "oblique-left"),
+        ("left-side", "side-left"),
+    ]
+    # A named token resolves with no annotation and no visual call.
+    for pair in case.pairs:
+        assert sg.resolve_view(pair, {}) == (pair.view_hint, None)
+
+
+def test_etna_positional_view_filenames_need_an_annotation():
+    case = etna_case("etna_southeastern_case_191.html", "191")
+    assert [p.key for p in case.pairs] == ["view-1", "view-2", "view-3"]
+    for pair in case.pairs:
+        assert pair.view_hint is None
+        # No page-documented view: never guessed, skipped until annotated.
+        assert sg.resolve_view(pair, {}) == (None, None)
+    annotated = {"pairs": {"view-1": {"view": "front"}}}
+    assert sg.resolve_view(case.pairs[0], annotated) == (
+        "front", "visual inspection of downloaded images")
+
+
+def test_etna_every_view_emitted_once_despite_webp_and_jpg_encodings():
+    """Etna publishes each photograph as BOTH .jpg and .webp.
+
+    Keying pairs on the URL instead of the view token emits every view twice,
+    and the second copy would collide on pair_id at emit time.
+    """
+    html = load_fixture("etna_wmips_case_9344.html").replace(
+        "-detail.jpg", "-detail.webp")
+    both = load_fixture("etna_wmips_case_9344.html") + html
+    case = sg.etna_parse_case(both, "9344", "x", BREAST_AUG_GALLERY)
+    keys = [p.key for p in case.pairs]
+    assert keys == sorted(set(keys))
+    assert all(p.before_url.endswith(".jpg") for p in case.pairs)
+
+
+def test_etna_back_view_has_no_schema_view_and_is_reported():
+    case = etna_case("etna_ablavsky_case_483.html", "483")
+    assert any("'back'" in w and "no schema view" in w for w in case.warnings)
+
+
+# -- purity: the filename's procedure slug is the case's own procedure --------
+
+
+def test_etna_mommy_makeover_case_excluded_by_procedure_slug():
+    """A combined-procedure case in a breast-augmentation gallery.
+
+    lukecurtsingermd lists case 159 under breast augmentation but publishes it
+    as 'mommy-makeover-159-front-detail.jpg'. Its after photograph shows a
+    change the implants did not cause, so it is excluded by captain ruling.
+    """
+    case = etna_case("etna_curtsinger_case_159.html", "159",
+                     "/gallery/plastic-surgery/breast-augmentation/")
+    assert case.pairs == []
+    assert any("not pure breast augmentation" in w and "mommy-makeover" in w
+               for w in case.warnings)
+
+
+def test_etna_body_lift_case_excluded_by_procedure_slug():
+    case = etna_case("etna_ablavsky_case_483.html", "483")
+    assert case.pairs == []
+    assert any("lower-circumferential-body-lift" in w for w in case.warnings)
+
+
+def test_etna_pure_augmentation_case_is_kept():
+    case = etna_case("etna_camp_case_124.html", "124")
+    assert len(case.pairs) == 5
+    assert not any("not pure" in w for w in case.warnings)
+
+
+# -- volume units: the label supplies the unit, free prose does not -----------
+
+
+def test_etna_labelled_bare_number_reads_as_cc():
+    """Inside a field whose label names it as an implant size, a bare number
+    or an ml figure reads as cc (2026-08-15 units ruling)."""
+    assert sg._etna_labelled_volume("Implant Size", "350") == 350.0
+    assert sg._etna_labelled_volume("Implant Size", "350 ml") == 350.0
+    assert sg._etna_labelled_volume("Implant Size", "350cc") == 350.0
+    # Grams are recorded unconverted, per the standing units ruling.
+    assert sg._etna_labelled_volume("Implant Size", "330 grams") == 330.0
+
+
+def test_etna_bare_number_outside_a_volume_label_is_not_a_volume():
+    assert sg._etna_labelled_volume("Patient Weight", "130") is None
+    assert sg._etna_labelled_volume("Patient Age", "350") is None
+    # And a bare number in free prose never becomes a volume.
+    assert sg.parse_fill_volumes("she was 350 in the study") == (None, None)
+
+
+def test_etna_out_of_range_labelled_volume_is_dropped():
+    assert sg._etna_labelled_volume("Implant Size", "12") is None
+    assert sg._etna_labelled_volume("Implant Size", "5000") is None
+
+
+# -- enumeration --------------------------------------------------------------
+
+
+def test_etna_declared_total_read_from_gallery_js():
+    listing = (
+        'var EII_GALLERY_JS = {"CATEGORY_RESULTS":{"env":{"config":'
+        '{"initial_num_cases":12},"state":{"showing":12,"cases_remaining":36,'
+        '"total":48}}}};'
+    )
+    assert sg.etna_declared_total(listing) == 48
+
+
+def test_etna_chain_links_yield_neighbour_case_paths():
+    html = (
+        '<a class="button secondary btn case-details-prev" '
+        'href="https://www.se-plasticsurgery.com/gallery/breast/breast-augmentation/289/">Prev</a>'
+        '<a class="button case-details-next btn secondary" '
+        'href="https://www.se-plasticsurgery.com/gallery/breast/breast-augmentation/205/">Next</a>'
+    )
+    assert sg.etna_next_case_paths(html, "/gallery/") == [
+        "/gallery/breast/breast-augmentation/289/",
+        "/gallery/breast/breast-augmentation/205/",
+    ]
+
+
+def test_etna_chain_follows_links_into_other_categories():
+    """The chain is scoped to the gallery ROOT, not to the procedure category.
+
+    kochandcarlisle's augmentation cases link on into a liposuction category
+    and camp's into mommy-makeover. Dropping those links ends the walk there,
+    which cost 128 of 152 camp cases and 69 of 81 kochandcarlisle cases before
+    the walk was widened. Off-category pages are traversed, never collected.
+    """
+    html = (
+        '<a class="case-details-next" '
+        'href="https://www.campplasticsurgery.com/gallery/body/mommy-makeover/77/">Next</a>'
+    )
+    assert sg.etna_next_case_paths(html, "/gallery/") == [
+        "/gallery/body/mommy-makeover/77/"]
+
+
+def test_etna_chain_ignores_links_outside_the_gallery_root():
+    html = (
+        '<a class="case-details-next" '
+        'href="https://www.se-plasticsurgery.com/blog/12/">Next</a>'
+    )
+    assert sg.etna_next_case_paths(html, "/gallery/") == []
+
+
+@pytest.mark.parametrize("gallery_path,root", [
+    ("/gallery/breast/breast-augmentation/", "/gallery/"),
+    ("/photo-gallery/breast-procedures/breast-augmentation/", "/photo-gallery/"),
+    ("/before-and-after/breast/breast-augmentation/", "/before-and-after/"),
+    ("/before-after/breast/breast-augmentation/", "/before-after/"),
+])
+def test_etna_gallery_root(gallery_path, root):
+    assert sg.etna_gallery_root(gallery_path) == root
+
+
+def test_etna_case_images_of_other_cases_are_ignored():
+    html = load_fixture("etna_wmips_case_9344.html") + (
+        '<img src="//images.wmips.com/content/images/'
+        'breast-augmentation-9999-front-detail.jpg"/>')
+    case = sg.etna_parse_case(html, "9344", "x", BREAST_AUG_GALLERY)
+    assert all("-9344-" in p.before_url for p in case.pairs)
+
+
+def test_etna_category_paths_from_gallery_index():
+    """Category listings are the extra chain seeds.
+
+    The chain is a set of disconnected components, so seeding only from the
+    target category strands most of the gallery - 12 of kochandcarlisle's 81
+    augmentation cases. Every category listing is a way into another component.
+    """
+    index = (
+        '<a href="https://www.kochandcarlisle.com/photo-gallery/breast-procedures/breast-augmentation/">A</a>'
+        '<a href="https://www.kochandcarlisle.com/photo-gallery/body-procedures/tummy-tuck/">B</a>'
+        '<a href="/photo-gallery/facial-cosmetic-surgery/brow-lift/">C</a>'
+        '<a href="/photo-gallery/breast-procedures/breast-augmentation/276/">a case, not a category</a>'
+        '<a href="/about-us/">off gallery</a>'
+        '<a href="/photo-gallery/">the index itself</a>'
+    )
+    assert sg.etna_category_paths(index, "/photo-gallery/") == [
+        "/photo-gallery/breast-procedures/breast-augmentation/",
+        "/photo-gallery/body-procedures/tummy-tuck/",
+        "/photo-gallery/facial-cosmetic-surgery/brow-lift/",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# PoliteFetcher: transient-failure retry
+# ---------------------------------------------------------------------------
+
+
+class _FlakySession:
+    """Fails `failures` times with a reset, then serves `payload`."""
+
+    def __init__(self, failures: int, payload: bytes = b"ok", status: int = 200):
+        self.failures = failures
+        self.payload = payload
+        self.status = status
+        self.headers = {}
+        self.calls = 0
+
+    def get(self, url, timeout=None):
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise sg.requests.exceptions.ConnectionError("reset by peer")
+
+        class R:
+            status_code = self.status
+            content = self.payload
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    raise sg.requests.exceptions.HTTPError(str(self.status_code))
+
+        return R()
+
+
+def _fetcher(tmp_path, monkeypatch, session):
+    f = sg.PoliteFetcher(tmp_path, delay=0)
+    f.session = session
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    return f
+
+
+def test_fetcher_retries_transient_connection_error(tmp_path, monkeypatch):
+    """A single reset must not end a multi-hundred-page enumeration.
+
+    Three clinics' chain walks died mid-run on ConnectionResetError, and the
+    resulting shortfall is indistinguishable from missing data unless the
+    fetcher retries.
+    """
+    session = _FlakySession(failures=2, payload=b"page")
+    f = _fetcher(tmp_path, monkeypatch, session)
+    assert f.get("https://example.test/x", "x.html") == b"page"
+    assert session.calls == 3
+    assert f.retries_made == 2
+    assert (tmp_path / "x.html").read_bytes() == b"page"
+
+
+def test_fetcher_gives_up_after_max_attempts(tmp_path, monkeypatch):
+    session = _FlakySession(failures=99)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.requests.exceptions.ConnectionError):
+        f.get("https://example.test/x", "x.html")
+    assert session.calls == sg.MAX_ATTEMPTS
+    assert not (tmp_path / "x.html").exists()
+
+
+def test_fetcher_retries_throttling_status(tmp_path, monkeypatch):
+    session = _FlakySession(failures=0, payload=b"page", status=429)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.requests.exceptions.HTTPError):
+        f.get("https://example.test/x", "x.html")
+    # 429 is retried rather than accepted, then surfaced on the last attempt.
+    assert session.calls == sg.MAX_ATTEMPTS
+
+
+def test_fetcher_serves_cache_without_network(tmp_path, monkeypatch):
+    (tmp_path / "x.html").write_bytes(b"cached")
+    session = _FlakySession(failures=99)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    assert f.get("https://example.test/x", "x.html") == b"cached"
+    assert session.calls == 0
+
+
+@pytest.mark.parametrize("token,view", [
+    ("front", "front"),
+    ("anterior", "front"),          # tccs case 10969 labels its front 'anterior'
+    ("left-oblique", "oblique-left"),
+    ("right-lateral", "side-right"),  # tccs spells a side view 'lateral'
+])
+def test_etna_named_view_token_maps_to_schema_view(token, view):
+    assert sg.ETNA_VIEW_TOKENS[token] == view
+
+
+@pytest.mark.parametrize("token", ["back", "front-arms-raised", "bent-forward"])
+def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
+    """A different POSE is not a different view.
+
+    'front-arms-raised' (drhasen case 362) and 'bent-forward' photograph the
+    front, but mapping them onto 'front' would both mislabel the pose and
+    collide with the case's real front view on pair_id. They are reported as
+    having no schema view instead.
+    """
+    assert token not in sg.ETNA_VIEW_TOKENS
+    assert token in sg.ETNA_NON_SCHEMA_VIEWS
+    html = (f'<img src="//images.x.com/content/images/breast-augmentation-7-{token}'
+            '-detail.jpg"/><div class="case-description"><p>350cc</p></div>')
+    case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
+    assert case.pairs == []
+    assert any(token in w and "no schema view" in w for w in case.warnings)
