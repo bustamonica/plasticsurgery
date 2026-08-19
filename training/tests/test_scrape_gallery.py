@@ -1901,15 +1901,30 @@ def test_crop_bottom_refuses_to_crop_away_the_whole_image():
         sg.crop_bottom(_jpeg(100, 100), 100)
 
 
-def test_tccs_carries_a_bottom_crop_and_the_other_etna_clinics_do_not():
-    """tccs's mark lands on the BEFORE half of every pair, and on no after half.
+@pytest.mark.parametrize("slug,crop", [
+    # Each measured by averaging every frame and high-passing the average, then
+    # confirmed constant in PIXELS across the clinic's height groups.
+    ("tccs", 130),   # colour-wheel logo + wordmark, BEFORE half
+    ("roth", 175),   # "Jeffrey J. Roth, M.D., F.A.C.S." script, AFTER half
+    ("camp", 110),   # "STEVEN CAMP MD PLASTIC SURGERY", AFTER half
+    ("wny", 60),     # after-image caption, AFTER half
+])
+def test_one_sided_watermark_clinics_carry_a_measured_bottom_crop(slug, crop):
+    """A mark on one half and not the other is a label leak.
 
-    A mark perfectly correlated with the before/after label lets an edit model
-    satisfy "make the breasts larger" by removing a logo - a poisoned axis rather
-    than a blemish. The crop is what breaks that correlation.
+    An edit model can satisfy "make the breasts larger" by learning to add or
+    remove the mark, which teaches nothing about augmentation and scores as
+    success in evaluation. The crop is what breaks that correlation. tccs carries
+    its mark on the BEFORE half; roth, camp and wny on the AFTER half - so the
+    crop is measured per clinic rather than transferred.
     """
-    assert sg.CLINICS["tccs"].bottom_crop_px == 130
-    for slug in ("camp", "kochcarlisle", "ablavsky", "colville", "roth",
-                 "southeastern", "northraleigh", "hasen", "curtsinger",
-                 "coastal", "wmips"):
-        assert sg.CLINICS[slug].bottom_crop_px == 0, slug
+    assert sg.CLINICS[slug].bottom_crop_px == crop
+
+
+@pytest.mark.parametrize("slug", [
+    "kochcarlisle", "ablavsky", "colville", "southeastern", "northraleigh",
+    "hasen", "curtsinger", "coastal", "wmips",
+])
+def test_clinics_without_a_one_sided_mark_are_not_cropped(slug):
+    """Cropping costs pairs at the 400px floor, so it is not applied on spec."""
+    assert sg.CLINICS[slug].bottom_crop_px == 0
