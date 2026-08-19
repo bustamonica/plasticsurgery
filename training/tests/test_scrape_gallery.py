@@ -1304,3 +1304,256 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# etna: the gallery case-list endpoint (2026-08-18 access grant)
+# ---------------------------------------------------------------------------
+
+
+TCCS_ENDPOINT = ("https://www.thecenterforcosmeticsurgery.net/wordpress/"
+                 "wp-admin/admin-ajax.php")
+
+
+def test_etna_ajax_config_reads_endpoint_and_action_off_the_listing():
+    """The request target is the listing's own declaration, never a guess.
+
+    Hardcoding '/wp-admin/admin-ajax.php' would be wrong on these sites: tccs
+    serves WordPress from a /wordpress/ subdirectory, so its endpoint is
+    /wordpress/wp-admin/admin-ajax.php. Reading it off EII_GALLERY_JS means a
+    clinic whose listing declares no endpoint gets no request at all.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    assert sg.etna_ajax_config(listing) == (TCCS_ENDPOINT,
+                                            "gallery_category_results")
+
+
+def test_etna_ajax_config_absent_when_the_listing_declares_none():
+    assert sg.etna_ajax_config("<html><body>no gallery here</body></html>") is None
+
+
+def test_etna_filter_fields_carries_category_id_and_nothing_else():
+    """Only the hidden category_id is submitted.
+
+    The same form holds Gender / Age / provider controls. A browser submits them
+    unset, and sending any of them with a value would FILTER the gallery - the
+    opposite of enumerating it - so they are dropped rather than echoed back.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    assert sg.etna_filter_fields(listing) == {"category_id": "535"}
+
+
+def test_etna_declared_total_still_reads_the_same_listing():
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    assert sg.etna_declared_total(listing) == 579
+
+
+def test_etna_decode_ajax_returns_state_and_html():
+    raw = (FIXTURES / "etna_tccs_ajax_page.json").read_bytes()
+    state, html = sg.etna_decode_ajax(raw)
+    assert state["total"] == 582
+    assert state["showing"] == 3
+    assert 'class="category-cases"' in html
+
+
+def test_etna_ajax_case_paths_returns_paths_as_published():
+    """Including the ones the practice files under another procedure.
+
+    tccs's breast-augmentation category names /gallery/mommy-makeover/
+    mommy-makeover/240/. That is the practice tagging a combined procedure with
+    breast augmentation, and it is why the gallery's declared total is a count of
+    TAGGED cases rather than of pure augmentations. The paths come back as
+    published; scoping them is the caller's job.
+    """
+    _, html = sg.etna_decode_ajax((FIXTURES / "etna_tccs_ajax_page.json").read_bytes())
+    assert sg.etna_ajax_case_paths(html) == [
+        "/gallery/breast-surgery/breast-augmentation/11531/",
+        "/gallery/breast-surgery/breast-augmentation/400/",
+        "/gallery/mommy-makeover/mommy-makeover/240/",
+    ]
+
+
+def test_etna_endpoint_refuses_a_clinic_with_no_access_grant():
+    """The grant is what makes the request permitted, so it gates the code path.
+
+    The executed AI-training consent covers USE of the material; access to the
+    practice's own admin-ajax endpoint is a separate permission that only the
+    practice can give. Seven of the twelve Etna clinics were fully enumerated
+    without it and must not be re-fetched through it.
+    """
+    cfg = sg.CLINICS["roth"]
+    assert cfg.endpoint_grant is None
+    with pytest.raises(PermissionError):
+        sg.etna_endpoint_case_paths(cfg, None, "", 68)
+
+
+@pytest.mark.parametrize("slug", ["tccs", "camp", "kochcarlisle", "ablavsky",
+                                  "colville"])
+def test_etna_endpoint_grant_is_on_exactly_the_five_short_clinics(slug):
+    assert sg.CLINICS[slug].endpoint_grant == (
+        "clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md")
+
+
+@pytest.mark.parametrize("slug", ["roth", "southeastern", "wmips", "hasen",
+                                  "coastal", "northraleigh", "curtsinger"])
+def test_etna_fully_enumerated_clinics_hold_no_endpoint_grant(slug):
+    """The seven the chain walk already finished are out of scope by construction."""
+    assert sg.CLINICS[slug].endpoint_grant is None
+
+
+class _RecordingSession:
+    """Serves a scripted list of endpoint responses and records what was sent."""
+
+    def __init__(self, pages):
+        self.pages = list(pages)
+        self.posts = []
+        self.headers = {}
+
+    def post(self, url, files=None, timeout=None):
+        self.posts.append((url, {k: v[1] for k, v in (files or {}).items()}))
+        payload = self.pages.pop(0) if self.pages else _ajax_payload([], 0, 0)
+
+        class R:
+            status_code = 200
+            content = payload
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def _ajax_payload(case_paths, showing, total, next_position=None):
+    import base64 as _b64
+    import json as _json
+    cards = "".join(
+        f'<div class="category-case-card"><div class="case-card-inner" '
+        f'href="https://example.test{p}"></div></div>' for p in case_paths)
+    html = f'<div class="category-cases">{cards}</div>'
+    return _json.dumps({
+        "_html": _b64.b64encode(html.encode("utf-8")).decode("ascii"),
+        "env": {"state": {"showing": showing, "total": total,
+                          "next_returned_position": next_position
+                          or showing + 1}},
+    }).encode("utf-8")
+
+
+def test_etna_endpoint_sweep_pages_until_the_declared_total(tmp_path, monkeypatch):
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in range(1, 8)]
+    session = _RecordingSession([
+        _ajax_payload(paths[:3], 3, 7, next_position=4),
+        _ajax_payload(paths[3:6], 3, 7, next_position=7),
+        _ajax_payload(paths[6:], 1, 7, next_position=8),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act",
+                                 {"category_id": "9"}, total=7, page_size=3,
+                                 tag="a")
+    assert got == paths
+    assert [p[1]["first_returned_position"] for p in session.posts] == ["1", "4", "7"]
+    assert all(p[1]["category_id"] == "9" for p in session.posts)
+    assert all(p[1]["case_count"] == "3" for p in session.posts)
+
+
+def test_etna_endpoint_sweep_stops_on_a_short_page(tmp_path, monkeypatch):
+    """A page that returns fewer cards than asked for is the end of the set.
+
+    Continuing past it asks the server for positions that do not exist, which is
+    load spent on nothing - the thing the access grant explicitly asks us not to
+    do.
+    """
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in range(1, 5)]
+    session = _RecordingSession([_ajax_payload(paths, 4, 900, next_position=5)])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=900, page_size=50, tag="a")
+    assert got == paths
+    assert len(session.posts) == 1
+
+
+def test_etna_endpoint_sweep_deduplicates_across_pages(tmp_path, monkeypatch):
+    """Positions are a way to sweep the set, never stable case identity.
+
+    Measured on tccs: the result order is not the rendered listing's order and is
+    not stable across different case_count values, so the same case can be handed
+    back at more than one position.
+    """
+    a = "/gallery/breast/breast-augmentation/1/"
+    b = "/gallery/breast/breast-augmentation/2/"
+    session = _RecordingSession([
+        _ajax_payload([a, b], 2, 4, next_position=3),
+        _ajax_payload([b, a], 2, 4, next_position=5),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=4, page_size=2, tag="a")
+    assert got == [a, b]
+
+
+def test_etna_endpoint_second_sweep_runs_only_when_the_first_is_short(
+        tmp_path, monkeypatch):
+    """A full first sweep must not spend the site another whole pass."""
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    paths = [f"/gallery/breast-surgery/breast-augmentation/{i}/"
+             for i in range(1, 4)]
+    session = _RecordingSession([_ajax_payload(paths, 3, 3, next_position=4)])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=3)
+    assert got == paths
+    assert len(session.posts) == 1
+
+
+def test_etna_endpoint_second_sweep_uses_a_different_page_size(
+        tmp_path, monkeypatch):
+    """The order depends on the page size, so re-sweeping at the same size would
+    just repeat the first pass rather than traverse the set differently."""
+    assert sg.ETNA_AJAX_RETRY_PAGE_SIZE != sg.ETNA_AJAX_PAGE_SIZE
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    first = ["/gallery/breast-surgery/breast-augmentation/1/"]
+    second = ["/gallery/breast-surgery/breast-augmentation/2/"]
+    session = _RecordingSession([
+        _ajax_payload(first, 1, 2, next_position=2),
+        _ajax_payload(second, 1, 2, next_position=2),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=2)
+    assert got == first + second
+    sizes = [p[1]["case_count"] for p in session.posts]
+    assert sizes == [str(sg.ETNA_AJAX_PAGE_SIZE),
+                     str(sg.ETNA_AJAX_RETRY_PAGE_SIZE)]
+
+
+def test_etna_endpoint_posts_to_the_declared_url_with_the_action_query(
+        tmp_path, monkeypatch):
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    session = _RecordingSession([_ajax_payload([], 0, 0)])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=1)
+    url, body = session.posts[0]
+    assert url == TCCS_ENDPOINT + "?action=gallery_category_results"
+    assert body["action"] == "gallery_category_results"
+
+
+def test_etna_endpoint_is_cached_so_a_rerun_costs_no_requests(tmp_path, monkeypatch):
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    paths = ["/gallery/breast-surgery/breast-augmentation/1/"]
+    session = _RecordingSession([_ajax_payload(paths, 1, 1, next_position=2)])
+    f = sg.PoliteFetcher(tmp_path, delay=0)
+    f.session = session
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, 1) == paths
+    offline = sg.PoliteFetcher(tmp_path, delay=0, offline=True)
+    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], offline, listing, 1) == paths
+    assert len(session.posts) == 1
+
+
+def test_etna_endpoint_sweep_is_cache_bounded_offline(tmp_path, monkeypatch):
+    """An offline re-parse must survive a cache taken before the sweep existed.
+
+    Proving a shared parser's blast radius means re-parsing every cached case for
+    every clinic offline. That has to keep working, so a missing endpoint
+    response ends the sweep instead of the run.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    offline = sg.PoliteFetcher(tmp_path, delay=0, offline=True)
+    assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], offline, listing, 50) == []

@@ -67,6 +67,7 @@ published spec-block layouts, and how enumeration and procedure purity work.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import re
@@ -136,6 +137,17 @@ class ClinicConfig:
     base_url: str
     gallery_paths: list[str]
     kind: str  # parser implementation key
+    # Reference to the site owner's grant of access to the gallery's own case-list
+    # endpoint (`admin-ajax.php`, which these robots.txt files otherwise disallow).
+    #
+    # This is deliberately a per-clinic opt-in and not a platform-wide switch. The
+    # executed AI-training consent covers USE of the material; it says nothing about
+    # how the material is fetched from the practice's own server, and the practice -
+    # not Etna Interactive, which is its vendor - is the party who can grant that.
+    # A clinic with no grant on file here can never have its endpoint called, however
+    # the run is invoked, and `--gallery-endpoint` must be passed as well, so neither
+    # a config edit nor a stray flag alone opens it.
+    endpoint_grant: str | None = None
 
 
 CLINICS: dict[str, ClinicConfig] = {
@@ -270,12 +282,13 @@ CLINICS: dict[str, ClinicConfig] = {
     "camp": ClinicConfig(
         slug="camp", consent_ref="camp-agreement-2026-08-15",
         base_url="https://www.campplasticsurgery.com",
-        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna",
+        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
     "colville": ClinicConfig(
         slug="colville", consent_ref="colville-agreement-2026-08-15",
         base_url="https://www.craigcolvillemd.com",
         gallery_paths=["/photo-gallery/breast-procedures/breast-augmentation/"],
-        kind="etna"),
+        kind="etna", endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
     "roth": ClinicConfig(
         slug="roth", consent_ref="roth-agreement-2026-08-15",
         base_url="https://www.jjrothmd.com",
@@ -284,7 +297,7 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="kochcarlisle", consent_ref="kochcarlisle-agreement-2026-08-15",
         base_url="https://www.kochandcarlisle.com",
         gallery_paths=["/photo-gallery/breast-procedures/breast-augmentation/"],
-        kind="etna"),
+        kind="etna", endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
     "wmips": ClinicConfig(
         slug="wmips", consent_ref="wmips-agreement-2026-08-15",
         base_url="https://www.wmips.com",
@@ -300,7 +313,8 @@ CLINICS: dict[str, ClinicConfig] = {
     "ablavsky": ClinicConfig(
         slug="ablavsky", consent_ref="ablavsky-agreement-2026-08-15",
         base_url="https://www.ablavskyplasticsurgery.com",
-        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna"),
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna",
+        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
     "hasen": ClinicConfig(
         slug="hasen", consent_ref="hasen-agreement-2026-08-15",
         base_url="https://www.drhasen.com",
@@ -322,11 +336,14 @@ CLINICS: dict[str, ClinicConfig] = {
     # machine signal was simply never updated to match. Collection still runs
     # under the same politeness contract as the other eleven - 2s delay, the
     # descriptive clinic-corpus-scraper UA (which the site's 'User-agent: *'
-    # group allows), and never the admin-ajax endpoint.
+    # group allows). The admin-ajax gallery endpoint was off limits on that run
+    # and is now open under the 2026-08-18 grant recorded in `endpoint_grant`
+    # below, which is a separate permission from the consent instrument.
     "tccs": ClinicConfig(
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
-        gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+        gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna",
+        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
 }
 
 
@@ -422,16 +439,45 @@ class PoliteFetcher:
             time.sleep(wait)
 
     def get(self, url: str, cache_key: str) -> bytes:
+        return self._request("GET", url, cache_key, None)
+
+    def post_form(self, url: str, fields: dict[str, str], cache_key: str,
+                  delay: float | None = None) -> bytes:
+        """Cached multipart POST, on the same politeness contract as `get`.
+
+        Only the gallery case-list endpoint uses this, and only for a clinic
+        whose `ClinicConfig.endpoint_grant` names the site owner's grant. It is
+        a POST because that endpoint only answers one: the gallery's own script
+        sends `action`/`first_returned_position`/`case_count` as `FormData`
+        alongside the listing's filter form, and a GET of the same parameters
+        returns the WordPress admin-ajax `0` body rather than a result set.
+
+        `delay` raises the inter-request floor above the run's own. The endpoint
+        is a database query behind an admin path rather than a static page, and
+        the grant that opened it asks for a courteous pace in exchange, so it is
+        fetched more slowly than the case pages are.
+        """
+        return self._request("POST", url, cache_key, fields, delay=delay)
+
+    def _request(self, method: str, url: str, cache_key: str,
+                 fields: dict[str, str] | None,
+                 delay: float | None = None) -> bytes:
         path = self.cache_dir / cache_key
         if path.exists():
             return path.read_bytes()
         if self.offline:
             raise FileNotFoundError(f"offline mode and no cache entry for {url}")
-        backoff = 0.0
+        floor = self.delay if delay is None else max(self.delay, delay)
+        backoff = floor - self.delay
         for attempt in range(1, MAX_ATTEMPTS + 1):
             self._sleep_until_allowed(backoff)
             try:
-                resp = self.session.get(url, timeout=60)
+                if method == "POST":
+                    resp = self.session.post(
+                        url, files={k: (None, v) for k, v in (fields or {}).items()},
+                        timeout=180)
+                else:
+                    resp = self.session.get(url, timeout=60)
                 self._last_request = time.monotonic()
                 self.requests_made += 1
                 if resp.status_code in RETRY_STATUS and attempt < MAX_ATTEMPTS:
@@ -445,7 +491,7 @@ class PoliteFetcher:
                 if attempt == MAX_ATTEMPTS:
                     raise
                 self.retries_made += 1
-                backoff = max(5.0, self.delay * 2 ** attempt)
+                backoff = max(5.0, floor - self.delay, self.delay * 2 ** attempt)
                 print(f"  retry {attempt}/{MAX_ATTEMPTS - 1} in {backoff:.0f}s "
                       f"after {type(exc).__name__} on {url}")
                 continue
@@ -1846,6 +1892,189 @@ def etna_declared_total(listing_html: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# --- The gallery case-list endpoint (opened by the 2026-08-18 access grant) ---
+#
+# Each Etna listing renders 12 cases into HTML and serves every further case only
+# through the gallery plugin's own `admin-ajax.php` action, which these robots.txt
+# files disallow. The 2026-08-15 run therefore stopped at 556 of 1299 declared
+# cases and recorded the shortfall rather than working around it. On 2026-08-18
+# the practices granted access to that endpoint (see ClinicConfig.endpoint_grant),
+# so it is now the enumeration route for the clinics that hold a grant.
+#
+# The request contract is read off the gallery's own public script,
+# content/plugins/etna-photo-gallery/dist/js/etna-photo-gallery-category-results.js:
+#
+#   POST <EII_GALLERY_JS.CATEGORY_RESULTS.url>?action=<...action>
+#   multipart body: every field of the listing's #filter-cases-form (of which only
+#   the hidden category_id matters), plus action, first_returned_position (1-based)
+#   and case_count.
+#   200 JSON: {"_html": base64 of a .category-cases fragment, "env": {"state": {...}}}
+#
+# Two measured properties of the endpoint shape the code below.
+#
+# 1. `case_count` is capped. Measured on tccs: 12, 24, 50, 56, 64 and 75 all return
+#    exactly that many cards; 100 and 600 return 8. So a request for "all of them"
+#    silently under-returns rather than erroring, which is why the walk pages at a
+#    conservative size and reconciles against the declared total instead of
+#    trusting one big request.
+# 2. The result ORDER is not the rendered listing's order and is not stable across
+#    different `case_count` values - the first 12 of a count=24 response are not the
+#    12 a count=12 response returns. Positions are therefore treated as a way to
+#    sweep the set, never as stable case identity: cases are deduplicated by URL and
+#    the sweep is checked against `state.total`, with a second sweep at a different
+#    page size when the first comes up short.
+ETNA_AJAX_URL_RE = re.compile(
+    r'EII_GALLERY_JS.{0,4000}?"url"\s*:\s*"(?P<url>[^"]+admin-ajax\.php)"'
+    r'\s*,\s*"action"\s*:\s*"(?P<action>[^"]+)"', re.S)
+# Conservative page size: comfortably under the measured cap, so a cap that differs
+# per clinic cannot silently truncate a sweep.
+ETNA_AJAX_PAGE_SIZE = 50
+# A second sweep at a different page size only helps because the order depends on
+# the size; using the same size again would just repeat the first sweep.
+ETNA_AJAX_RETRY_PAGE_SIZE = 24
+ETNA_AJAX_DELAY = 3.0
+
+
+def etna_ajax_config(listing_html: str) -> tuple[str, str] | None:
+    """The endpoint URL and action the listing's own script would POST to."""
+    m = ETNA_AJAX_URL_RE.search(listing_html)
+    if m is None:
+        return None
+    return m.group("url").replace("\\/", "/"), m.group("action")
+
+
+def etna_filter_fields(listing_html: str) -> dict[str, str]:
+    """Hidden fields of the listing's #filter-cases-form.
+
+    Only `category_id` is carried. The form's other controls are the Gender/Age/
+    provider filters, which the browser submits at their unset defaults and which
+    would narrow the result set if sent with a value - the opposite of what an
+    enumeration wants.
+    """
+    soup = BeautifulSoup(listing_html, "html.parser")
+    form = soup.find(id="filter-cases-form")
+    fields = {}
+    if form is not None:
+        for inp in form.select('input[type="hidden"][name]'):
+            if inp.get("name") == "category_id" and inp.get("value"):
+                fields["category_id"] = inp["value"]
+    return fields
+
+
+def etna_decode_ajax(payload: bytes) -> tuple[dict, str]:
+    """Split an endpoint response into its state dict and its HTML fragment.
+
+    `_html` is base64 of UTF-8 bytes; the gallery's script decodes it the long way
+    round (atob + decodeURIComponent) purely because it is running in a browser.
+    """
+    data = json.loads(payload.decode("utf-8", "replace"))
+    html = base64.b64decode(data.get("_html", "")).decode("utf-8", "replace")
+    return data.get("env", {}).get("state", {}), html
+
+
+def etna_ajax_case_paths(payload_html: str) -> list[str]:
+    """Case page paths from one endpoint response, in the order it returned them.
+
+    The card's `href` is the case's OWN canonical gallery URL, which is not always
+    in the category that was asked for: tccs's breast-augmentation category returns
+    cards pointing at /gallery/mommy-makeover/mommy-makeover/240/. That is the
+    practice filing a combined procedure under breast augmentation as a tag, and it
+    is why the declared total for a category is not a count of pure cases. The
+    paths are returned as published; scoping them to the category is the caller's
+    job, and the image-filename procedure screen still runs on top of that.
+    """
+    soup = BeautifulSoup(payload_html, "html.parser")
+    paths = []
+    for card in soup.select(".case-card-inner[href]"):
+        path = urlsplit(card["href"]).path
+        if not ETNA_CASE_LINK_RE.search(path.rstrip("/") + "/"):
+            continue
+        path = path.rstrip("/") + "/"
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
+                        action: str, fields: dict[str, str], total: int,
+                        page_size: int, tag: str) -> list[str]:
+    """One pass over the category, page_size cases at a time, in path order seen.
+
+    Stops at the declared total, or early on an empty or short page - a page that
+    returns fewer cards than asked for is the end of the set, and continuing past
+    it just asks the server for positions that do not exist.
+    """
+    paths: list[str] = []
+    position = 1
+    while position <= total:
+        body = dict(fields)
+        body.update({"action": action,
+                     "first_returned_position": str(position),
+                     "case_count": str(page_size)})
+        key = f"{slug}_ajax_{tag}_{position}_{page_size}.json"
+        try:
+            raw = fetcher.post_form(f"{endpoint}?action={action}", body, key,
+                                    delay=ETNA_AJAX_DELAY)
+        except FileNotFoundError:
+            # Offline mode with no cached response for this position. The sweep
+            # ends here rather than the run: an offline re-parse of the cache is
+            # how this corpus proves a shared parser's blast radius, and it has to
+            # keep working against a cache taken before the sweep existed.
+            print(f"  {slug}: endpoint sweep {tag} is cache-bounded at "
+                  f"position {position}")
+            break
+        state, html = etna_decode_ajax(raw)
+        page = etna_ajax_case_paths(html)
+        for path in page:
+            if path not in paths:
+                paths.append(path)
+        shown = state.get("showing", len(page))
+        if not page or shown < page_size:
+            break
+        position = state.get("next_returned_position", position + page_size)
+    return paths
+
+
+def etna_endpoint_case_paths(cfg: ClinicConfig, fetcher: "PoliteFetcher",
+                             listing_html: str, total: int) -> list[str]:
+    """Every case path the gallery's own case-list endpoint will name.
+
+    Refuses outright for a clinic with no `endpoint_grant`: the grant is what makes
+    this request permitted at all, and a caller must not be able to reach the
+    endpoint by passing a slug the grant does not cover.
+    """
+    if not cfg.endpoint_grant:
+        raise PermissionError(
+            f"{cfg.slug}: no endpoint access grant on file; the gallery case-list "
+            f"endpoint must not be requested for this clinic")
+    config = etna_ajax_config(listing_html)
+    if config is None:
+        print(f"  WARN {cfg.slug}: listing declares no gallery endpoint")
+        return []
+    endpoint, action = config
+    fields = etna_filter_fields(listing_html)
+    if "category_id" not in fields:
+        print(f"  WARN {cfg.slug}: listing declares no category_id; "
+              f"the endpoint would return some other category")
+        return []
+    paths = etna_endpoint_sweep(fetcher, cfg.slug, endpoint, action, fields,
+                                total, ETNA_AJAX_PAGE_SIZE, "a")
+    print(f"  {cfg.slug}: endpoint sweep A returned {len(paths)} distinct case "
+          f"path(s) against a declared total of {total}")
+    # The order depends on the page size, so a second sweep at a different size is
+    # a genuinely different traversal of the same set rather than a repeat. It is
+    # only spent when the first sweep is short, since it costs the site another
+    # full pass.
+    if len(paths) < total:
+        extra = etna_endpoint_sweep(fetcher, cfg.slug, endpoint, action, fields,
+                                    total, ETNA_AJAX_RETRY_PAGE_SIZE, "b")
+        added = [p for p in extra if p not in paths]
+        paths.extend(added)
+        print(f"  {cfg.slug}: endpoint sweep B added {len(added)} case path(s); "
+              f"{len(paths)} of {total} declared")
+    return paths
+
+
 def etna_gallery_root(gallery_path: str) -> str:
     """The path prefix the prev/next chain is scoped to.
 
@@ -2618,7 +2847,8 @@ def _fetch_seed(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | None:
         return None
 
 
-def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
+def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
+                  gallery_endpoint: bool = False) -> list[CaseData]:
     if cfg.kind == "drkolker":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -2767,28 +2997,43 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         root = etna_gallery_root(gallery_path)
         to_visit = [f"{gallery_path}{cid}/"
                     for cid in etna_list_seed_cases(listing, gallery_path)]
-        # Seed from every other category listing too - the chain is a set of
-        # disconnected components (see etna_category_paths), and the target
-        # category's own 12 rendered cases sit in only one of them.
-        index_html = _fetch_seed(fetcher, cfg.base_url + root,
-                                 f"{cfg.slug}_gallery_index.html")
-        for cat_path in etna_category_paths(index_html or "", root):
-            if cat_path == gallery_path:
-                continue
-            cat_html = _fetch_seed(
-                fetcher, cfg.base_url + cat_path,
-                f"{cfg.slug}_cat_" + re.sub(r"[^\w]+", "_", cat_path.strip("/"))
-                + ".html")
-            if cat_html is None:
-                continue
-            for m in re.finditer(
-                    re.escape(root) + r"[a-z0-9\-]+/[a-z0-9\-]+/(\d+)/", cat_html):
-                seed = m.group(0)
-                if seed not in to_visit:
-                    to_visit.append(seed)
+        if gallery_endpoint:
+            # The gallery's own case-list endpoint names the whole category in one
+            # pass, so the chain walk is not run alongside it. The walk exists only
+            # because the endpoint was closed: it reached 7 of 12 clinics' declared
+            # totals by traversing the practice's ENTIRE gallery, hundreds of
+            # off-category pages at a time, to find the disconnected components the
+            # target category's cases sit in. Running both would spend all of that
+            # to re-derive a list the endpoint already gave, and the declared-total
+            # reconciliation below is what proves the endpoint did not come short.
+            for path in etna_endpoint_case_paths(cfg, fetcher, listing,
+                                                 declared or 0):
+                if path not in to_visit:
+                    to_visit.append(path)
+        else:
+            # Seed from every other category listing too - the chain is a set of
+            # disconnected components (see etna_category_paths), and the target
+            # category's own 12 rendered cases sit in only one of them.
+            index_html = _fetch_seed(fetcher, cfg.base_url + root,
+                                     f"{cfg.slug}_gallery_index.html")
+            for cat_path in etna_category_paths(index_html or "", root):
+                if cat_path == gallery_path:
+                    continue
+                cat_html = _fetch_seed(
+                    fetcher, cfg.base_url + cat_path,
+                    f"{cfg.slug}_cat_" + re.sub(r"[^\w]+", "_", cat_path.strip("/"))
+                    + ".html")
+                if cat_html is None:
+                    continue
+                for m in re.finditer(
+                        re.escape(root) + r"[a-z0-9\-]+/[a-z0-9\-]+/(\d+)/", cat_html):
+                    seed = m.group(0)
+                    if seed not in to_visit:
+                        to_visit.append(seed)
         visited: set[str] = set()
         cases = []
         uncached = 0
+        off_category = 0
         while to_visit and len(visited) < ETNA_MAX_PAGES:
             path = to_visit.pop(0)
             if path in visited:
@@ -2796,9 +3041,20 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             visited.add(path)
             case_id = path.rstrip("/").rsplit("/", 1)[-1]
             url = cfg.base_url + path
-            # Off-category pages are fetched only to follow the chain through
-            # them; their cache key keeps the category so ids cannot collide.
             in_scope = path.startswith(gallery_path)
+            if not in_scope:
+                off_category += 1
+                if gallery_endpoint:
+                    # The practice filed this case under another procedure. Under
+                    # the chain route an off-category page still had to be fetched,
+                    # because it was the only way through to the next component of
+                    # the chain; under the endpoint route nothing is downstream of
+                    # it, and its own URL is the practice saying the case is not a
+                    # pure augmentation. Fetching it would spend a request to
+                    # rediscover that from its image filenames.
+                    continue
+            # Off-category pages fetched to follow the chain keep the category in
+            # their cache key so ids cannot collide.
             key = (f"{cfg.slug}_case_{case_id}.html" if in_scope else
                    f"{cfg.slug}_chain_"
                    + re.sub(r"[^\w]+", "_", path.strip("/")) + ".html")
@@ -2813,6 +3069,8 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             html = html_bytes
             if in_scope:
                 cases.append(etna_parse_case(html, case_id, url, gallery_path))
+            if gallery_endpoint:
+                continue
             for next_path in etna_next_case_paths(html, root):
                 if next_path not in visited:
                     to_visit.append(next_path)
@@ -2822,7 +3080,26 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         if uncached:
             print(f"  {cfg.slug}: {uncached} chain page(s) not in cache "
                   f"(offline walk); enumeration is cache-bounded")
-        if declared is not None and len(cases) != declared:
+        if gallery_endpoint:
+            # The endpoint enumerates the CATEGORY, and a category can name cases
+            # whose canonical URL sits elsewhere: tccs's breast-augmentation
+            # category returns /gallery/mommy-makeover/mommy-makeover/240/. So the
+            # declared total counts cases TAGGED with the procedure, and the
+            # denominator for "did enumeration succeed" is in-category plus
+            # off-category - not the in-category count on its own.
+            reached = len(cases) + off_category
+            if declared and reached != declared:
+                print(f"  WARN {cfg.slug}: case-list endpoint named {reached} case(s) "
+                      f"({len(cases)} in this category, {off_category} the practice "
+                      f"files under another) but the gallery declares {declared}")
+            elif declared:
+                print(f"  {cfg.slug}: case-list endpoint named all {declared} declared "
+                      f"case(s) - {len(cases)} in this category, {off_category} the "
+                      f"practice files under another")
+            else:
+                print(f"  {cfg.slug}: case-list endpoint named {reached} case(s); "
+                      f"the gallery declares no total")
+        elif declared is not None and len(cases) != declared:
             print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
                   f"but the gallery declares {declared}")
         else:
@@ -2925,6 +3202,12 @@ def main() -> int:
                              "emitting anything (for visual annotation)")
     parser.add_argument("--offline", action="store_true",
                         help="Serve only from cache; never touch the network")
+    parser.add_argument("--gallery-endpoint", action="store_true",
+                        help="Enumerate an Etna gallery through its own case-list "
+                             "endpoint instead of the prev/next chain. Requires an "
+                             "endpoint_grant on the clinic's config: the site "
+                             "owner's grant is what makes that request permitted, "
+                             "and it covers the case list only.")
     args = parser.parse_args()
 
     cfg = CLINICS[args.clinic]
@@ -2940,7 +3223,10 @@ def main() -> int:
     enumerator = fetcher
     if args.prefetch and not args.offline:
         enumerator = PoliteFetcher(cache_dir, delay=args.delay, offline=True)
-    cases = collect_cases(cfg, enumerator)
+    if args.gallery_endpoint and not cfg.endpoint_grant:
+        parser.error(f"{cfg.slug} has no gallery case-list endpoint grant on file; "
+                     f"--gallery-endpoint must not be used for this clinic")
+    cases = collect_cases(cfg, enumerator, gallery_endpoint=args.gallery_endpoint)
     if args.cases:
         wanted = set(args.cases.split(","))
         cases = [c for c in cases if c.case_id in wanted]
