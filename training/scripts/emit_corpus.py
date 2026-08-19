@@ -127,6 +127,7 @@ QUARANTINE_DIRS = {
     "retired-watermark": "retired-watermark",
     "retired-watermark-staging-dup": "retired-watermark-staging-dup",
     "retired-watermark-corpus-staging-dup": "retired-watermark-corpus-staging-dup",
+    "retired-combined-procedure": "retired-combined-procedure",
 }
 
 # The withheld classes this stage knows how to honour: registry section -> the
@@ -135,6 +136,7 @@ REGISTRY_SECTIONS = {
     "retired_laterality": "retired-laterality",
     "withheld_contested": "withheld-contested",
     "retired_watermark": "retired-watermark",
+    "retired_combined_procedure": "retired-combined-procedure",
 }
 REGISTRY_PREAMBLE = ("_comment",)
 
