@@ -254,7 +254,14 @@ CLINICS: dict[str, ClinicConfig] = {
     "wny": ClinicConfig(
         slug="wny", consent_ref="wny-agreement-2026-08",
         base_url="https://www.wnyplasticsurgery.com",
-        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="wny"),
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="wny",
+        # Caption burned into the AFTER image only - 11.5x asymmetry, and the
+        # clinic this whole class of defect is named after in AGENTS.md. Mark top
+        # measured 51px from the bottom; 60 leaves a margin. Costs 0 pairs to the
+        # 400px floor. This crop does NOT resolve the open
+        # `wny-after-only-watermark` question about the mark itself - it removes
+        # the LABEL LEAK, which is a separate and larger problem.
+        bottom_crop_px=60),
     "austinweston": ClinicConfig(
         slug="austinweston", consent_ref="austinweston-agreement-2026-08",
         base_url="https://www.austin-weston.com",
@@ -303,7 +310,11 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="camp", consent_ref="camp-agreement-2026-08-15",
         base_url="https://www.campplasticsurgery.com",
         gallery_paths=["/gallery/breast/breast-augmentation/"], kind="etna",
-        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md"),
+        endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md",
+        # "STEVEN CAMP MD PLASTIC SURGERY", bottom-right, on the AFTER half only
+        # - 7.4x asymmetry. Mark top measured 98px from the bottom on the tall
+        # groups and 81px on the 478px group; 110 covers both with a margin.
+        bottom_crop_px=110),
     "colville": ClinicConfig(
         slug="colville", consent_ref="colville-agreement-2026-08-15",
         base_url="https://www.craigcolvillemd.com",
@@ -312,7 +323,12 @@ CLINICS: dict[str, ClinicConfig] = {
     "roth": ClinicConfig(
         slug="roth", consent_ref="roth-agreement-2026-08-15",
         base_url="https://www.jjrothmd.com",
-        gallery_paths=["/before-after/breast/breast-augmentation/"], kind="etna"),
+        gallery_paths=["/before-after/breast/breast-augmentation/"], kind="etna",
+        # "Jeffrey J. Roth, M.D., F.A.C.S." script wordmark, bottom-right, on the
+        # AFTER half only - 16.9x high-pass-average asymmetry, the strongest in
+        # the corpus. Mark top measured 162px from the bottom across every height
+        # group; 175 leaves a margin. Costs 0 pairs to the 400px floor.
+        bottom_crop_px=175),
     "kochcarlisle": ClinicConfig(
         slug="kochcarlisle", consent_ref="kochcarlisle-agreement-2026-08-15",
         base_url="https://www.kochandcarlisle.com",
