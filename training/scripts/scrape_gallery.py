@@ -3511,33 +3511,49 @@ def main() -> int:
             emitted_ids.add(pair_id)
             pair_dir = out_clinic / pair_id
             pair_dir.mkdir(parents=True, exist_ok=True)
-            if pair.grid_shape is not None:
-                full_url = (pair.before_url if pair.before_url.startswith("http")
-                            else cfg.base_url + pair.before_url)
-                data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
-                rows, cols = pair.grid_shape
-                before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
-                after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
-                (pair_dir / "before.jpg").write_bytes(before_data)
-                (pair_dir / "after.jpg").write_bytes(after_data)
-            elif pair.split_composite:
-                full_url = (pair.before_url if pair.before_url.startswith("http")
-                            else cfg.base_url + pair.before_url)
-                data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
-                try:
-                    before_data, after_data = split_composite_image(data)
-                except ValueError as exc:
-                    print(f"    SKIP {pair.key}: {exc}")
-                    skipped += 1
-                    continue
-                (pair_dir / "before.jpg").write_bytes(before_data)
-                (pair_dir / "after.jpg").write_bytes(after_data)
-            else:
-                for stem, url in (("before", pair.before_url), ("after", pair.after_url)):
-                    full_url = url if url.startswith("http") else cfg.base_url + url
-                    ext = Path(urlsplit(full_url).path).suffix or ".jpg"
-                    data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
-                    (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
+            try:
+                if pair.grid_shape is not None:
+                    full_url = (pair.before_url
+                                if pair.before_url.startswith("http")
+                                else cfg.base_url + pair.before_url)
+                    data = fetcher.get(full_url,
+                                       image_cache_key(cfg.slug, full_url))
+                    rows, cols = pair.grid_shape
+                    before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
+                    after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
+                    (pair_dir / "before.jpg").write_bytes(before_data)
+                    (pair_dir / "after.jpg").write_bytes(after_data)
+                elif pair.split_composite:
+                    full_url = (pair.before_url
+                                if pair.before_url.startswith("http")
+                                else cfg.base_url + pair.before_url)
+                    data = fetcher.get(full_url,
+                                       image_cache_key(cfg.slug, full_url))
+                    try:
+                        before_data, after_data = split_composite_image(data)
+                    except ValueError as exc:
+                        print(f"    SKIP {pair.key}: {exc}")
+                        skipped += 1
+                        continue
+                    (pair_dir / "before.jpg").write_bytes(before_data)
+                    (pair_dir / "after.jpg").write_bytes(after_data)
+                else:
+                    for stem, url in (("before", pair.before_url),
+                                      ("after", pair.after_url)):
+                        full_url = (url if url.startswith("http")
+                                    else cfg.base_url + url)
+                        ext = Path(urlsplit(full_url).path).suffix or ".jpg"
+                        data = fetcher.get(full_url,
+                                           image_cache_key(cfg.slug, full_url))
+                        (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
+            except requests.exceptions.HTTPError as exc:
+                # One image missing from the CDN must not end the clinic. tccs
+                # publishes case 11336 with a front photograph that 404s, and an
+                # unguarded raise there abandoned the remaining 300+ cases mid-run
+                # - a failure that looks exactly like a finished collection.
+                print(f"    SKIP {pair.key}: image unavailable ({exc})")
+                skipped += 1
+                continue
             pair_ann = annotations.get("pairs", {}).get(pair.key, {})
             meta = build_meta(pair_id, view, specs, annotations, pair_ann,
                               view_source, cfg.consent_ref)
