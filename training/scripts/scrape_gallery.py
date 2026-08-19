@@ -2165,11 +2165,21 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
                      "first_returned_position": str(position),
                      "case_count": str(page_size)})
         key = f"{slug}_ajax_{tag}_{position}_{page_size}.json"
+        # `validate` runs on the cached path as well as the fresh one, so it is
+        # the single decode of this page: it keeps the result rather than the
+        # sweep decoding the same bytes a second time, and reading it inside the
+        # try is what puts a malformed page on the partial-progress path below
+        # instead of past it.
+        decoded: dict = {}
+
+        def keep_decoded(data: bytes) -> None:
+            decoded["page"] = etna_decode_ajax(data)
+
         try:
-            raw = fetcher.post_form(f"{endpoint}?action={action}", body, key,
-                                    delay=ETNA_AJAX_DELAY,
-                                    validate=lambda data: etna_decode_ajax(data),
-                                    retry_waits=ETNA_AJAX_ERROR_BACKOFF)
+            fetcher.post_form(f"{endpoint}?action={action}", body, key,
+                              delay=ETNA_AJAX_DELAY, validate=keep_decoded,
+                              retry_waits=ETNA_AJAX_ERROR_BACKOFF)
+            state, html = decoded["page"]
         except FileNotFoundError:
             # Offline mode with no cached response for this position. The sweep
             # ends here rather than the run: an offline re-parse of the cache is
@@ -2201,7 +2211,6 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
                   f"{len(paths)} case path(s) collected before that point are "
                   f"kept.")
             raise EtnaEndpointError(f"{type(exc).__name__}: {exc}", paths) from exc
-        state, html = etna_decode_ajax(raw)
         page = etna_ajax_case_paths(html)
         for path in page:
             if path not in paths:
@@ -3441,7 +3450,16 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         visited: set[str] = set()
         cases = []
         uncached = 0
-        off_category = 0
+        # Reconciliation counts distinct CASE IDS, never paths. A case the
+        # practice files under two categories is named twice by the enumeration -
+        # tccs 12145 under /breast-augmentation/ and /motiva-implants/, camp 507
+        # also under /body/mommy-makeover/ - and `visited` dedupes on path, so a
+        # path-based count reports one more case than the gallery declares. That
+        # is a spurious WARN in one direction and, worse, in the other: one
+        # double-count cancelling one genuinely missed case reads as a complete
+        # sweep, which is the silent truncation this whole route exists to catch.
+        seen_ids: set[str] = set()
+        in_category_ids: set[str] = set()
         while to_visit and len(visited) < ETNA_MAX_PAGES:
             path = to_visit.pop(0)
             if path in visited:
@@ -3450,8 +3468,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             case_id = path.rstrip("/").rsplit("/", 1)[-1]
             url = cfg.base_url + path
             in_scope = path.startswith(gallery_path)
-            if not in_scope:
-                off_category += 1
+            seen_ids.add(case_id)
+            if in_scope:
+                in_category_ids.add(case_id)
+            else:
                 if gallery_endpoint:
                     # The practice filed this case under another procedure. Under
                     # the chain route an off-category page still had to be fetched,
@@ -3494,16 +3514,18 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             # category returns /gallery/mommy-makeover/mommy-makeover/240/. So the
             # declared total counts cases TAGGED with the procedure, and the
             # denominator for "did enumeration succeed" is in-category plus
-            # off-category - not the in-category count on its own.
-            reached = len(cases) + off_category
+            # elsewhere - not the in-category count on its own.
+            reached = len(seen_ids)
+            elsewhere = reached - len(in_category_ids)
             if declared and reached != declared:
-                print(f"  WARN {cfg.slug}: case-list endpoint named {reached} case(s) "
-                      f"({len(cases)} in this category, {off_category} the practice "
-                      f"files under another) but the gallery declares {declared}")
+                print(f"  WARN {cfg.slug}: case-list endpoint named {reached} "
+                      f"distinct case(s) ({len(in_category_ids)} in this category, "
+                      f"{elsewhere} the practice files only under another) but the "
+                      f"gallery declares {declared}")
             else:
                 print(f"  {cfg.slug}: case-list endpoint named all {declared} declared "
-                      f"case(s) - {len(cases)} in this category, {off_category} the "
-                      f"practice files under another")
+                      f"case(s) - {len(in_category_ids)} in this category, "
+                      f"{elsewhere} the practice files only under another")
         elif declared is not None and len(cases) != declared:
             print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
                   f"but the gallery declares {declared}")

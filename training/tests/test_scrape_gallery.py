@@ -1653,6 +1653,106 @@ def test_etna_endpoint_route_reads_the_listing_under_its_own_cache_key(
     assert (tmp_path / "tccs_listing.html").read_text() == stale
 
 
+class _EndpointRouteSession:
+    """Serves a listing on GET, one scripted endpoint page on POST, case pages after."""
+
+    headers = {}
+
+    def __init__(self, listing: str, ajax_pages, case_html: bytes):
+        self.listing = listing.encode()
+        self.ajax = list(ajax_pages)
+        self.case_html = case_html
+        self.gets = []
+
+    def get(self, url, timeout=None):
+        self.gets.append(url)
+        body = self.listing if url.endswith("/") and "gallery" in url and (
+            url.rstrip("/").rsplit("/", 1)[-1] == "breast-augmentation") else self.case_html
+
+        class R:
+            status_code = 200
+            content = body
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+    def post(self, url, files=None, timeout=None):
+        payload = self.ajax.pop(0) if self.ajax else _ajax_payload([], 0, 0)
+
+        class R:
+            status_code = 200
+            content = payload
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def _reconciliation_line(capsys, slug):
+    out = [l for l in capsys.readouterr().out.splitlines()
+           if "case-list endpoint named" in l and slug in l]
+    assert len(out) == 1, out
+    return out[0].strip()
+
+
+def test_endpoint_reconciliation_counts_a_dual_path_case_once(
+        tmp_path, monkeypatch, capsys):
+    """A case the practice files under two categories is ONE case, not two.
+
+    `visited` dedupes on path, so counting in-category parses plus off-category
+    paths reports one more case than the gallery declares whenever a case is
+    reachable both ways - measured on this run's own cache for tccs 12145, camp
+    507, kochcarlisle 600/614 and ablavsky 120/483. Four of the five clinics
+    printed a spurious WARN over a sweep that really was complete.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html").replace(
+        '"total":579', '"total":2')
+    gallery = sg.CLINICS["tccs"].gallery_paths[0]
+    both_ways = [f"{gallery}12145/",
+                 "/gallery/motiva-implants/motiva-implants/12145/",
+                 f"{gallery}400/"]
+    case = ('<img src="//images.x.com/content/images/breast-augmentation-12145'
+            '-front-detail.jpg"/><div class="case-description"><p>Implant Size: '
+            '350cc</p></div>').encode()
+    session = _EndpointRouteSession(listing, [_ajax_payload(both_ways, 3, 2)], case)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    sg.collect_cases(sg.CLINICS["tccs"], f, gallery_endpoint=True,
+                     grant_root=_grant_root(tmp_path))
+    line = _reconciliation_line(capsys, "tccs")
+    assert "WARN" not in line
+    assert "all 2 declared case(s)" in line
+
+
+def test_endpoint_reconciliation_still_warns_when_a_case_is_missed(
+        tmp_path, monkeypatch, capsys):
+    """The dangerous inverse: a double-count must not cancel a real shortfall.
+
+    Two distinct cases, one of them also filed elsewhere, against a declared
+    total of 3. The path-based count reached 3 and read as complete; the
+    id-based count sees 2 and says so.
+    """
+    listing = load_fixture("etna_tccs_listing_endpoint.html").replace(
+        '"total":579', '"total":3')
+    gallery = sg.CLINICS["tccs"].gallery_paths[0]
+    paths = [f"{gallery}12145/",
+             "/gallery/motiva-implants/motiva-implants/12145/",
+             f"{gallery}400/"]
+    case = ('<img src="//images.x.com/content/images/breast-augmentation-12145'
+            '-front-detail.jpg"/><div class="case-description"><p>Implant Size: '
+            '350cc</p></div>').encode()
+    session = _EndpointRouteSession(listing, [_ajax_payload(paths, 3, 3)], case)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    sg.collect_cases(sg.CLINICS["tccs"], f, gallery_endpoint=True,
+                     grant_root=_grant_root(tmp_path))
+    line = _reconciliation_line(capsys, "tccs")
+    assert "WARN" in line
+    assert "named 2 distinct case(s)" in line
+    assert "declares 3" in line
+
+
 # ---------------------------------------------------------------------------
 # etna endpoint: the backend-failure page must never read as end-of-set
 # ---------------------------------------------------------------------------
