@@ -1557,3 +1557,221 @@ def test_etna_endpoint_sweep_is_cache_bounded_offline(tmp_path, monkeypatch):
     listing = load_fixture("etna_tccs_listing_endpoint.html")
     offline = sg.PoliteFetcher(tmp_path, delay=0, offline=True)
     assert sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], offline, listing, 50) == []
+
+
+def test_etna_endpoint_route_reads_the_listing_under_its_own_cache_key(
+        tmp_path, monkeypatch):
+    """A stale cached listing would reconcile against a stale declared total.
+
+    tccs declared 579 cases when its listing was cached on 2026-08-15 and
+    declares 582 now. Sweeping to the stale 579 would stop three cases short and
+    report success, so the endpoint route fetches its own listing - under a key
+    that leaves the shared cache entry every other clinic and every offline
+    re-parse resolves against exactly as it was.
+    """
+    fresh = load_fixture("etna_tccs_listing_endpoint.html")
+    stale = fresh.replace('"total":579', '"total":1')
+    cfg = sg.CLINICS["tccs"]
+    (tmp_path / "tccs_listing.html").write_text(stale)
+
+    class _ListingSession:
+        headers = {}
+
+        def __init__(self):
+            self.gets = []
+
+        def get(self, url, timeout=None):
+            self.gets.append(url)
+
+            class R:
+                status_code = 200
+                content = fresh.encode()
+
+                def raise_for_status(self):
+                    return None
+
+            return R()
+
+        def post(self, url, files=None, timeout=None):
+            class R:
+                status_code = 200
+                content = _ajax_payload([], 0, 0)
+
+                def raise_for_status(self):
+                    return None
+
+            return R()
+
+    session = _ListingSession()
+    f = _fetcher(tmp_path, monkeypatch, session)
+    sg.collect_cases(cfg, f, gallery_endpoint=True)
+    assert (tmp_path / "tccs_listing_endpoint.html").exists()
+    # The shared entry is untouched: same bytes, still the stale total.
+    assert (tmp_path / "tccs_listing.html").read_text() == stale
+
+
+# ---------------------------------------------------------------------------
+# etna endpoint: the backend-failure page must never read as end-of-set
+# ---------------------------------------------------------------------------
+
+
+# Verbatim body served by tccs on 2026-08-19, HTTP 200, in place of the cards.
+ETNA_BACKEND_ERROR_HTML = (
+    '<div  class="category-cases"><p class="error" style="margin: 0 1%;">We are '
+    'currently experiencing technical difficulties. Administrators have been '
+    'notified. Please try again later.</p></div>')
+
+
+def _ajax_error_payload(showing, total):
+    """The failure envelope, which is why the failure is invisible by default.
+
+    The state block keeps counting up as though cases were served - `showing`
+    rises, `cases_remaining` falls - so nothing but the fragment itself says the
+    request failed.
+    """
+    import base64 as _b64
+    import json as _json
+    return _json.dumps({
+        "_html": _b64.b64encode(ETNA_BACKEND_ERROR_HTML.encode()).decode("ascii"),
+        "env": {"state": {"showing": showing, "total": total,
+                          "cases_remaining": total - showing,
+                          "next_returned_position": showing + 1}},
+    }).encode("utf-8")
+
+
+def test_etna_decode_ajax_rejects_the_backend_failure_page():
+    with pytest.raises(sg.EtnaEndpointError, match="technical difficulties"):
+        sg.etna_decode_ajax(_ajax_error_payload(500, 582))
+
+
+def test_etna_backend_failure_is_not_read_as_the_end_of_the_set(
+        tmp_path, monkeypatch):
+    """The bug this guards against cost 132 of tccs's 582 declared cases.
+
+    The endpoint answers 200 with an error paragraph and a state block that still
+    counts up, so an empty card list is indistinguishable from a finished sweep.
+    Treating it as the end reported 450 of 582 as a clean enumeration.
+    """
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in range(1, 3)]
+    session = _RecordingSession([
+        _ajax_payload(paths, 2, 100, next_position=3),
+        _ajax_error_payload(4, 100),
+        _ajax_error_payload(4, 100),
+        _ajax_error_payload(4, 100),
+        _ajax_error_payload(4, 100),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.EtnaEndpointError):
+        sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                               total=100, page_size=2, tag="a")
+
+
+def test_etna_backend_failure_is_never_cached(tmp_path, monkeypatch):
+    """A cached failure is replayed as data on every later run.
+
+    The response is a well-formed 200, so it caches like any other page unless
+    the body is validated BEFORE the write.
+    """
+    session = _RecordingSession([_ajax_error_payload(4, 100)] * 8)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.EtnaEndpointError):
+        sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                               total=100, page_size=2, tag="a")
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_etna_backend_failure_is_retried_before_giving_up(tmp_path, monkeypatch):
+    """It is intermittent and it recovers, so it is a retry, not a ceiling."""
+    paths = ["/gallery/breast/breast-augmentation/1/"]
+    session = _RecordingSession([
+        _ajax_error_payload(0, 1),
+        _ajax_error_payload(0, 1),
+        _ajax_payload(paths, 1, 1, next_position=2),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=1, page_size=1, tag="a")
+    assert got == paths
+    assert len(session.posts) == 3
+    assert f.retries_made == 2
+
+
+def test_etna_endpoint_error_backoff_waits_minutes_not_seconds():
+    """Backing off is the courteous answer to a site saying its backend is down,
+    and the access grant asks for exactly that in return for the permission."""
+    assert min(sg.ETNA_AJAX_ERROR_BACKOFF) >= 60.0
+    assert list(sg.ETNA_AJAX_ERROR_BACKOFF) == sorted(sg.ETNA_AJAX_ERROR_BACKOFF)
+
+
+def test_etna_second_sweep_still_runs_after_the_first_is_abandoned(
+        tmp_path, monkeypatch):
+    """The failure lands at a different position under a different page size."""
+    listing = load_fixture("etna_tccs_listing_endpoint.html")
+    b = "/gallery/breast-surgery/breast-augmentation/99/"
+    first = [f"/gallery/breast-surgery/breast-augmentation/{i}/"
+             for i in range(1, sg.ETNA_AJAX_PAGE_SIZE + 1)]
+    session = _RecordingSession(
+        [_ajax_payload(first, 50, 60, next_position=51)]
+        + [_ajax_error_payload(50, 60)] * 4
+        + [_ajax_payload([b], 1, 60, next_position=2)])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_case_paths(sg.CLINICS["tccs"], f, listing, total=60)
+    assert got == first + [b]
+
+
+def test_etna_cumulative_showing_counter_cannot_signal_a_short_page(
+        tmp_path, monkeypatch):
+    """`state.showing` counts every case served so far, not this page's size.
+
+    Measured on tccs: the nine 50-case pages reported showing 50, 100, ... 450.
+    Comparing that against the page size would end the sweep after page one on
+    any gallery whose second page is full.
+    """
+    p1 = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    p2 = [f"/gallery/breast/breast-augmentation/{i}/" for i in (3, 4)]
+    session = _RecordingSession([
+        _ajax_payload(p1, 2, 4, next_position=3),
+        _ajax_payload(p2, 4, 4, next_position=5),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=4, page_size=2, tag="a")
+    assert got == p1 + p2
+
+
+def test_etna_a_repeat_inside_one_page_does_not_end_the_sweep(tmp_path, monkeypatch):
+    """A full page that happens to repeat a case is still a full page.
+
+    The card count is what says whether a page was short. Deduplicating inside a
+    page before that check would read a full page as the end of the set.
+    """
+    a = "/gallery/breast/breast-augmentation/1/"
+    b = "/gallery/breast/breast-augmentation/2/"
+    session = _RecordingSession([
+        _ajax_payload([a, a], 2, 4, next_position=3),
+        _ajax_payload([b, b], 4, 4, next_position=5),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=4, page_size=2, tag="a")
+    assert got == [a, b]
+    assert len(session.posts) == 2
+
+
+def test_etna_abandoned_sweep_keeps_the_pages_that_did_succeed(
+        tmp_path, monkeypatch):
+    """Pages served before the failure are real data, not collateral.
+
+    Discarding them because a LATER page failed loses most of a gallery over its
+    tail: tccs's sweep failed at position 451, so raising the 450 already
+    collected away would have cost the whole clinic.
+    """
+    paths = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    session = _RecordingSession(
+        [_ajax_payload(paths, 2, 100, next_position=3)]
+        + [_ajax_error_payload(2, 100)] * 4)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(sg.EtnaEndpointError) as excinfo:
+        sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                               total=100, page_size=2, tag="a")
+    assert excinfo.value.paths == paths

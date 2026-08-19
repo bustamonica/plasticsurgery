@@ -442,7 +442,8 @@ class PoliteFetcher:
         return self._request("GET", url, cache_key, None)
 
     def post_form(self, url: str, fields: dict[str, str], cache_key: str,
-                  delay: float | None = None) -> bytes:
+                  delay: float | None = None,
+                  validate=None, retry_waits: tuple[float, ...] = ()) -> bytes:
         """Cached multipart POST, on the same politeness contract as `get`.
 
         Only the gallery case-list endpoint uses this, and only for a clinic
@@ -456,20 +457,33 @@ class PoliteFetcher:
         is a database query behind an admin path rather than a static page, and
         the grant that opened it asks for a courteous pace in exchange, so it is
         fetched more slowly than the case pages are.
+
+        `validate` is called on freshly fetched bytes BEFORE they are cached, and
+        may raise to reject them. That ordering is the point: this endpoint
+        answers 200 with an error page when its backend fails, and caching that
+        would replay the failure as data on every later run. A rejected response
+        is retried on the `retry_waits` schedule and, if every attempt is
+        rejected, the exception is raised rather than swallowed.
         """
-        return self._request("POST", url, cache_key, fields, delay=delay)
+        return self._request("POST", url, cache_key, fields, delay=delay,
+                             validate=validate, retry_waits=retry_waits)
 
     def _request(self, method: str, url: str, cache_key: str,
                  fields: dict[str, str] | None,
-                 delay: float | None = None) -> bytes:
+                 delay: float | None = None,
+                 validate=None, retry_waits: tuple[float, ...] = ()) -> bytes:
         path = self.cache_dir / cache_key
         if path.exists():
-            return path.read_bytes()
+            data = path.read_bytes()
+            if validate is not None:
+                validate(data)
+            return data
         if self.offline:
             raise FileNotFoundError(f"offline mode and no cache entry for {url}")
         floor = self.delay if delay is None else max(self.delay, delay)
         backoff = floor - self.delay
-        for attempt in range(1, MAX_ATTEMPTS + 1):
+        attempts = MAX_ATTEMPTS + len(retry_waits)
+        for attempt in range(1, attempts + 1):
             self._sleep_until_allowed(backoff)
             try:
                 if method == "POST":
@@ -492,10 +506,24 @@ class PoliteFetcher:
                     raise
                 self.retries_made += 1
                 backoff = max(5.0, floor - self.delay, self.delay * 2 ** attempt)
-                print(f"  retry {attempt}/{MAX_ATTEMPTS - 1} in {backoff:.0f}s "
+                print(f"  retry {attempt}/{attempts - 1} in {backoff:.0f}s "
                       f"after {type(exc).__name__} on {url}")
                 continue
             data = resp.content
+            if validate is not None:
+                try:
+                    validate(data)
+                except Exception as exc:
+                    # NOT cached: a rejected body is a failure, and a cached
+                    # failure is replayed as data forever.
+                    if attempt > len(retry_waits):
+                        raise
+                    self.retries_made += 1
+                    backoff = retry_waits[attempt - 1] - self.delay
+                    print(f"  retry {attempt}/{len(retry_waits)} in "
+                          f"{retry_waits[attempt - 1]:.0f}s after "
+                          f"{type(exc).__name__} on {url}: {exc}")
+                    continue
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
             return data
@@ -1932,7 +1960,44 @@ ETNA_AJAX_PAGE_SIZE = 50
 # A second sweep at a different page size only helps because the order depends on
 # the size; using the same size again would just repeat the first sweep.
 ETNA_AJAX_RETRY_PAGE_SIZE = 24
+# The endpoint answers HTTP 200 with an error paragraph in place of the case
+# cards when the gallery's own backend fails:
+#
+#   <div class="category-cases"><p class="error">We are currently experiencing
+#   technical difficulties. Administrators have been notified...</p></div>
+#
+# Measured on tccs on 2026-08-19: nine 50-case pages served, then this at
+# position 451; a second sweep then served eight 24-case pages and hit it at
+# position 193. It is intermittent and it recovers, so it is a failure to retry
+# rather than a ceiling to accept.
+#
+# Reading it as "no more cases" is the dangerous failure, and it is the one that
+# happens by default: the response is a 200 carrying a well-formed envelope whose
+# `state` still counts up (`showing: 500`, `cases_remaining: 82`), so an empty
+# card list looks exactly like the end of the set. That silently turned 582
+# declared cases into 450 and reported success. It must never be cached either -
+# a cached error is replayed as data on every later run.
+ETNA_AJAX_ERROR_RE = re.compile(
+    r'<p[^>]*class="[^"]*\berror\b[^"]*"', re.I)
 ETNA_AJAX_DELAY = 3.0
+# Backing off is the courteous response to a site telling us its backend is
+# struggling, and the access grant asks for exactly that in return for the
+# permission. Retries wait minutes, not seconds.
+ETNA_AJAX_ERROR_BACKOFF = (60.0, 180.0, 420.0)
+
+
+class EtnaEndpointError(RuntimeError):
+    """The gallery endpoint answered 200 with its backend-failure page.
+
+    `paths` carries whatever the sweep had already collected when it gave up.
+    Those cases are real and were served successfully; discarding them because a
+    LATER page failed would throw away most of a gallery over its tail - on tccs
+    that is 450 of 582 cases lost to a failure at position 451.
+    """
+
+    def __init__(self, message: str, paths: list[str] | None = None):
+        super().__init__(message)
+        self.paths = paths or []
 
 
 def etna_ajax_config(listing_html: str) -> tuple[str, str] | None:
@@ -1966,9 +2031,16 @@ def etna_decode_ajax(payload: bytes) -> tuple[dict, str]:
 
     `_html` is base64 of UTF-8 bytes; the gallery's script decodes it the long way
     round (atob + decodeURIComponent) purely because it is running in a browser.
+
+    Raises EtnaEndpointError if the fragment is the gallery's backend-failure page
+    rather than a card list, so a failure can never be mistaken for the end of the
+    set. See ETNA_AJAX_ERROR_RE.
     """
     data = json.loads(payload.decode("utf-8", "replace"))
     html = base64.b64decode(data.get("_html", "")).decode("utf-8", "replace")
+    if ETNA_AJAX_ERROR_RE.search(html):
+        raise EtnaEndpointError(
+            BeautifulSoup(html, "html.parser").get_text(" ", strip=True))
     return data.get("env", {}).get("state", {}), html
 
 
@@ -1989,9 +2061,11 @@ def etna_ajax_case_paths(payload_html: str) -> list[str]:
         path = urlsplit(card["href"]).path
         if not ETNA_CASE_LINK_RE.search(path.rstrip("/") + "/"):
             continue
-        path = path.rstrip("/") + "/"
-        if path not in paths:
-            paths.append(path)
+        # Deliberately NOT deduplicated here. How many cards a page returned is
+        # what tells the sweep whether that page was short, and collapsing a
+        # repeat inside one page would make a full page look like the end of the
+        # set. Deduplication happens across the whole sweep instead.
+        paths.append(path.rstrip("/") + "/")
     return paths
 
 
@@ -2014,7 +2088,9 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
         key = f"{slug}_ajax_{tag}_{position}_{page_size}.json"
         try:
             raw = fetcher.post_form(f"{endpoint}?action={action}", body, key,
-                                    delay=ETNA_AJAX_DELAY)
+                                    delay=ETNA_AJAX_DELAY,
+                                    validate=lambda data: etna_decode_ajax(data),
+                                    retry_waits=ETNA_AJAX_ERROR_BACKOFF)
         except FileNotFoundError:
             # Offline mode with no cached response for this position. The sweep
             # ends here rather than the run: an offline re-parse of the cache is
@@ -2023,13 +2099,25 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
             print(f"  {slug}: endpoint sweep {tag} is cache-bounded at "
                   f"position {position}")
             break
+        except EtnaEndpointError as exc:
+            # Every retry was refused. The sweep is INCOMPLETE, not finished, and
+            # says so: the caller reconciles against the declared total, and a
+            # truncated sweep reported as a clean one is exactly how 582 declared
+            # cases became a confident 450. The pages that DID succeed are carried
+            # out on the exception rather than discarded.
+            print(f"  WARN {slug}: endpoint sweep {tag} ABANDONED at position "
+                  f"{position} - the gallery backend is failing ({exc}). "
+                  f"{len(paths)} case path(s) collected before that point are "
+                  f"kept.")
+            raise EtnaEndpointError(str(exc), paths) from exc
         state, html = etna_decode_ajax(raw)
         page = etna_ajax_case_paths(html)
         for path in page:
             if path not in paths:
                 paths.append(path)
-        shown = state.get("showing", len(page))
-        if not page or shown < page_size:
+        # `state.showing` is a CUMULATIVE counter, not this page's size, so it can
+        # never signal a short page. Only the cards actually returned can.
+        if len(page) < page_size:
             break
         position = state.get("next_returned_position", position + page_size)
     return paths
@@ -2057,21 +2145,29 @@ def etna_endpoint_case_paths(cfg: ClinicConfig, fetcher: "PoliteFetcher",
         print(f"  WARN {cfg.slug}: listing declares no category_id; "
               f"the endpoint would return some other category")
         return []
-    paths = etna_endpoint_sweep(fetcher, cfg.slug, endpoint, action, fields,
-                                total, ETNA_AJAX_PAGE_SIZE, "a")
-    print(f"  {cfg.slug}: endpoint sweep A returned {len(paths)} distinct case "
-          f"path(s) against a declared total of {total}")
-    # The order depends on the page size, so a second sweep at a different size is
-    # a genuinely different traversal of the same set rather than a repeat. It is
-    # only spent when the first sweep is short, since it costs the site another
-    # full pass.
-    if len(paths) < total:
-        extra = etna_endpoint_sweep(fetcher, cfg.slug, endpoint, action, fields,
-                                    total, ETNA_AJAX_RETRY_PAGE_SIZE, "b")
-        added = [p for p in extra if p not in paths]
+    paths: list[str] = []
+    for tag, page_size in (("a", ETNA_AJAX_PAGE_SIZE),
+                           ("b", ETNA_AJAX_RETRY_PAGE_SIZE)):
+        # The order depends on the page size, so the second sweep is a genuinely
+        # different traversal of the same set rather than a repeat. It is only
+        # spent when the first comes up short, since it costs the site another
+        # full pass.
+        if tag != "a" and len(paths) >= total:
+            break
+        incomplete = False
+        try:
+            found = etna_endpoint_sweep(fetcher, cfg.slug, endpoint, action,
+                                        fields, total, page_size, tag)
+        except EtnaEndpointError as exc:
+            # Already reported by the sweep. Keep the pages it did get, and still
+            # try the other traversal: the failure is intermittent, and it lands
+            # at a different position under a different page size.
+            found, incomplete = exc.paths, True
+        added = [p for p in found if p not in paths]
         paths.extend(added)
-        print(f"  {cfg.slug}: endpoint sweep B added {len(added)} case path(s); "
-              f"{len(paths)} of {total} declared")
+        print(f"  {cfg.slug}: endpoint sweep {tag.upper()} "
+              f"{'ABANDONED, ' if incomplete else ''}added {len(added)} "
+              f"case path(s); {len(paths)} of {total} declared")
     return paths
 
 
@@ -2991,8 +3087,20 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
     if cfg.kind == "etna":
         gallery_path = cfg.gallery_paths[0]
         listing_url = cfg.base_url + gallery_path
-        listing = fetcher.get(listing_url, f"{cfg.slug}_listing.html").decode(
-            "utf-8", "replace")
+        # The endpoint route reads the listing under its OWN cache key.
+        #
+        # The listing carries the declared total, and the declared total is the
+        # denominator this route reconciles against - so a listing cached by an
+        # earlier run silently reconciles against a stale number. tccs declared
+        # 579 cases when it was cached on 2026-08-15 and declares 582 now;
+        # sweeping to a stale 579 would stop three cases short and report
+        # success. A separate key gets a current listing without touching the
+        # shared entry the other clinics and every offline re-parse resolve
+        # against - that cache is shared state, and a collection run has no
+        # business invalidating it.
+        listing_key = (f"{cfg.slug}_listing_endpoint.html" if gallery_endpoint
+                       else f"{cfg.slug}_listing.html")
+        listing = fetcher.get(listing_url, listing_key).decode("utf-8", "replace")
         declared = etna_declared_total(listing)
         root = etna_gallery_root(gallery_path)
         to_visit = [f"{gallery_path}{cid}/"
