@@ -1775,3 +1775,96 @@ def test_etna_abandoned_sweep_keeps_the_pages_that_did_succeed(
         sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
                                total=100, page_size=2, tag="a")
     assert excinfo.value.paths == paths
+
+
+# ---------------------------------------------------------------------------
+# etna: purity - the image slug is necessary but not sufficient
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("sentence", [
+    # Verbatim from the five clinics' own case text.
+    "She underwent a breast augmentation with a lift (mastopexy).",
+    "Our patient received a breast augmentation with a breast lift.",
+    "She underwent a Mommy Makeover consisting of a tummy tuck and a breast "
+    "augmentation.",
+    "Additionally, the patient underwent liposuction to the axillary area.",
+    "Ablavsky performed a combined breast procedure - a breast augmentation and "
+    "breast lift to provide volume and projection.",
+    "This patient had a breast augmentation revision.",
+    # A verb list cannot carry this screen: the clinic's own prose is typo'd.
+    "Camp peformed a breast augmentation and tummy tuck.",
+    # Nor this: no surgical verb at all.
+    "Breast Augmentation with Nipple Reduction",
+    "Our patient, 34, was able to achieve her desired result by using fat "
+    "injections, which were taken during her Tummy Tuck procedure.",
+])
+def test_etna_combined_procedure_is_excluded(sentence):
+    assert sg.etna_combined_procedure_evidence(sentence) is not None
+
+
+@pytest.mark.parametrize("sentence", [
+    # Named but NOT done - the marina precedent: a narrative that names a
+    # procedure may be explaining the options rather than reporting this one.
+    "This 30 year-old woman wanted larger implants (DD+ bra size) but no lift.",
+    "Although a lift was discussed, she was comfortable with the result.",
+    "She did not have significant ptosis and therefore did not require a lift.",
+    "45 year-old mother of 3 with early breast ptosis but wished to avoid a lift.",
+    "While she did have a mild degree of ptosis she opted not to undergo a "
+    "breast lift at this time.",
+    "She came to my Toledo office to discuss her goals and explore options, "
+    "including a breast lift, breast augmentation, or a combination.",
+    "He recommended a dual-plane breast augmentation to achieve her goals "
+    "without the need for breast lift scars.",
+    # Surgeon boilerplate appended to every case page by these galleries.
+    "I specialize in breast augmentation, breast lift, and breast reduction "
+    "surgeries.",
+    "In my practice located in Toledo, Ohio, I not only specialize in breast "
+    "augmentation but also in breast lift, and breast reduction surgeries.",
+    "My specialty in breast augmentation, lift, and reduction surgeries enables "
+    "me to create personalized care plans.",
+    "If you are interested in breast augmentation in Denver either as an "
+    "individual procedure or as part of a Mommy Makeover, please call us.",
+    # 'lift' in the gym sense.
+    "As someone who maintains a very active lifestyle with CrossFit and weight "
+    "lifting, she wanted an outcome that delivered fullness.",
+    "I used a muscle-preserving technique to support her daily activities, such "
+    "as frequent exercise and lifting weights.",
+])
+def test_etna_pure_augmentation_is_kept(sentence):
+    assert sg.etna_combined_procedure_evidence(sentence) is None
+
+
+def test_etna_purity_evidence_is_scoped_to_the_sentence():
+    """A clean case plus appended boilerplate must survive.
+
+    Every colville case ends with the surgeon's bio, and scanning the block as
+    one string flagged all 27 of its otherwise-clean cases.
+    """
+    text = ("A thirty-one-year-old woman approached me seeking a fuller breast "
+            "appearance. We decided on Breast Augmentation in Toledo using "
+            "325cc moderate profile gel implants. Holding board certification "
+            "from the American Board of Plastic Surgery since 1992, I "
+            "specialize in breast augmentation, breast lift, and breast "
+            "reduction surgeries.")
+    assert sg.etna_combined_procedure_evidence(text) is None
+
+
+def test_etna_case_with_combined_text_emits_no_pairs():
+    """The screen has to reach the pairs, not just the warning."""
+    html = ('<img src="//images.x.com/content/images/breast-augmentation-7-front'
+            '-detail.jpg"/><div class="case-description"><p>She underwent a '
+            'breast augmentation with a lift (mastopexy). Implant Size: 350cc'
+            '</p></div>')
+    case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
+    assert case.pairs == []
+    assert any("not pure breast augmentation" in w and "mastopexy" in w
+               for w in case.warnings)
+
+
+def test_etna_pure_case_with_a_negated_lift_still_emits_pairs():
+    html = ('<img src="//images.x.com/content/images/breast-augmentation-8-front'
+            '-detail.jpg"/><div class="case-description"><p>She wanted larger '
+            'implants but no lift. Implant Size: 350cc</p></div>')
+    case = sg.etna_parse_case(html, "8", "x", BREAST_AUG_GALLERY)
+    assert [p.key for p in case.pairs] == ["front"]

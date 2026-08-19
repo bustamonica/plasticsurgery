@@ -2387,6 +2387,120 @@ def etna_parse_description(desc, specs: CaseSpecs) -> None:
     specs.summary = " ".join(prose_parts).strip()
 
 
+# --- Purity: the image slug is necessary but NOT sufficient ---
+#
+# The captain's standing ruling excludes anything that is not a pure implant
+# augmentation - mommy makeover and augmentation-with-lift above all - because
+# the after photograph shows a change the implants did not cause.
+#
+# The 2026-08-15 run screened on the image filename's procedure slug alone. On
+# the cases the case-list endpoint reached, that is not enough: 140 cases whose
+# photographs all publish as `breast-augmentation-<case>-...` describe another
+# procedure in their own text, and some of them plainly had one - tccs case 11
+# "underwent mastopexy (breast lift)", kochcarlisle 507 "a breast augmentation
+# with a breast lift. She also received a tummy tuck".
+#
+# A keyword scan over the block is equally wrong, and wrong in the expensive
+# direction. It is the marina precedent from AGENTS.md: a narrative that names a
+# procedure may be discussing it rather than reporting it. Two whole families of
+# false positive appear here:
+#
+#   * Surgeon boilerplate. Every colville case ends with the surgeon's bio - "I
+#     specialize in breast augmentation, breast lift, and breast reduction
+#     surgeries" - which flags all 27 of its otherwise-clean cases.
+#   * Negation. tccs 11283 reads "wanted larger implants (DD+ bra size) but no
+#     lift"; 11284 reads "Although a lift was discussed, she was comfortable
+#     with...". Both are pure augmentations that name a lift.
+#
+# So evidence is taken per SENTENCE, and a sentence counts only when it says
+# THIS PATIENT had the other procedure: an other-procedure term, a patient
+# subject, an affirmative surgical verb, and no negation or hypothetical. A
+# sentence whose subject is the practice ("I specialize in", "we offer") is
+# never evidence about a patient.
+# 'lifting weights' and 'weight lifting' are not a mastopexy. camp case 789
+# ("frequent exercise and lifting weights") and tccs 12167 ("CrossFit and weight
+# lifting") are both pure augmentations that a bare \blift\b excludes.
+ETNA_GYM_LIFT_RE = re.compile(
+    r"\b(?:weight[- ]?lifting|lifting weights|lifting heavy|heavy lifting|"
+    r"lifts weights|powerlifting|weightlifting)\b", re.I)
+ETNA_OTHER_PROCEDURE_RE = re.compile(
+    r"\b(mommy makeover|mastopexy|breast lift|breast lifts|lift|lifting|"
+    r"breast reduction|reduction|tummy tuck|abdominoplasty|liposuction|lipo|"
+    r"fat transfer|fat grafting|brazilian butt lift|bbl|body lift|"
+    r"implant exchange|implant revision|revision|capsulectomy|explant|"
+    r"removal and replacement|reconstruction)\b", re.I)
+# Everything else is EXCLUDED. The first cut of this screen required an
+# affirmative surgical verb ("underwent", "received", "performed a") before it
+# would exclude, and that let real combined cases through - kochcarlisle 647
+# ("fat injections, which were taken during her Tummy Tuck procedure"),
+# ablavsky 239 ("a combined procedure of a breast lift and a breast augmentation"),
+# tccs 931 ("Breast Augmentation with Nipple Reduction"), and camp 101, whose
+# narrative reads "Camp peformed a breast augmentation and tummy tuck" - a typo
+# in the clinic's own prose was enough to defeat a verb list.
+#
+# No verb list survives contact with free prose, and the two error directions are
+# not symmetric: excluding a pure augmentation costs pairs, while including a
+# mommy makeover teaches the model that implants produce a flat abdomen. So the
+# default is exclusion, and only two things earn a sentence a pass - it is the
+# practice advertising itself, or it says the procedure did not happen.
+# The practice-subject list is deliberately broad: these galleries append a
+# surgeon bio and a call-to-action to every case, and reading those as clinical
+# fact would exclude entire clinics.
+ETNA_PRACTICE_SUBJECT_RE = re.compile(
+    r"\b(i specialize|i specialise|we specialize|we specialise|specialize in|"
+    r"specialise in|specialized in|experience in breast|my experience in|"
+    r"specializing in|specialises in|specializes in|specialization|specialisation|"
+    r"my specialty|my speciality|specialty in|speciality in|my expertise|"
+    r"expertise in|knowledge and expertise|menu of cosmetic|cosmetic services|"
+    r"we offer|we provide|we perform|we pride|our practice|our office at|"
+    r"board certif|certification|professor|medical degree|residenc|"
+    r"if you have similar|if you are interested|may be right for you|"
+    r"patients seeking|trust in the blend|our services|personalized care plans|"
+    r"please call|schedule your|fill out the form|to see if you are a candidate|"
+    r"learn more|are available on case)\b", re.I)
+# Named but not done: discussed, declined, avoided, ruled out, deferred, offered
+# as an option, or done instead. tccs case 11283 reads "wanted larger implants
+# (DD+ bra size) but no lift" and 11284 "Although a lift was discussed, she was
+# comfortable with..." - both are pure augmentations that name a lift, and both
+# are the marina precedent from AGENTS.md: a narrative that names a procedure may
+# be explaining the options rather than reporting this patient's.
+ETNA_NEGATED_PROCEDURE_RE = re.compile(
+    r"\b(no lift|not (?:a |an |the )?(?:lift|need|require|candidate)|without|"
+    r"declined|declines|refused|avoid(?:ed|ing|s)?|"
+    r"discuss(?:ed|ing|es)?|explore(?:d|s)? options|explore|"
+    r"options include|including a|including an|or a combination|"
+    r"consider(?:ed|ing|s)?|would (?:have )?(?:require|need|likely)|"
+    r"may help|might help|can be done|could be done|in the future|"
+    r"at a later time|should she|if she (?:wants|wishes)|"
+    r"offered the option|option of|elected to have the|"
+    r"instead of|rather than|as opposed to|alone, or|"
+    r"did not|didn't|does not|doesn't|was not|were not|"
+    r"chose not|opted not|opted against|elected not|decided against|"
+    r"but no|no need|unnecessary|was told (?:she|he|they)|told her that|"
+    r"recommend(?:ed)? against|able to avoid)\b", re.I)
+ETNA_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def etna_combined_procedure_evidence(description: str) -> str | None:
+    """The sentence showing this case is not a pure implant augmentation.
+
+    Returns None only when every sentence naming another procedure is either the
+    practice advertising itself or a statement that the procedure did not happen.
+    Anything else excludes the case. See the comment block above for why the
+    default is exclusion rather than inclusion.
+    """
+    for sentence in ETNA_SENTENCE_SPLIT_RE.split(description or ""):
+        scanned = ETNA_GYM_LIFT_RE.sub(" ", sentence)
+        if not ETNA_OTHER_PROCEDURE_RE.search(scanned):
+            continue
+        if ETNA_PRACTICE_SUBJECT_RE.search(scanned):
+            continue
+        if ETNA_NEGATED_PROCEDURE_RE.search(scanned):
+            continue
+        return sentence.strip()
+    return None
+
+
 def etna_parse_case(case_html: str, case_id: str, source_url: str,
                     gallery_path: str) -> CaseData:
     """One Etna case: side-by-side composites plus a .case-description block."""
@@ -2440,6 +2554,16 @@ def etna_parse_case(case_html: str, case_id: str, source_url: str,
         case.warnings.append("no .case-description block published")
     else:
         etna_parse_description(desc, specs)
+        # The image slug is necessary but not sufficient. A combined case whose
+        # photographs all publish as `breast-augmentation-<case>-...` is still a
+        # combined case, and its after photograph shows a change the implants did
+        # not cause. See etna_combined_procedure_evidence.
+        evidence = etna_combined_procedure_evidence(desc.get_text(" ", strip=True))
+        if evidence is not None:
+            case.warnings.append(
+                "not pure breast augmentation (the case's own text reads: "
+                + f"{evidence!r}); excluded by captain ruling")
+            case.pairs = []
 
     haystack = " ".join([specs.summary, *specs.fields.values()])
     age = specs.fields.get("Patient Age", "")
