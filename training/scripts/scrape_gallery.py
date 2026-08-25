@@ -327,6 +327,16 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+    # -- 2026-08-25 batch: prospected clinics
+    #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
+    # dsmplasticsurgery.com redirects to the www host, which also serves every
+    # image; base_url points at the canonical host directly (the mitchellbrown
+    # precedent). robots.txt disallows only /wp-admin/ and publishes no
+    # crawl-delay, so the standing 2s contract applies unchanged.
+    "dsm": ClinicConfig(
+        slug="dsm", consent_ref="dsm-agreement-2026-08-25",
+        base_url="https://www.dsmplasticsurgery.com",
+        gallery_paths=["/gallery/breast-augmentation/"], kind="dsm"),
 }
 
 
@@ -569,7 +579,14 @@ def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
             assign(m.group(1).lower(), cc)
     # Prefix markers: 'Right: 185cc ...', 'R 270 filled to 285cc'.
     if left is None and right is None:
-        side_re = re.compile(r"\b(left|right|l|r)\b\s*:?\s*([^;,.]*)", re.I)
+        # The segment must stop at the NEXT side marker rather than running to
+        # the end of the text. 'L: 360cc R: 375cc' and 'R) 457cc L) 492cc'
+        # (dsm patients 9 and 5) put no punctuation between the two sides, so
+        # an unbounded [^;,.]* swallowed the second marker and the case was
+        # recorded at one breast's volume instead of the average of both.
+        side_re = re.compile(
+            r"\b(left|right|l|r)\b\s*:?\s*"
+            r"((?:(?!\b(?:left|right|l|r)\b)[^;,.])*)", re.I)
         for m in side_re.finditer(text):
             side, segment = m.group(1).lower(), m.group(2)
             cc = _parse_fill_side(segment)
@@ -2458,6 +2475,196 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# dsm parser (Kadence Blocks gallery; one inline listing, per-photo captions)
+# ---------------------------------------------------------------------------
+#
+# Des Moines Plastic Surgery publishes its whole breast-augmentation gallery as
+# a single Kadence Blocks gallery block on one page. Every photo is its own
+# `div.kt-gallery-item`, and three things are read off it:
+#
+#   * the patient it belongs to, from the `patient-N` class the gallery's own
+#     filter list uses (`<li rel="patient-N">`) - that list is the gallery's
+#     declared enumeration and is what a run reconciles against;
+#   * whether it is the before or the after photo, from the caption's leading
+#     bold line ('BEFORE PHOTO'/'AFTER PHOTO', and 'BEFORE'/'AFTER' on the
+#     three oldest patients). The FILENAME must not be used for this: every one
+#     of patient 58's six photos is named '...-After-Photo-...' while its
+#     captions alternate before/after correctly;
+#   * the full-size URL and its dimensions, from the anchor's href and
+#     `data-size`. The `data-srcset` derivatives only ever go DOWN from there
+#     (300x300/150x150/100x100), so the linked file is the largest published.
+#
+# Photos come in document order as BEFORE, AFTER, BEFORE, AFTER..., one such
+# couple per view, so pairs are formed by walking that sequence; a couple that
+# does not read BEFORE-then-AFTER is dropped with a warning rather than guessed
+# at. Views are NOT documented for 57 of the 58 patients (patient 5 is the one
+# exception, whose filenames spell out 'front-' and 'left-side-view-'), so
+# every other view label has to come from a visual-annotation pass.
+#
+# Specs are one flat labelled chart repeated verbatim on both photos of a pair:
+#   Patient Age: 37 years old | Patient Height: 5'9 | Patient Weight: 140
+#   | Implants: Silicone moderate profile 405CC
+# 'Implants:' and 'Cup Size After:' are the same field under two labels - the
+# clinic prints the implant description under both, and 'Cup Size After:' never
+# carries a cup size. Weight is published as a bare number with no documented
+# unit on all but one patient, so it is kept verbatim in notes (the sanantonio
+# precedent) and only becomes weight_kg where the caption itself prints 'lbs'.
+
+DSM_PATIENT_CLASS_RE = re.compile(r"^patient-(\d+)$")
+DSM_BEFORE_AFTER_RE = re.compile(r"^(BEFORE|AFTER)(?:\s+PHOTO)?$", re.I)
+# Patient 5's filenames are the gallery's only page-documented view labels.
+DSM_VIEW_HINTS = (
+    ("left-side-view", "side-left"),
+    ("right-side-view", "side-right"),
+    ("front", "front"),
+)
+DSM_IMPLANT_LABELS = ("Implants", "Cup Size After")
+DSM_WEIGHT_LBS_RE = re.compile(r"^(\d{2,3})\s*(?:lbs?|pounds?)\.?$", re.I)
+DSM_AGE_RE = re.compile(r"^(\d{1,3})\b")
+DSM_PLACEHOLDERS = {"n/a", "na", "n.a.", "-", "--", ""}
+
+
+def _dsm_caption_fields(caption_el) -> tuple[str, list[tuple[str, str]]]:
+    """('BEFORE'/'AFTER'/'', [(label, value), ...]) from one caption block.
+
+    The caption is a flat run of `<b>Label:</b> value` separated by literal
+    '|' text, preceded by a bare `<b>BEFORE PHOTO</b>`.
+    """
+    if caption_el is None:
+        return "", []
+    marker = ""
+    fields: list[tuple[str, str]] = []
+    for b in caption_el.find_all("b"):
+        label = b.get_text(" ", strip=True)
+        m = DSM_BEFORE_AFTER_RE.match(label)
+        if m is not None:
+            if not marker:
+                marker = m.group(1).upper()
+            continue
+        if not label.endswith(":"):
+            continue
+        value_parts = []
+        for sib in b.next_siblings:
+            if getattr(sib, "name", None) == "b":
+                break
+            value_parts.append(sib.get_text(" ", strip=True)
+                               if hasattr(sib, "get_text") else str(sib))
+        value = " ".join(value_parts).strip().strip("|").strip()
+        fields.append((label.rstrip(":").strip(), value))
+    return marker, fields
+
+
+def _dsm_view_hint(url: str) -> str | None:
+    name = unquote(url.rsplit("/", 1)[-1]).lower()
+    for token, view in DSM_VIEW_HINTS:
+        if token in name:
+            return view
+    return None
+
+
+def dsm_parse_specs(fields: list[tuple[str, str]]) -> CaseSpecs:
+    specs = CaseSpecs()
+    for label, value in fields:
+        clean = value.strip()
+        if clean.lower() in DSM_PLACEHOLDERS:
+            continue
+        if label == "Patient Age":
+            m = DSM_AGE_RE.match(clean)
+            if m is not None:
+                specs.age = int(m.group(1))
+        elif label == "Patient Height":
+            specs.height = clean
+            specs.height_cm = height_to_cm(clean)
+        elif label == "Patient Weight":
+            m = DSM_WEIGHT_LBS_RE.match(clean)
+            if m is not None:
+                specs.weight_lbs = int(m.group(1))
+                specs.weight_kg = pounds_to_kg(float(m.group(1)))
+            else:
+                # No documented unit on the number the clinic printed; kept
+                # verbatim rather than assumed to be pounds.
+                specs.fields[label] = clean
+        elif label in DSM_IMPLANT_LABELS:
+            specs.summary = clean
+            specs.left_cc, specs.right_cc = parse_fill_volumes(clean)
+            classify_brand_shape_profile(specs, clean)
+        else:
+            specs.fields[label] = clean
+    return specs
+
+
+def dsm_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    soup = BeautifulSoup(listing_html, "html.parser")
+    grouped: dict[str, list] = {}
+    for item in soup.select("div.kt-gallery-item"):
+        patient = None
+        for cls in item.get("class", []):
+            m = DSM_PATIENT_CLASS_RE.match(cls)
+            if m is not None:
+                patient = m.group(1)
+                break
+        if patient is None:
+            continue
+        grouped.setdefault(patient, []).append(item)
+
+    cases = []
+    for patient in sorted(grouped, key=int):
+        case = CaseData(case_id=patient.zfill(2),
+                        source_url=source_url)
+        photos = []
+        for item in grouped[patient]:
+            a = item.find("a", href=True)
+            if a is None:
+                continue
+            marker, fields = _dsm_caption_fields(
+                item.select_one("div.kt-gallery-caption-text"))
+            photos.append((marker, a["href"], fields))
+        # The same chart is repeated verbatim on every photo of a patient, so
+        # the first photo that carries one speaks for the whole case.
+        for _, _, fields in photos:
+            specs = dsm_parse_specs(fields)
+            if specs.summary or specs.age is not None:
+                case.specs = specs
+                break
+        for i in range(0, len(photos) - 1, 2):
+            before_marker, before_url, _ = photos[i]
+            after_marker, after_url, _ = photos[i + 1]
+            if (before_marker, after_marker) != ("BEFORE", "AFTER"):
+                case.warnings.append(
+                    f"photos {i + 1}/{i + 2} are not a BEFORE/AFTER couple "
+                    f"({before_marker or '?'}/{after_marker or '?'}); dropped")
+                continue
+            hint = _dsm_view_hint(before_url)
+            case.pairs.append(ImagePair(key=hint or f"pair{len(case.pairs) + 1}",
+                                        before_url=before_url,
+                                        after_url=after_url,
+                                        view_hint=hint))
+        if len(photos) % 2:
+            case.warnings.append(
+                f"odd photo count ({len(photos)}); trailing photo dropped")
+        if case.pairs:
+            cases.append(case)
+    return cases
+
+
+def dsm_declared_patients(listing_html: str) -> int:
+    """How many patients the gallery's own filter list declares.
+
+    The listing carries `<li class="postclass"><a rel="patient-N">` for every
+    patient it published; a run reconciles its case count against this rather
+    than against its own parse of the photo grid.
+    """
+    soup = BeautifulSoup(listing_html, "html.parser")
+    rels = set()
+    for a in soup.select('li.postclass a[rel]'):
+        rel = a.get("rel")
+        rel = rel[0] if isinstance(rel, list) and rel else rel
+        if isinstance(rel, str) and DSM_PATIENT_CLASS_RE.match(rel):
+            rels.add(rel)
+    return len(rels)
+
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2863,6 +3070,17 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return mya_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "dsm":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = dsm_parse_listing(listing, url)
+        declared = dsm_declared_patients(listing)
+        if declared and declared != len(cases):
+            print(f"  NOTE: gallery declares {declared} patient(s) in its filter "
+                  f"list; parsed {len(cases)} case(s) with at least one pair")
+        else:
+            print(f"  gallery declares {declared} patient(s); parsed {len(cases)}")
+        return cases
     if cfg.kind == "drgrover":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
