@@ -67,6 +67,12 @@ specific markup contract.
 served by the single kind='etna' parser - one parser configured twelve times.
 See the etna section below for the platform's markup contract, its five
 published spec-block layouts, and how enumeration and procedure purity work.
+
+wyten (2026-08-25 consent batch) is a bespoke WordPress/Elementor carousel: one
+page, one slide per case, no case pages and no declared total. Its slides mix
+implant augmentation with fat grafting, revisions and combined procedures, and
+the image FILENAMES do not separate them - so the purity screen reads the
+slide's own procedure title as an allow-list. See the wyten section below.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -164,6 +170,12 @@ class ClinicConfig:
     # which is why a free crop is the right tool here rather than masking or
     # inpainting: heavenly's three inpaint passes cost $28 and still failed.
     bottom_crop_px: int = 0
+    # Pixels trimmed off each grid-cell edge that touches an INTERIOR seam of a
+    # multi-panel composite, for templates that draw a blank divider between the
+    # panels. See crop_grid_cell(). Measured per clinic - a divider width is a
+    # property of that practice's template, not of the platform - and confirmed
+    # constant in pixels rather than as a fraction of the image.
+    grid_gutter_px: int = 0
     # Reference to the site owner's grant of access to the gallery's own case-list
     # endpoint (`admin-ajax.php`, which these robots.txt files otherwise disallow).
     #
@@ -245,6 +257,23 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="drrohrich", consent_ref="drrohrich-agreement-2026-08",
         base_url="https://drrohrich.com",
         gallery_paths=["/photographs/breast-augmentation/"], kind="drrohrich"),
+    "wyten": ClinicConfig(
+        slug="wyten",
+        # Row 16 of CONSENT-2026-08-25-PROSPECTED-CLINICS.md ('Dr Rebecca Wyten,
+        # Specialist Plastic Surgeon'), the executed AI-training consent the
+        # captain obtained on 2026-08-25. Section 6 of that instrument lets a
+        # surgeon revoke in writing with 30 business days to remove, which is
+        # why every emitted pair carries this back to the one signed form.
+        consent_ref="wyten-consent-2026-08-25",
+        base_url="https://drrebeccawyten.com.au",
+        gallery_paths=["/breast-augmentation-melbourne/"],
+        kind="wyten",
+        # ~10px of white between the columns and ~8px between the rows of the
+        # 2x2 composite, measured on all six carried cases (the seam straddles
+        # the even split, leaving 3-6px inside each cell). 8 clears it on every
+        # one with margin and still leaves 805x611 cells, well over the 400px
+        # floor.
+        grid_gutter_px=8),
     "privateclinic": ClinicConfig(
         slug="privateclinic", consent_ref="privateclinic-agreement-2026-08",
         base_url="https://www.theprivateclinic.co.uk",
@@ -2832,6 +2861,136 @@ def etna_parse_case(case_html: str, case_id: str, source_url: str,
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# wyten parser (bespoke WordPress / Elementor carousel, one page, no case pages)
+# ---------------------------------------------------------------------------
+
+# Dr Rebecca Wyten publishes ONE gallery page whose Elementor carousel holds one
+# slide per case. Each slide is three text widgets plus one image widget:
+#
+#   heading      -> the procedure title      ('Breast Augmentation with Breast Implants')
+#   text-editor  -> the spec line            ('6 months after surgery 350cc Smooth Round High Profile')
+#   heading x2   -> the column labels        ('Before', 'After')
+#   image        -> a 2x2 grid composite     front before|after on row 0, side before|after on row 1
+#
+# The site publishes no case pages, no pagination and NO DECLARED TOTAL, so the
+# slide count on this page is the whole gallery and there is nothing to
+# reconcile a count against; the run says so rather than implying a check it
+# could not make.
+
+# The procedure title is its own field here, which makes the purity screen a
+# reading rather than an inference - but only if it is read as an ALLOW-list.
+# This practice publishes implant augmentation alongside fat grafting, implant
+# +abdominoplasty, implant+mastopexy, explant+mastopexy and implant
+# remove-and-replace, and the FILENAMES do not separate them: the pure cases
+# ship as both `ba_imp_*` and `bai_*`, while `bai_R275cc_L300cc_5mo_1.jpg` is an
+# abdominoplasty case and `mp_bai_300cc_9mo.jpg` a mastopexy. Screening the slug
+# is what let 86 combined cases through at the Etna clinics; here it would let
+# two through and drop nothing that should be kept.
+#
+# So a case is carried only when its title positively says implant augmentation
+# AND names nothing else. The deny-list is not redundant with the allow-list: it
+# is what makes a future title like 'Breast Augmentation with Breast Implants &
+# Abdominoplasty' fail closed instead of passing on its first four words.
+WYTEN_PURE_TITLE_RE = re.compile(
+    r"breast\s+augmentation\s+with\s+breast\s+implants", re.I)
+# The three ways a slide here fails, kept apart so the accounting says WHICH.
+# Order is the order they are reported in, not a precedence claim: two of the
+# published titles satisfy more than one ('Breast Augmentation - Remove implants
+# - Mastopexy' is a revision AND a combined procedure), and either label
+# excludes the case.
+WYTEN_REVISION_RE = re.compile(
+    r"\b(remov\w*|replac\w*|explant\w*|revision|implant\s+exchange)\b", re.I)
+WYTEN_ADJUNCT_RE = re.compile(
+    r"\b(mastopexy|lift|abdominoplasty|tummy[- ]tuck|lipo\w*|reduction|"
+    r"reconstruct\w*)\b", re.I)
+WYTEN_FAT_RE = re.compile(r"\b(fat\s+graft\w*|fat\s+transfer)\b", re.I)
+WYTEN_MONTHS_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:months?|mths?|mo)\b\s*(?:after|since|post)\b", re.I)
+
+
+def wyten_rejection_reason(title: str) -> str | None:
+    """Why this slide is not a pure primary implant augmentation, or None.
+
+    Disqualifiers are scanned BEFORE the allow-list so a title that opens with
+    the pure procedure and then names another one cannot pass on its first four
+    words; the allow-list then has the last word, so an unrecognised title fails
+    closed rather than defaulting into the corpus.
+    """
+    title = title or ""
+    for pattern, kind in ((WYTEN_REVISION_RE, "revision-not-primary-augmentation"),
+                          (WYTEN_ADJUNCT_RE, "combined-procedure"),
+                          (WYTEN_FAT_RE, "fat-grafting-not-implants")):
+        m = pattern.search(title)
+        if m:
+            return f"{kind} ({' '.join(m.group(0).lower().split())})"
+    if not WYTEN_PURE_TITLE_RE.search(title):
+        return "not-implant-augmentation"
+    return None
+
+
+def wyten_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """One Elementor carousel slide per case; 2 pairs per case from one image.
+
+    Yields ONLY pure implant-augmentation cases; a slide screened out by
+    `wyten_rejection_reason` is returned as a case carrying no pairs and one
+    warning, so the run can account for every published slide instead of
+    silently shrinking the gallery to the ones it liked.
+
+    The image is a 2x2 grid confirmed by opening all six carried composites:
+    row 0 is the front view, row 1 a true lateral, column 0 before and column 1
+    after - the column order the slide's own 'Before'/'After' headings state and
+    the photographs bear out. Laterality is NOT documented anywhere on the page,
+    so the side pairs carry view_hint='side' and reach a view only through an
+    annotation, per resolve_view().
+    """
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases = []
+    seen = set()
+    for slide in soup.select("div.swiper-slide"):
+        img = slide.find("img")
+        if img is None:
+            continue
+        src = img.get("src") or ""
+        if not src:
+            continue
+        # 'name.<hash>.<hash>.jpg' -> 'name'; WordPress' '-1024x779' derivatives
+        # are never the src here, but the bare original is what we want anyway.
+        stem = unquote(urlsplit(src).path.rsplit("/", 1)[-1]).split(".")[0]
+        case_id = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
+        if not case_id or case_id in seen:
+            continue
+        seen.add(case_id)
+
+        headings = [re.sub(r"\s+", " ", h.get_text(" ", strip=True))
+                    for h in slide.select('div[data-widget_type^="heading"]')]
+        title = headings[0] if headings else ""
+        caption = " ".join(
+            re.sub(r"\s+", " ", t.get_text(" ", strip=True))
+            for t in slide.select('div[data-widget_type^="text-editor"]')).strip()
+
+        case = CaseData(case_id=case_id, source_url=source_url)
+        reason = wyten_rejection_reason(title)
+        if reason is not None:
+            case.warnings.append(f"excluded: {reason}: {title!r}")
+            cases.append(case)
+            continue
+
+        specs = CaseSpecs(summary=f"{title}. {caption}".strip())
+        specs.left_cc, specs.right_cc = parse_fill_volumes(caption)
+        classify_brand_shape_profile(specs, caption)
+        m = WYTEN_MONTHS_RE.search(caption)
+        if m:
+            specs.months_post_op = float(m.group(1))
+        case.specs = specs
+        for key, hint, row in (("front", "front", 0), ("side", "side", 1)):
+            case.pairs.append(ImagePair(
+                key=key, before_url=src, after_url=src, view_hint=hint,
+                grid_shape=(2, 2), before_cell=(row, 0), after_cell=(row, 1)))
+        cases.append(case)
+    return cases
+
+
 def privateclinic_parse_card(card, source_url: str) -> CaseData | None:
     """Cards on the category-scoped listing already carry the full spec
     block and a composite before|after image; no case-detail visit needed.
@@ -3162,12 +3321,28 @@ def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     return out[0], out[1]
 
 
-def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int]) -> bytes:
+def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int],
+                   gutter_px: int = 0) -> bytes:
     """Crop one (row, col) cell out of a rows x cols grid composite image.
 
     Used for multi-panel composites (drrohrich's 2x2 front/side x
     before/after; drteitelbaum/skplastic's 2x3 front/oblique/side x
     before/after) where a single fetched image yields several pairs.
+
+    `gutter_px` trims that many pixels off each cell edge that touches an
+    INTERIOR seam, for templates that draw a blank divider between the panels
+    (wyten's 2x2 lays ~10px of white between the columns and ~8px between the
+    rows). The outer edges are never trimmed - there is no divider there - so a
+    cell loses the strip only on the sides where one actually exists, and every
+    cell in a given row or column loses the same amount, which keeps the two
+    halves of a pair dimensionally matched. Left at 0 the crop is the exact
+    even division it has always been, so no existing clinic moves.
+
+    Trimming rather than tolerating matters beyond tidiness: a white divider
+    strip merged into the skin silhouette is one of the known false-positive
+    families in `censorship.py` (see its module docstring), so a cell shipped
+    with the seam still attached can be rejected at ingest for a mark the
+    clinic never put on the patient.
     """
     import io
 
@@ -3176,9 +3351,20 @@ def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int]) -> 
     img = Image.open(io.BytesIO(data))
     cell_w, cell_h = img.width // cols, img.height // rows
     row, col = cell
-    box = (col * cell_w, row * cell_h, (col + 1) * cell_w, (row + 1) * cell_h)
+    left, top = col * cell_w, row * cell_h
+    right, bottom = left + cell_w, top + cell_h
+    if gutter_px:
+        if col > 0:
+            left += gutter_px
+        if col < cols - 1:
+            right -= gutter_px
+        if row > 0:
+            top += gutter_px
+        if row < rows - 1:
+            bottom -= gutter_px
     buf = io.BytesIO()
-    img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
+    img.crop((left, top, right, bottom)).convert("RGB").save(
+        buf, format="JPEG", quality=95)
     return buf.getvalue()
 
 
@@ -3401,6 +3587,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return drrohrich_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "wyten":
+        listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
+                              f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        return wyten_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
     if cfg.kind == "drjeremyhunt":
         cases, case_ids, page = [], set(), 1
         while True:
@@ -3801,8 +3991,10 @@ def main() -> int:
                     data = fetcher.get(full_url,
                                        image_cache_key(cfg.slug, full_url))
                     rows, cols = pair.grid_shape
-                    before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
-                    after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
+                    before_data = crop_grid_cell(data, rows, cols, pair.before_cell,
+                                                 cfg.grid_gutter_px)
+                    after_data = crop_grid_cell(data, rows, cols, pair.after_cell,
+                                                cfg.grid_gutter_px)
                     (pair_dir / "before.jpg").write_bytes(
                         crop_bottom(before_data, cfg.bottom_crop_px))
                     (pair_dir / "after.jpg").write_bytes(

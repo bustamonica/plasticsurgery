@@ -2577,3 +2577,151 @@ def test_every_rejected_body_is_retried_on_the_full_schedule(
     # 1 reset + the first body + one per retry_wait.
     assert session.calls == 5
     assert not (tmp_path / "aj.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# wyten: procedure purity read off the slide TITLE, and the 2x2 grid gutter
+# ---------------------------------------------------------------------------
+
+
+def _wyten_cases():
+    return sg.wyten_parse_listing(load_fixture("wyten_listing.html"), "x")
+
+
+def test_wyten_carries_only_pure_implant_augmentation():
+    """Every published slide is accounted for: 15 = 6 carried + 9 excluded."""
+    cases = _wyten_cases()
+    carried = [c for c in cases if c.pairs]
+    excluded = [c for c in cases if not c.pairs]
+    assert len(cases) == 15
+    assert len(carried) == 6
+    assert len(excluded) == 9
+    # An excluded slide is still returned, with a reason, so a run cannot
+    # quietly shrink the gallery to the cases it liked.
+    assert all(len(c.warnings) == 1 for c in excluded)
+    assert [c.case_id for c in carried] == [
+        "ba-imp-250cc-6mo-2",
+        "ba-imp-335cc-2mo",
+        "ba-imp-350cc-6mo",
+        "ba-imp-375cc-12mo",
+        "bai-350cc-smooth-moderate-plus-profile-9mo",
+        "bai-375cc-smooth-round-high-profile-24mo",
+    ]
+
+
+def test_wyten_screens_the_title_not_the_filename():
+    """The filename prefix does not separate pure from combined at this clinic.
+
+    'bai_R275cc_L300cc_5mo_1.jpg' and 'bai_375cc_Smooth_Round_High_Profile...'
+    share the `bai_` prefix; the first is an abdominoplasty case and the second
+    is pure. Reading the slug is what let 86 combined cases through at the Etna
+    clinics, and it would take one straight into the corpus here.
+    """
+    by_id = {c.case_id: c for c in _wyten_cases()}
+    assert by_id["bai-375cc-smooth-round-high-profile-24mo"].pairs
+    combined = by_id["bai-r275cc-l300cc-5mo-1"]
+    assert not combined.pairs
+    assert "combined-procedure (abdominoplasty)" in combined.warnings[0]
+    # ...and the same prefix collision the other way: `mp_bai_` is a mastopexy.
+    assert "combined-procedure (mastopexy)" in by_id["mp-bai-300cc-9mo"].warnings[0]
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("Breast Augmentation with Breast Implants", None),
+    ("Breast Augmentation with Fat Grafting", "fat-grafting-not-implants"),
+    ("Fat Transfer to Breasts", "fat-grafting-not-implants"),
+    ("Breast Implants & Abdominoplasty", "combined-procedure"),
+    ("Mastopexy & Breast Implants", "combined-procedure"),
+    ("Breast Augmentation -Remove and Replace implants",
+     "revision-not-primary-augmentation"),
+    ("Breast Augmentation - Remove implants - Mastopexy",
+     "revision-not-primary-augmentation"),
+    # Fails CLOSED: a title the allow-list does not recognise is excluded even
+    # though it names no disqualifying procedure.
+    ("Breast Surgery", "not-implant-augmentation"),
+    # And a disqualifier after the pure phrase does not ride in on it.
+    ("Breast Augmentation with Breast Implants & Abdominoplasty",
+     "combined-procedure"),
+])
+def test_wyten_rejection_reason(title, expected):
+    reason = sg.wyten_rejection_reason(title)
+    if expected is None:
+        assert reason is None
+    else:
+        assert reason is not None and reason.startswith(expected)
+
+
+def test_wyten_specs_come_from_the_caption():
+    by_id = {c.case_id: c for c in _wyten_cases()}
+    high = by_id["bai-375cc-smooth-round-high-profile-24mo"].specs
+    assert sg.volume_cc(high) == 375
+    assert high.profile == "high" and high.shape == "round"
+    assert high.months_post_op == 24.0
+    modplus = by_id["bai-350cc-smooth-moderate-plus-profile-9mo"].specs
+    assert modplus.profile == "moderate-plus"
+    assert sg.volume_cc(modplus) == 350
+    # 'Moderate Plus' must not degrade to plain 'moderate'.
+    assert modplus.profile != "moderate"
+    # An undocumented profile stays undocumented rather than defaulting.
+    assert by_id["ba-imp-250cc-6mo-2"].specs.profile is None
+    # Motiva's product names are not a profile: 'SilkSurface Egronomix Round'
+    # documents a shape and nothing about projection, and Ergonomix is not in
+    # BRAND_KEYWORDS, so the Motiva Mini/Demi/Full/Corse decode never fires.
+    ergonomix = by_id["ba-imp-335cc-2mo"].specs
+    assert ergonomix.shape == "round"
+    assert ergonomix.profile is None
+    assert ergonomix.brand == "unknown"
+
+
+def test_wyten_pairs_are_2x2_grid_cells_needing_a_laterality_annotation():
+    case = {c.case_id: c for c in _wyten_cases()}["ba-imp-350cc-6mo"]
+    front, side = case.pairs
+    assert [p.key for p in case.pairs] == ["front", "side"]
+    for pair in (front, side):
+        assert pair.grid_shape == (2, 2)
+        assert pair.before_url == pair.after_url  # one fetch yields both halves
+    assert front.before_cell == (0, 0) and front.after_cell == (0, 1)
+    assert side.before_cell == (1, 0) and side.after_cell == (1, 1)
+    # Front needs nothing; the lateral is not labelled by the clinic anywhere,
+    # so it reaches a view only through an annotation - never a guess.
+    assert sg.resolve_view(front, {}) == ("front", None)
+    assert sg.resolve_view(side, {}) == (None, None)
+    view, source = sg.resolve_view(side, {"laterality": "left"})
+    assert view == "side-left" and source is not None
+
+
+def test_crop_grid_cell_gutter_only_trims_interior_seams():
+    """The divider strip sits between the panels, never at the outer edge."""
+    Image = pytest.importorskip("PIL.Image", reason="Pillow not installed")
+    import io
+
+    img = Image.new("RGB", (100, 60), "black")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=95)
+    data = buf.getvalue()
+
+    plain = Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 2, (0, 0))))
+    assert plain.size == (50, 30)
+    # Top-left cell touches the vertical seam on its right and the horizontal
+    # seam on its bottom, so it loses 8px on each of those two sides only.
+    tl = Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 2, (0, 0), 8)))
+    br = Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 2, (1, 1), 8)))
+    assert tl.size == (42, 22) == br.size
+    # Every cell in the grid keeps the same dimensions, which is what keeps the
+    # two halves of a pair matched.
+    sizes = {Image.open(io.BytesIO(sg.crop_grid_cell(data, 2, 2, (r, c), 8))).size
+             for r in (0, 1) for c in (0, 1)}
+    assert sizes == {(42, 22)}
+    # A 1x2 grid has no horizontal seam, so height is untouched.
+    wide = Image.open(io.BytesIO(sg.crop_grid_cell(data, 1, 2, (0, 0), 8)))
+    assert wide.size == (42, 60)
+
+
+def test_wyten_config_is_registered_and_traceable_to_its_consent():
+    cfg = sg.CLINICS["wyten"]
+    assert cfg.kind == "wyten"
+    assert cfg.base_url == "https://drrebeccawyten.com.au"
+    assert cfg.grid_gutter_px == 8
+    # Section 6 of the consent allows written revocation with 30 business days
+    # to remove, which only works if a pair names the form that covers it.
+    assert cfg.consent_ref == "wyten-consent-2026-08-25"
