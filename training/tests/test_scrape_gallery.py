@@ -1367,7 +1367,7 @@ def test_etna_ajax_case_paths_returns_paths_as_published():
     published; scoping them is the caller's job.
     """
     _, html = sg.etna_decode_ajax((FIXTURES / "etna_tccs_ajax_page.json").read_bytes())
-    assert sg.etna_ajax_case_paths(html) == [
+    assert sg.etna_ajax_page(html).paths == [
         "/gallery/breast-surgery/breast-augmentation/11531/",
         "/gallery/breast-surgery/breast-augmentation/400/",
         "/gallery/mommy-makeover/mommy-makeover/240/",
@@ -2120,6 +2120,15 @@ def test_etna_endpoint_route_refuses_a_listing_with_no_declared_total(
     '(slightly larger on the left by 45cc) placed submuscularly, with a '
     '"Benelli" or "donut" periareolar (around the nipple) mastopexy '
     'bilaterally, to better position the nipples.',
+    # colville 555, verbatim: a credential clause and a clinical fact in one
+    # sentence. The bio cue must not launder what the same sentence says was
+    # done - this case really is an implant removal, a capsulectomy and a
+    # mastopexy, and it points at itself while saying so.
+    "My technical proficiencies, honed at the distinguished Indiana University "
+    "School of Medicine where I completed general surgery and plastic surgery "
+    "residencies, guided me through this complex case involving implant removal "
+    "with a full capsulectomy, secondary breast augmentation using 390cc saline "
+    "implants and mastopexy with Galaform for added support.",
 ])
 def test_etna_combined_procedure_is_excluded(sentence):
     assert sg.etna_combined_procedure_evidence(sentence) is not None
@@ -2167,6 +2176,14 @@ def test_etna_combined_procedure_is_excluded(sentence):
     "To improve appearance, I lowered the inframammary fold to allow room for "
     "the breast implant and give the illusion of lifting her nipples without "
     "the need for a breast lift (mastopexy).",
+    # Credentials are surgeon bio, and these galleries append one to every case.
+    # Both of these read as clinical fact unless the cue matches the word it was
+    # written for.
+    "Dr. Colville is a board certified plastic surgeon whose practice covers "
+    "breast augmentation, breast lift, and breast reduction.",
+    "I completed my residency at the Indiana University School of Medicine, "
+    "where breast augmentation, breast lift and breast reduction surgeries "
+    "became my focus.",
 ])
 def test_etna_pure_augmentation_is_kept(sentence):
     assert sg.etna_combined_procedure_evidence(sentence) is None
@@ -2292,3 +2309,271 @@ def test_one_sided_watermark_clinics_carry_a_measured_bottom_crop(slug, crop):
 def test_clinics_without_a_one_sided_mark_are_not_cropped(slug):
     """Cropping costs pairs at the 400px floor, so it is not applied on spec."""
     assert sg.CLINICS[slug].bottom_crop_px == 0
+
+
+# ---------------------------------------------------------------------------
+# etna endpoint: an unreadable card is not the end of the gallery
+# ---------------------------------------------------------------------------
+
+
+def test_etna_endpoint_sweep_reads_page_size_from_every_card_returned(
+        tmp_path, monkeypatch):
+    """One card this parser cannot read is not a short page.
+
+    The sweep stops when a page comes back smaller than the one it asked for.
+    Measuring that on the FILTERED paths makes a single unrecognised href end
+    the sweep at that position - on a 50-card page that abandons the rest of the
+    gallery, and the case-list route exists precisely to stop a truncated sweep
+    from reading as a finished one.
+    """
+    good = [f"/gallery/breast/breast-augmentation/{i}/" for i in (1, 2)]
+    unreadable = "/gallery/breast/breast-augmentation/featured/"
+    session = _RecordingSession([
+        _ajax_payload([good[0], unreadable, good[1]], 3, 6, next_position=4),
+        _ajax_payload(["/gallery/breast/breast-augmentation/3/"], 1, 6,
+                      next_position=7),
+    ])
+    f = _fetcher(tmp_path, monkeypatch, session)
+    got = sg.etna_endpoint_sweep(f, "x", "https://example.test/aj", "act", {},
+                                 total=6, page_size=3, tag="a")
+    assert got == good + ["/gallery/breast/breast-augmentation/3/"]
+    assert [p[1]["first_returned_position"] for p in session.posts] == ["1", "4"]
+
+
+def test_etna_ajax_page_counts_cards_it_could_not_parse(tmp_path):
+    """The card count is the page's size; the paths are what was readable."""
+    _, html = sg.etna_decode_ajax(_ajax_payload(
+        ["/gallery/breast/breast-augmentation/1/",
+         "/gallery/breast/breast-augmentation/featured/"], 2, 2))
+    page = sg.etna_ajax_page(html)
+    assert page.paths == ["/gallery/breast/breast-augmentation/1/"]
+    assert page.cards == 2
+
+
+# ---------------------------------------------------------------------------
+# etna endpoint: a declared total read from cache is a snapshot, and says so
+# ---------------------------------------------------------------------------
+
+
+def _endpoint_run(tmp_path, monkeypatch, cache_dir=None):
+    """One --gallery-endpoint collection of a one-case tccs gallery."""
+    listing = load_fixture("etna_tccs_listing_endpoint.html").replace(
+        '"total":579', '"total":1')
+    gallery = sg.CLINICS["tccs"].gallery_paths[0]
+    case = ('<img src="//images.x.com/content/images/breast-augmentation-400'
+            '-front-detail.jpg"/><div class="case-description"><p>Implant '
+            'Size: 350cc</p></div>').encode()
+    session = _EndpointRouteSession(
+        listing, [_ajax_payload([f"{gallery}400/"], 1, 1)], case)
+    f = sg.PoliteFetcher(cache_dir or tmp_path, delay=0)
+    f.session = session
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    sg.collect_cases(sg.CLINICS["tccs"], f, gallery_endpoint=True,
+                     grant_root=_grant_root(tmp_path))
+
+
+def test_endpoint_reconciliation_says_the_total_was_freshly_fetched(
+        tmp_path, monkeypatch, capsys):
+    _endpoint_run(tmp_path, monkeypatch)
+    line = _reconciliation_line(capsys, "tccs")
+    assert "all 1 declared case(s)" in line
+    assert "the total the gallery declares now" in line
+    assert "REPLAYED" not in line
+
+
+def test_endpoint_reconciliation_says_a_replayed_total_is_a_snapshot(
+        tmp_path, monkeypatch, capsys):
+    """A rerun reconciles against a cached denominator, and must not hide it.
+
+    The endpoint route reads the listing under its own cache key so the declared
+    total is current - but that key is written to the same persistent cache, so
+    the freshness holds only the first time. On every later run the total is as
+    old as the cache, and cases published since are invisible to it. The sweep
+    still runs; what it must not do is report "named all N declared case(s)" as
+    though N had just been checked against the site.
+    """
+    cache = tmp_path / "cache"
+    _endpoint_run(tmp_path, monkeypatch, cache_dir=cache)
+    capsys.readouterr()
+    _endpoint_run(tmp_path, monkeypatch, cache_dir=cache)
+    out = capsys.readouterr().out
+    line = [l for l in out.splitlines() if "case-list endpoint named" in l]
+    assert len(line) == 1, out
+    assert "a REPLAYED cached total, not the gallery's current one" in line[0]
+    assert "REPLAYED cache entry" in out
+
+
+# ---------------------------------------------------------------------------
+# Image emit: a missing photograph is tolerated, a refused site is not
+# ---------------------------------------------------------------------------
+
+
+class _EmitSession:
+    """A one-case tccs gallery whose only photograph answers `image_status`."""
+
+    headers = {}
+
+    def __init__(self, image_status: int):
+        self.image_status = image_status
+        self.image_calls = 0
+
+    def get(self, url, timeout=None):
+        gallery = sg.CLINICS["tccs"].gallery_paths[0]
+        if "images.x.com" in url:
+            self.image_calls += 1
+            status, body = self.image_status, b""
+        elif url.endswith(f"{gallery}77/"):
+            status, body = 200, (
+                '<img src="//images.x.com/content/images/breast-augmentation-77'
+                '-front-detail.jpg"/><div class="case-description"><p>Implant '
+                'Size: 350cc</p></div>').encode()
+        elif url.endswith(gallery):
+            status, body = 200, (
+                '<script>var EII_GALLERY_JS = {"env":{"state":{"total":1}}};'
+                f'</script><a href="{gallery}77/">case</a>').encode()
+        else:
+            status, body = 404, b""
+
+        class R:
+            status_code = status
+            content = body
+
+            def raise_for_status(self):
+                if status >= 400:
+                    raise requests.exceptions.HTTPError(
+                        f"{status} for {url}", response=self)
+
+        return R()
+
+
+def _run_emit(tmp_path, monkeypatch, image_status):
+    session = _EmitSession(image_status)
+    real = sg.PoliteFetcher
+
+    def build(*a, **kw):
+        f = real(*a, **kw)
+        f.session = session
+        return f
+
+    monkeypatch.setattr(sg, "PoliteFetcher", build)
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sg.sys, "argv",
+                        ["scrape_gallery.py", "--clinic", "tccs",
+                         "--out", str(tmp_path / "out"), "--delay", "0"])
+    return session, sg.main()
+
+
+def test_a_missing_photograph_skips_the_pair_and_the_clinic_run_continues(
+        tmp_path, monkeypatch, capsys):
+    """tccs case 11336 publishes a front photograph that 404s.
+
+    An unguarded raise there abandoned the remaining 300+ cases mid-run, and the
+    shortfall looks exactly like a finished collection.
+    """
+    session, rc = _run_emit(tmp_path, monkeypatch, 404)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "image unavailable" in out
+    assert "skipped 1 pair(s)" in out
+    assert not list((tmp_path / "out" / "tccs").glob("*/meta.json"))
+
+
+@pytest.mark.parametrize("status", [403, 503])
+def test_a_refused_site_fails_the_run_instead_of_tallying_skips(
+        tmp_path, monkeypatch, status):
+    """A WAF block or a sustained outage is not a gap in the gallery.
+
+    Swallowing it per pair turns every remaining pair into 'image unavailable',
+    exits 0, and hands back a partial collection that reads as a complete one -
+    the same failure the missing-image guard was written to prevent, reached
+    from the other side.
+    """
+    with pytest.raises(requests.exceptions.HTTPError):
+        _run_emit(tmp_path, monkeypatch, status)
+
+
+# ---------------------------------------------------------------------------
+# PoliteFetcher: the transport and validate retry budgets are separate
+# ---------------------------------------------------------------------------
+
+
+class _BlipThenRejectedSession:
+    """One connection reset, then bodies the caller's `validate` will reject."""
+
+    headers = {}
+
+    def __init__(self, rejects: int):
+        self.rejects = rejects
+        self.calls = 0
+
+    def post(self, url, files=None, timeout=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise requests.exceptions.ConnectionError("reset by peer")
+        body = b"bad" if self.calls - 1 <= self.rejects else b"good"
+
+        class R:
+            status_code = 200
+            content = body
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def _reject_bad(data):
+    if data == b"bad":
+        raise ValueError("backend failure page")
+
+
+def test_a_transport_blip_does_not_spend_a_validate_retry(tmp_path, monkeypatch):
+    """The two allowances answer to different failures, so they count apart.
+
+    Sharing one counter let a single reset consume a rejected-body retry, and the
+    endpoint sweep's whole point is that a rejected body is retried on the
+    schedule the caller asked for - all of it.
+    """
+    session = _BlipThenRejectedSession(rejects=3)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    assert f.post_form("https://example.test/aj", {}, "aj.json",
+                       validate=_reject_bad,
+                       retry_waits=(60.0, 180.0, 420.0)) == b"good"
+    # 1 reset + 3 rejected bodies + the accepted one.
+    assert session.calls == 5
+    assert (tmp_path / "aj.json").read_bytes() == b"good"
+
+
+def test_the_first_rejected_body_waits_the_first_retry_wait(
+        tmp_path, monkeypatch):
+    """Even when a transport blip came first.
+
+    A shared counter started the validate schedule at retry_waits[1], so the
+    first rejected body backed off three minutes instead of one - a schedule the
+    caller never asked for.
+    """
+    waits = []
+    session = _BlipThenRejectedSession(rejects=1)
+    f = sg.PoliteFetcher(tmp_path, delay=0)
+    f.session = session
+    monkeypatch.setattr(sg.time, "sleep", lambda s: waits.append(s))
+    assert f.post_form("https://example.test/aj", {}, "aj.json",
+                       validate=_reject_bad,
+                       retry_waits=(60.0, 180.0, 420.0)) == b"good"
+    # The politeness floor is deducted from each wait, so this is the 60s step
+    # of the schedule and nothing near the 180s one.
+    assert any(59.0 <= w <= 60.0 for w in waits)
+    assert max(waits) < 100.0
+
+
+def test_every_rejected_body_is_retried_on_the_full_schedule(
+        tmp_path, monkeypatch):
+    """And the exception is raised, not swallowed, when all of them are."""
+    session = _BlipThenRejectedSession(rejects=99)
+    f = _fetcher(tmp_path, monkeypatch, session)
+    with pytest.raises(ValueError):
+        f.post_form("https://example.test/aj", {}, "aj.json",
+                    validate=_reject_bad, retry_waits=(60.0, 180.0, 420.0))
+    # 1 reset + the first body + one per retry_wait.
+    assert session.calls == 5
+    assert not (tmp_path / "aj.json").exists()

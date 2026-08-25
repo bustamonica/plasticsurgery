@@ -76,6 +76,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import unquote, urljoin, urlsplit
 
 import requests
@@ -461,6 +462,10 @@ class CaseData:
 # enumeration and the shortfall looks like missing data rather than a blip.
 RETRY_STATUS = {429, 500, 502, 503, 504}
 MAX_ATTEMPTS = 4
+# A CDN saying this one image is not there. Anything else - a 403 from a WAF, a
+# 5xx that outlived the retries - is the site refusing the run, not a gap in the
+# gallery, and must not be tolerated per pair.
+MISSING_STATUS = {404, 410}
 
 
 class PoliteFetcher:
@@ -481,6 +486,16 @@ class PoliteFetcher:
 
     def get(self, url: str, cache_key: str) -> bytes:
         return self._request("GET", url, cache_key, None)
+
+    def is_cached(self, cache_key: str) -> bool:
+        """Whether the next fetch of `cache_key` would be a replay, not a fetch.
+
+        A caller that reconciles against a number READ from a response needs to
+        know which it got: a replayed entry is as old as the cache, and a count
+        checked against it is verified against a snapshot rather than against
+        the site as it stands now.
+        """
+        return (self.cache_dir / cache_key).exists()
 
     def post_form(self, url: str, fields: dict[str, str], cache_key: str,
                   delay: float | None = None,
@@ -523,8 +538,14 @@ class PoliteFetcher:
             raise FileNotFoundError(f"offline mode and no cache entry for {url}")
         floor = self.delay if delay is None else max(self.delay, delay)
         backoff = floor - self.delay
-        attempts = MAX_ATTEMPTS + len(retry_waits)
-        for attempt in range(1, attempts + 1):
+        # The two retry allowances are counted separately, because they answer
+        # to different failures on different schedules. A transport blip sharing
+        # one counter with the validate path spent a validate retry that never
+        # happened and made the FIRST rejected body back off at retry_waits[1]
+        # instead of retry_waits[0] - a schedule the caller never asked for.
+        transport_failures = 0
+        validate_failures = 0
+        while True:
             self._sleep_until_allowed(backoff)
             try:
                 if method == "POST":
@@ -535,7 +556,8 @@ class PoliteFetcher:
                     resp = self.session.get(url, timeout=60)
                 self._last_request = time.monotonic()
                 self.requests_made += 1
-                if resp.status_code in RETRY_STATUS and attempt < MAX_ATTEMPTS:
+                if (resp.status_code in RETRY_STATUS
+                        and transport_failures < MAX_ATTEMPTS - 1):
                     raise requests.exceptions.RetryError(
                         f"HTTP {resp.status_code}")
                 resp.raise_for_status()
@@ -543,15 +565,14 @@ class PoliteFetcher:
                     requests.exceptions.Timeout,
                     requests.exceptions.RetryError) as exc:
                 self._last_request = time.monotonic()
-                if attempt == MAX_ATTEMPTS:
+                transport_failures += 1
+                if transport_failures >= MAX_ATTEMPTS:
                     raise
                 self.retries_made += 1
-                backoff = max(5.0, floor - self.delay, self.delay * 2 ** attempt)
-                # MAX_ATTEMPTS - 1, not the whole loop budget: the `retry_waits`
-                # allowance belongs to the validate path below, and a transport
-                # failure never reaches it.
-                print(f"  retry {attempt}/{MAX_ATTEMPTS - 1} in {backoff:.0f}s "
-                      f"after {type(exc).__name__} on {url}")
+                backoff = max(5.0, floor - self.delay,
+                              self.delay * 2 ** transport_failures)
+                print(f"  retry {transport_failures}/{MAX_ATTEMPTS - 1} in "
+                      f"{backoff:.0f}s after {type(exc).__name__} on {url}")
                 continue
             data = resp.content
             if validate is not None:
@@ -560,18 +581,19 @@ class PoliteFetcher:
                 except Exception as exc:
                     # NOT cached: a rejected body is a failure, and a cached
                     # failure is replayed as data forever.
-                    if attempt > len(retry_waits):
+                    if validate_failures >= len(retry_waits):
                         raise
+                    wait = retry_waits[validate_failures]
+                    validate_failures += 1
                     self.retries_made += 1
-                    backoff = retry_waits[attempt - 1] - self.delay
-                    print(f"  retry {attempt}/{len(retry_waits)} in "
-                          f"{retry_waits[attempt - 1]:.0f}s after "
+                    backoff = wait - self.delay
+                    print(f"  retry {validate_failures}/{len(retry_waits)} in "
+                          f"{wait:.0f}s after "
                           f"{type(exc).__name__} on {url}: {exc}")
                     continue
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
             return data
-        raise RuntimeError("unreachable")  # pragma: no cover
 
 
 def crop_bottom(data: bytes, rows: int) -> bytes:
@@ -2123,7 +2145,22 @@ def etna_decode_ajax(payload: bytes) -> tuple[dict, str]:
     return data.get("env", {}).get("state", {}), html
 
 
-def etna_ajax_case_paths(payload_html: str) -> list[str]:
+class EtnaAjaxPage(NamedTuple):
+    """One endpoint response: the case paths it named, and how big it was.
+
+    `cards` is the count of cards the response actually carried, BEFORE any were
+    dropped for an unparseable href, because it is the page-size signal the sweep
+    reads: a page shorter than the one asked for is the end of the set. Measuring
+    that on the filtered list instead makes a single unrecognised card in a full
+    page look like the end of the gallery, which stops the sweep at that position
+    and reports a short collection as a finished one.
+    """
+
+    paths: list[str]
+    cards: int
+
+
+def etna_ajax_page(payload_html: str) -> EtnaAjaxPage:
     """Case page paths from one endpoint response, in the order it returned them.
 
     The card's `href` is the case's OWN canonical gallery URL, which is not always
@@ -2135,8 +2172,9 @@ def etna_ajax_case_paths(payload_html: str) -> list[str]:
     job, and the image-filename procedure screen still runs on top of that.
     """
     soup = BeautifulSoup(payload_html, "html.parser")
+    cards = soup.select(".case-card-inner[href]")
     paths = []
-    for card in soup.select(".case-card-inner[href]"):
+    for card in cards:
         path = urlsplit(card["href"]).path
         if not ETNA_CASE_LINK_RE.search(path.rstrip("/") + "/"):
             continue
@@ -2145,7 +2183,7 @@ def etna_ajax_case_paths(payload_html: str) -> list[str]:
         # repeat inside one page would make a full page look like the end of the
         # set. Deduplication happens across the whole sweep instead.
         paths.append(path.rstrip("/") + "/")
-    return paths
+    return EtnaAjaxPage(paths, len(cards))
 
 
 def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
@@ -2211,13 +2249,14 @@ def etna_endpoint_sweep(fetcher: "PoliteFetcher", slug: str, endpoint: str,
                   f"{len(paths)} case path(s) collected before that point are "
                   f"kept.")
             raise EtnaEndpointError(f"{type(exc).__name__}: {exc}", paths) from exc
-        page = etna_ajax_case_paths(html)
-        for path in page:
+        page = etna_ajax_page(html)
+        for path in page.paths:
             if path not in paths:
                 paths.append(path)
         # `state.showing` is a CUMULATIVE counter, not this page's size, so it can
-        # never signal a short page. Only the cards actually returned can.
-        if len(page) < page_size:
+        # never signal a short page. Only the cards actually returned can - all of
+        # them, including any this parser could not read a case id out of.
+        if page.cards < page_size:
             break
         # The state block is the failing backend's own output, so it is untrusted
         # input: a full page returned with a `next_returned_position` that does not
@@ -2586,11 +2625,24 @@ ETNA_PRACTICE_SUBJECT_RE = re.compile(
     r"my specialty|my speciality|specialty in|speciality in|my expertise|"
     r"expertise in|knowledge and expertise|menu of cosmetic|cosmetic services|"
     r"we offer|we provide|we perform|we pride|our practice|our office at|"
-    r"board certif|certification|professor|medical degree|residenc|"
+    r"board certif\w*|certification|professor|medical degree|residenc\w*|"
     r"if you have similar|if you are interested|may be right for you|"
     r"patients seeking|trust in the blend|our services|personalized care plans|"
     r"please call|schedule your|fill out the form|to see if you are a candidate|"
     r"learn more|are available on case)\b", re.I)
+# A cue above excuses a sentence only while the sentence is about the practice.
+# One that points at THIS case is reporting the surgery, whatever cue it also
+# carries, and is never boilerplate. A bio clause and a clinical fact share a
+# sentence more often than the cue list suggests: colville 555 opens "My
+# technical proficiencies, honed at ... where I completed general surgery and
+# plastic surgery residencies," and then names
+# "this complex case involving implant removal with a full capsulectomy ... and
+# mastopexy". Whitelisting on the credential there admits a combined procedure on
+# the strength of the surgeon's CV, which is the same shape of error as excusing
+# a whole sentence on a negation that governs a different mention.
+ETNA_CASE_DEIXIS_RE = re.compile(
+    r"\bthis\s+(?:\w+\s+){0,2}"
+    r"(?:case|patient|procedure|surgery|operation|result|results)\b", re.I)
 # Named but not done: discussed, declined, avoided, ruled out, deferred, offered
 # as an option, or done instead. tccs case 11283 reads "wanted larger implants
 # (DD+ bra size) but no lift" and 11284 "Although a lift was discussed, she was
@@ -2658,13 +2710,15 @@ def etna_combined_procedure_evidence(description: str) -> str | None:
     """The sentence showing this case is not a pure implant augmentation.
 
     Returns None only when every sentence naming another procedure is either the
-    practice advertising itself or names procedures that every one of its mentions
-    says did not happen. Anything else excludes the case. See the comment block
-    above for why the default is exclusion rather than inclusion.
+    practice advertising itself (and not, in the same breath, reporting on THIS
+    case) or names procedures that every one of its mentions says did not happen.
+    Anything else excludes the case. See the comment block above for why the
+    default is exclusion rather than inclusion.
     """
     for sentence in ETNA_SENTENCE_SPLIT_RE.split(description or ""):
         scanned = ETNA_GYM_LIFT_RE.sub(" ", sentence)
-        if ETNA_PRACTICE_SUBJECT_RE.search(scanned):
+        if (ETNA_PRACTICE_SUBJECT_RE.search(scanned)
+                and not ETNA_CASE_DEIXIS_RE.search(scanned)):
             continue
         for m in ETNA_OTHER_PROCEDURE_RE.finditer(scanned):
             if not etna_mention_is_negated(scanned, m.start(), m.end()):
@@ -3396,8 +3450,21 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         # business invalidating it.
         listing_key = (f"{cfg.slug}_listing_endpoint.html" if gallery_endpoint
                        else f"{cfg.slug}_listing.html")
+        # ...but that own key is written to the same persistent cache, so the
+        # freshness only holds the FIRST time this route runs for a clinic. On a
+        # later run the listing replays, and the total it carries is as old as the
+        # cache. That does not stop the sweep, and it must not be silently
+        # presented as a live check either: the reconciliation says which of the
+        # two it is, so "named all N declared case(s)" cannot be read as a
+        # verified-complete sweep when it is a sweep verified against a snapshot.
+        declared_replayed = fetcher.is_cached(listing_key)
         listing = fetcher.get(listing_url, listing_key).decode("utf-8", "replace")
         declared = etna_declared_total(listing)
+        if gallery_endpoint and declared_replayed:
+            print(f"  NOTE {cfg.slug}: the declared total was read from a "
+                  f"REPLAYED cache entry ({listing_key}), not a fresh fetch, so "
+                  f"it is as old as that entry and cases published since are not "
+                  f"counted in it")
         if gallery_endpoint and not declared:
             # The declared total is the denominator this route reconciles against,
             # and reconciliation is the whole reason the endpoint route exists.
@@ -3517,15 +3584,19 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             # elsewhere - not the in-category count on its own.
             reached = len(seen_ids)
             elsewhere = reached - len(in_category_ids)
+            against = ("a REPLAYED cached total, not the gallery's current one"
+                       if declared_replayed else
+                       "the total the gallery declares now")
             if declared and reached != declared:
                 print(f"  WARN {cfg.slug}: case-list endpoint named {reached} "
                       f"distinct case(s) ({len(in_category_ids)} in this category, "
                       f"{elsewhere} the practice files only under another) but the "
-                      f"gallery declares {declared}")
+                      f"gallery declares {declared} - reconciled against {against}")
             else:
                 print(f"  {cfg.slug}: case-list endpoint named all {declared} declared "
                       f"case(s) - {len(in_category_ids)} in this category, "
-                      f"{elsewhere} the practice files only under another")
+                      f"{elsewhere} the practice files only under another; "
+                      f"reconciled against {against}")
         elif declared is not None and len(cases) != declared:
             print(f"  WARN {cfg.slug}: chain walk reached {len(cases)} case(s) "
                   f"but the gallery declares {declared}")
@@ -3762,6 +3833,16 @@ def main() -> int:
                 # publishes case 11336 with a front photograph that 404s, and an
                 # unguarded raise there abandoned the remaining 300+ cases mid-run
                 # - a failure that looks exactly like a finished collection.
+                #
+                # Only a MISSING image earns that tolerance. A 403 from a WAF or a
+                # 5xx the fetcher already retried out is the site refusing the run,
+                # and swallowing it per pair turns a site-wide refusal into a tally
+                # of skips and a zero exit status - the very failure this guard was
+                # written to prevent, just reached from the other side.
+                status = (exc.response.status_code
+                          if exc.response is not None else None)
+                if status not in MISSING_STATUS:
+                    raise
                 print(f"    SKIP {pair.key}: image unavailable ({exc})")
                 skipped += 1
                 continue
