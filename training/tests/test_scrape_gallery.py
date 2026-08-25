@@ -4948,3 +4948,457 @@ def test_bayside_template_view_comments_are_never_read():
     assert two.count("profile_view") == 1 and two.count("frontal_view") == 1
     case = bayside_case("bayside_case_two_views.html")
     assert all(p.view_hint is None for p in case.pairs)
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-25 batch: shared screens (purity, the captain's profile vocabulary)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("text,term", [
+    ("Mommy Makeover", "mommy makeover"),
+    ("Breast Augmentation with Lift", "augmentation with lift"),
+    ("Breast Augmentation and Breast Lift", "augmentation and breast lift"),
+    ("Augmentation Mastopexy", "mastopexy"),
+    ("breast reduction", "breast reduction"),
+    ("Implant Removal", "implant removal"),
+    ("Breast Augmentation with fat grafting", "fat grafting"),
+    ("Abdominoplasty", "abdominoplasty"),
+])
+def test_combined_procedure_screen_names_the_term_it_matched(text, term):
+    """Every rejection carries its evidence, per the per-clinic accounting."""
+    assert sg.combined_procedure_term(text) == term
+
+
+@pytest.mark.parametrize("text", [
+    "Breast Augmentation (Silicone Implants)",
+    "bilateral breast augmentation in partial submuscular pocket",
+    "6 months post-op with 410 cc high profile silicone gel implants",
+    # 'lift' as prose about what an implant does is not a lift PROCEDURE.
+    "the implant lifts the upper pole",
+])
+def test_combined_procedure_screen_passes_pure_augmentation(text):
+    assert sg.combined_procedure_term(text) is None
+
+
+@pytest.mark.parametrize("text,profile", [
+    ("430UHP", "extra-high"),          # thebodydoc UHP gallery, case 09
+    ("350HP", "high"),                 # thebodydoc UHP gallery, case 08
+    ("375HP", "high"),                 # tcplasticsurgery patient-114
+    ("300 MP", "moderate"),
+    ("Extra-Full projection", "extra-high"),
+    ("Corsé", "extra-high"),
+    ("VHP", "extra-high"),
+])
+def test_captain_profile_ruling_decodes_its_vocabulary(text, profile):
+    """The 2026-08-19 ruling, applied to labelled implant fields only."""
+    assert sg.captain_profile_term(text) == profile
+
+
+@pytest.mark.parametrize("text", [
+    # Mentor's product line is a product NAME, not a projection (the Natrelle
+    # model-code precedent); 'Moderate High' is simply not in the ruling.
+    "450 High Profile Xtra Filled",
+    "310 Moderate High Xtra Filled",
+    # Lower-case 'hp'/'mp' inside ordinary words are not the chart abbreviation.
+    "champion",
+    "sharp",
+])
+def test_captain_profile_ruling_does_not_invent_a_decode(text):
+    assert sg.captain_profile_term(text) is None
+
+
+@pytest.mark.parametrize("value,cc", [
+    ("339cc", 339.0),
+    ("450 High Profile Xtra Filled", 450.0),   # label supplies the unit
+    ("430UHP", 430.0),                         # number hard against the abbrev
+    ("375HP", 375.0),
+    ("270 filled to 285cc", 285.0),            # the FINAL volume is implanted
+    ("34A", None),                             # a bra size is not a volume
+    ("", None),
+    ("1200cc", None),                          # outside the schema's bounds
+])
+def test_labelled_volume_reads_only_a_size_field(value, cc):
+    assert sg.labelled_volume(value) == cc
+
+
+# ---------------------------------------------------------------------------
+# rmgallery2 family (Rosemont Media "RM Gallery 2"; gryskiewicz)
+# ---------------------------------------------------------------------------
+
+RMG_GALLERY = "/gallery/breast/silicone-breast-augmentation/"
+
+
+def _rmg_cases() -> dict:
+    """The fixture's four verbatim case-wrap blocks, keyed by patient slug."""
+    parts = re.split(r"<!-- (silicone-breast-augmentation_patient-\d+) -->",
+                     load_fixture("rmgallery2_gryskiewicz_cases.html"))
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def _rmg_case(slug: str):
+    return sg.rmgallery2_parse_case(_rmg_cases()[slug], slug, "x",
+                                    "Silicone Breast Augmentation")
+
+
+def test_rmgallery2_listing_enumerates_and_counts_its_own_cases():
+    """The listing renders every case inline, and its block count is the check.
+
+    RM Gallery 2 publishes no case total, so a case walk that comes back short
+    can only be caught against what the listing itself rendered.
+    """
+    html = load_fixture("rmgallery2_gryskiewicz_listing.html")
+    assert sg.rmgallery2_list_cases(html, RMG_GALLERY) == [
+        "patient-1", "patient-2", "patient-150"]
+    assert sg.rmgallery2_listing_case_count(html) == 3
+
+
+def test_rmgallery2_listing_ignores_links_outside_its_gallery():
+    html = load_fixture("rmgallery2_gryskiewicz_listing.html").replace(
+        "</section>",
+        '<div class="bna-group case-9"><a href="https://www.tcplasticsurgery.com'
+        '/gallery/breast/breast-lift/patient-9"><img class="before-img" '
+        'data-src="/x/small.jpeg"></a></div></section>')
+    assert "patient-9" not in sg.rmgallery2_list_cases(html, RMG_GALLERY)
+
+
+def test_rmgallery2_pairs_each_before_frame_with_the_after_that_follows():
+    """The page's own before/after divs pair the files, not a filename rule."""
+    case = _rmg_case("silicone-breast-augmentation_patient-1")
+    assert [p.key for p in case.pairs] == [f"pair{i}" for i in range(1, 6)]
+    for pair in case.pairs:
+        assert pair.before_url.endswith("-b/original.jpeg")
+        assert pair.after_url.endswith("-a/original.jpeg")
+        # Separate files, so the file IS the half - never a composite split.
+        assert not pair.split_composite
+        assert pair.before_url != pair.after_url
+        # Views are documented nowhere on this platform.
+        assert pair.view_hint is None
+
+
+def test_rmgallery2_reads_both_fields_when_a_chart_line_holds_two():
+    """'L implant: 339cc   R implant: 339cc' is one line carrying two fields.
+
+    Splitting a line at its first ': ' is the lakeshore failure mode: the first
+    field's value swallows the rest of the chart and the case loses its volume.
+    """
+    specs = _rmg_case("silicone-breast-augmentation_patient-1").specs
+    assert specs.fields["L implant"] == "339cc"
+    assert specs.fields["R implant"] == "339cc"
+    assert sg.volume_cc(specs) == 339
+    assert specs.age == 44
+    assert specs.fields["Size preop"] == "34A"
+
+
+def test_rmgallery2_averages_asymmetric_volumes():
+    specs = _rmg_case("silicone-breast-augmentation_patient-103").specs
+    assert (specs.left_cc, specs.right_cc) == (275.0, 325.0)
+    assert sg.volume_cc(specs) == 300
+
+
+def test_rmgallery2_decodes_a_profile_abbreviated_onto_the_volume():
+    specs = _rmg_case("silicone-breast-augmentation_patient-114").specs
+    assert specs.fields["L implant"] == "375HP"
+    assert sg.volume_cc(specs) == 375
+    assert specs.profile == "high"
+
+
+def test_rmgallery2_reads_placement_off_the_chart():
+    specs = _rmg_case("silicone-breast-augmentation_patient-131").specs
+    assert specs.placement == "submuscular"
+    assert specs.profile == "moderate-plus"
+
+
+def test_rmgallery2_full_res_reaches_the_original_the_listing_hides():
+    small = ("https://www.tcplasticsurgery.com/wp-content/uploads/rmgallery2/"
+             "RMG2515968080-520-b/small.jpeg")
+    assert sg.rmgallery2_full_res(small).endswith("-520-b/original.jpeg")
+    # Already-original URLs and anything else are left alone.
+    original = small.replace("small", "original")
+    assert sg.rmgallery2_full_res(original) == original
+
+
+def test_rmgallery2_missing_chart_is_reported_not_invented():
+    html = ('<section class="case-wrap"><div class="img-wrap">'
+            '<div class="before-img img-frame"><img src="/a-b/original.jpeg"></div>'
+            '<div class="after-img img-frame"><img src="/a-a/original.jpeg"></div>'
+            '</div></section>')
+    case = sg.rmgallery2_parse_case(html, "patient-9", "x", "Saline")
+    assert len(case.pairs) == 1
+    assert sg.volume_cc(case.specs) is None
+    assert any("no div.patient-details" in w for w in case.warnings)
+
+
+def test_rmgallery2_excludes_a_combined_case_and_says_which_term():
+    html = _rmg_cases()["silicone-breast-augmentation_patient-1"]
+    case = sg.rmgallery2_parse_case(html, "patient-1", "x",
+                                    "Breast Augmentation with Lift")
+    assert case.pairs == []
+    assert any("augmentation with lift" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# page1solutions_paged family (paginated inline Page 1 Solutions gallery;
+# ciaravino). A distinct kind from page1solutions/page1/page1_inline on purpose.
+# ---------------------------------------------------------------------------
+
+P1S_SILICONE = ("https://www.thebodydoc.com/before-after-gallery-houston/breast/"
+                "breast-augmentation-silicone-implants/")
+P1S_UHP = ("https://www.thebodydoc.com/before-after-gallery-houston/breast/"
+           "ultra-high-profile-silicone-implants/")
+
+
+def _p1s(fixture: str, gallery_url: str, tag: str) -> dict:
+    return {c.case_id: c for c in sg.page1solutions_parse_listing_page(
+        load_fixture(fixture), gallery_url, tag)}
+
+
+def test_page1solutions_pager_is_the_enumeration_check():
+    """The pager enumerates every page, so the gallery states its own extent."""
+    html = load_fixture("page1solutions_ciaravino_silicone.html")
+    assert sg.page1solutions_page_count(html) == 38
+    assert sg.page1solutions_page_count("<html>no pager</html>") is None
+
+
+def test_page1solutions_keys_a_case_on_its_asset_folder():
+    """The printed 'Case #' is not unique and the block's href is the gallery.
+
+    thebodydoc publishes two consecutive saline cases both labelled Case #2547,
+    and every div.patient on a silicone page links the same /2890/ URL, so the
+    numbered asset folder is the only per-case key.
+    """
+    cases = _p1s("page1solutions_ciaravino_silicone.html", P1S_SILICONE, "silicone")
+    assert set(cases) == {"silicone-378", "silicone-375", "silicone-376"}
+
+
+def test_page1solutions_reads_every_view_pair_from_the_slides():
+    """div.view.s3grid repeats only the first pair; div.slides carries them all."""
+    cases = _p1s("page1solutions_ciaravino_silicone.html", P1S_SILICONE, "silicone")
+    assert len(cases["silicone-378"].pairs) == 1
+    five = cases["silicone-375"].pairs
+    assert len(five) == 5
+    assert [p.key for p in five] == [f"pair{i}" for i in range(1, 6)]
+    # Odd file before, even file after - the convention div.view.s3grid's
+    # data-before/data-after documents on the first pair.
+    assert five[0].before_url.endswith("/375/01.jpg")
+    assert five[0].after_url.endswith("/375/02.jpg")
+    assert five[4].before_url.endswith("/375/09.jpg")
+    assert five[4].after_url.endswith("/375/10.jpg")
+    assert all(p.view_hint is None for p in five)
+
+
+def test_page1solutions_resolves_assets_against_the_canonical_gallery_url():
+    """'./375/01.jpg' must resolve against the listing, not the block's href.
+
+    Every block links .../breast-augmentation-silicone-implants/2890/, which
+    serves the same listing; resolving the relative path against that yields a
+    URL the site 404s.
+    """
+    cases = _p1s("page1solutions_ciaravino_silicone.html", P1S_SILICONE, "silicone")
+    assert cases["silicone-375"].pairs[0].before_url == P1S_SILICONE + "375/01.jpg"
+
+
+def test_page1solutions_reads_sided_volumes_and_frame_metrics():
+    case = _p1s("page1solutions_ciaravino_silicone.html", P1S_SILICONE,
+                "silicone")["silicone-378"]
+    assert (case.specs.left_cc, case.specs.right_cc) == (450.0, 415.0)
+    assert sg.volume_cc(case.specs) == 432
+    assert case.specs.profile == "high"
+    assert case.specs.age == 35
+    assert case.specs.height_cm == 172.7   # 5'8", curly quotes normalised
+    assert case.specs.weight_kg == 74.8
+
+
+def test_page1solutions_does_not_decode_a_term_the_ruling_omits():
+    """Mentor's 'Moderate High Xtra Filled' has no schema profile.
+
+    The volume is still read - its field labels it as an implant size - but the
+    projection is left unrecorded rather than guessed at.
+    """
+    case = _p1s("page1solutions_ciaravino_silicone.html", P1S_SILICONE,
+                "silicone")["silicone-376"]
+    assert sg.volume_cc(case.specs) == 310
+    assert case.specs.profile is None
+
+
+def test_page1solutions_decodes_the_uhp_chart_abbreviations():
+    cases = _p1s("page1solutions_ciaravino_uhp.html", P1S_UHP, "uhp")
+    assert cases["uhp-10"].specs.profile == "extra-high"   # spelled out
+    assert sg.volume_cc(cases["uhp-10"].specs) == 288       # 275/300 averaged
+    assert cases["uhp-09"].specs.profile == "extra-high"   # '430UHP'
+    assert sg.volume_cc(cases["uhp-09"].specs) == 430
+    # '350HP' decodes to HIGH even inside the ultra-high gallery: the labelled
+    # chart field is the clinic's statement, the gallery heading is not.
+    assert cases["uhp-08"].specs.profile == "high"
+    assert sg.volume_cc(cases["uhp-08"].specs) == 350
+
+
+def test_page1solutions_records_the_printed_case_number_without_keying_on_it():
+    cases = _p1s("page1solutions_ciaravino_uhp.html", P1S_UHP, "uhp")
+    assert cases["uhp-09"].specs.fields["Case #"] == "7334"
+    assert "Case #" not in cases["uhp-10"].specs.fields   # published as '--'
+
+
+def test_page1solutions_excludes_a_combined_case_and_says_which_term():
+    html = load_fixture("page1solutions_ciaravino_silicone.html").replace(
+        "Breast Augmentation (Silicone Implants)", "Mommy Makeover", 1)
+    cases = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")
+    excluded = cases[0]
+    assert excluded.pairs == []
+    assert any("mommy makeover" in w for w in excluded.warnings)
+    assert cases[1].pairs                       # its neighbours are untouched
+
+
+def test_page1solutions_reports_a_case_with_no_chart():
+    html = re.sub(r'<div class="patient-meta-info">.*?</div>', "",
+                  load_fixture("page1solutions_ciaravino_silicone.html"),
+                  flags=re.S)
+    cases = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")
+    assert any("no div.patient-meta-info" in w
+               for c in cases for w in c.warnings)
+
+
+# ---------------------------------------------------------------------------
+# gallatin parser (bespoke WordPress; one inline list, paired by document order)
+# ---------------------------------------------------------------------------
+
+GALLATIN_URL = "https://gallatinplasticsurgery.com/gallery/breast-augmentation/"
+
+
+def _gallatin() -> dict:
+    return {c.case_id: c for c in sg.gallatin_parse_listing(
+        load_fixture("gallatin_listing.html"), GALLATIN_URL)}
+
+
+def test_gallatin_reads_view_and_half_off_the_filename():
+    case = _gallatin()["117"]
+    assert [(p.key, p.view_hint) for p in case.pairs] == [("front1", "front")]
+    assert case.pairs[0].before_url.endswith("Patient-117-Before-Front.jpg")
+    assert case.pairs[0].after_url.endswith(
+        "Patient-117-Front-After-6-months-post-op-.jpg")
+
+
+def test_gallatin_full_res_drops_the_wordpress_derivative_suffix():
+    assert sg.gallatin_full_res(
+        "https://x/Patient-117-Before-Front-1024x1024.jpg"
+    ) == "https://x/Patient-117-Before-Front.jpg"
+    # A trailing sequence number is not a size suffix and must survive.
+    assert sg.gallatin_full_res("https://x/Patient-135-After-1-1.png").endswith(
+        "Patient-135-After-1-1.png")
+
+
+def test_gallatin_tolerates_typos_in_the_filename_tokens():
+    """'Befoe' and 'Sode' are real uploads; a strict token match loses the pair."""
+    case = _gallatin()["121"]
+    assert [(p.key, p.view_hint) for p in case.pairs] == [("side1", "side")]
+    assert case.pairs[0].before_url.endswith("Patient-121-Side-Befoe.jpg")
+    assert case.pairs[0].after_url.endswith(
+        "Patient-121-Sode-After-6-months-post-op.jpg")
+
+
+def test_gallatin_pairs_a_couple_published_after_first():
+    """The last couple on the page publishes its after image before its before."""
+    case = _gallatin()["31"]
+    pair = case.pairs[0]
+    assert pair.before_url.endswith("Patient-31-Before-Side.jpg")
+    assert pair.after_url.endswith("Patient-31-After-Side.jpg")
+
+
+def test_gallatin_falls_back_to_the_caption_when_the_filename_says_nothing():
+    """One upload is a bare camera name: no patient number, no half, no view.
+
+    Its half comes from the caption and its case id from the couple's other
+    file. The view is left unset - it is annotated, never guessed.
+    """
+    case = _gallatin()["151"]
+    assert [(p.key, p.view_hint) for p in case.pairs] == [("unlabelled1", None)]
+    assert case.pairs[0].after_url.endswith("20250827105422627.png")
+    assert any("documents no view" in w for w in case.warnings)
+
+
+def test_gallatin_reads_the_case_specs_off_its_captions():
+    case = _gallatin()["117"]
+    assert sg.volume_cc(case.specs) == 410
+    assert case.specs.profile == "high"
+    assert case.specs.months_post_op == 6.0
+    assert case.specs.age == 29
+    # 'partial submuscular pocket' is the clinic's own statement of placement.
+    assert case.specs.placement == "submuscular"
+
+
+@pytest.mark.parametrize("caption,months", [
+    ("6 months post-op with 410 cc high profile silicone gel implants", 6.0),
+    ("6 weeks post-op with 400cc moderate profile silicone gel implants", 1.38),
+    ("16 monthd post-op with 385cc high profile silicone gel implants", 16.0),
+    ("2 months with 380cc Moderate profile smooth round silicone gel implants", 2.0),
+    ("bilateral breast augmentation", None),
+])
+def test_gallatin_timepoint_tolerates_the_captions_as_written(caption, months):
+    assert sg.gallatin_months_post_op(caption) == months
+
+
+def test_gallatin_leaves_an_undecodable_profile_unrecorded():
+    """'full profile' and 'low profile' are not in the schema or the ruling."""
+    html = load_fixture("gallatin_listing.html").replace(
+        "high profile", "full profile")
+    case = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}["117"]
+    assert case.specs.profile is None
+    assert sg.volume_cc(case.specs) == 410      # the volume still counts
+
+
+def test_gallatin_excludes_a_combined_case_and_says_which_term():
+    html = load_fixture("gallatin_listing.html").replace(
+        "before bilateral breast augmentation in partial submuscular pocket",
+        "before a mommy makeover", 1)
+    cases = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}
+    assert cases["117"].pairs == []
+    assert any("mommy makeover" in w for w in cases["117"].warnings)
+    assert cases["121"].pairs                   # its neighbours are untouched
+
+
+def test_gallatin_unresolvable_item_shifts_the_pairing_by_one(capsys):
+    """A stray item must not mis-pair every couple after it.
+
+    The walk advances by ONE item when a couple is not one before and one
+    after, so the shift costs the stray item and nothing else - and what is
+    still unresolvable is printed rather than silently dropped.
+    """
+    html = load_fixture("gallatin_listing.html").replace(
+        '<ul class="gps-gallery-list">',
+        '<ul class="gps-gallery-list"><li class="gps-gallery-item">'
+        '<img data-src="https://x/Patient-500-Before-Front.jpg">'
+        '<div class="image-meta"><h6 class="caption">31 year old patient before '
+        'bilateral breast augmentation</h6></div></li>', 1)
+    cases = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}
+    assert set(cases) == {"117", "151", "121", "31"}
+    assert all(len(c.pairs) == 1 for c in cases.values())
+    assert "did not resolve" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-25 batch: clinic registration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("slug,kind", [
+    ("gryskiewicz", "rmgallery2"),
+    ("ciaravino", "page1solutions_paged"),
+    ("gallatin", "gallatin"),
+])
+def test_2026_08_25_batch_is_registered_with_a_traceable_consent_ref(slug, kind):
+    """Section 6 lets a surgeon revoke; a pair must name the form that covers it."""
+    cfg = sg.CLINICS[slug]
+    assert cfg.kind == kind
+    assert cfg.consent_ref == f"{slug}-agreement-2026-08-25"
+    assert all(p.startswith("/") and p.endswith("/") for p in cfg.gallery_paths)
+
+
+def test_gryskiewicz_collects_only_the_three_augmentation_galleries():
+    """augmentation-with-lift is a fourth category and is excluded by construction."""
+    paths = sg.CLINICS["gryskiewicz"].gallery_paths
+    assert paths == [
+        "/gallery/breast/silicone-breast-augmentation/",
+        "/gallery/breast/saline-breast-augmentation/",
+        "/gallery/breast/dual-plane-breast-augmentation/",
+    ]
+    assert not any("lift" in p for p in paths)

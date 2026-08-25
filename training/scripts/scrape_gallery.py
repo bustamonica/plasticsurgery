@@ -99,6 +99,17 @@ the rendered page:
   with fat grafting, revisions and combined procedures, and the image FILENAMES
   do not separate them - so the purity screen reads the slide's own procedure
   title as an allow-list.
+
+3 more of that same 2026-08-25 batch (gryskiewicz, ciaravino, gallatin) landed
+on their own lane and add two further reusable families plus one bespoke
+parser, all in this module: kind='rmgallery2' (Rosemont Media "RM Gallery 2",
+which stores separate before and after FILES and publishes no case total),
+kind='page1solutions_paged' (the paginated inline Page 1 Solutions listing -
+a distinct kind from the three Page 1 Solutions parsers above, on purpose) and
+kind='gallatin' (one bespoke WordPress list paired by document order). None of
+the three documents laterality anywhere, so they emit front views only and
+their lateral pairs are held by view type pending the captain's laterality
+ruling (key=laterality-rule-2026-08-25).
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -654,6 +665,45 @@ CLINICS: dict[str, ClinicConfig] = {
             "/surgery/breast-augmentation-cases/",
         ],
         kind="bayside"),
+    # -- 2026-08-25 batch: consent executed 2026-08-25, recorded in
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md with the executed
+    # forms archived beside it. Section 2 of that instrument grants AI/ML use
+    # including model training and derivative works; it grants nothing about
+    # ACCESS, so every one of these is crawled under the same politeness
+    # contract as the rest (robots.txt honoured, sequential, >= --delay).
+    #
+    # 'tccs' is already taken by The Center for Cosmetic Surgery, so Twin
+    # Cities Cosmetic Surgery is slugged by its surgeon.
+    "gryskiewicz": ClinicConfig(
+        slug="gryskiewicz", consent_ref="gryskiewicz-agreement-2026-08-25",
+        base_url="https://www.tcplasticsurgery.com",
+        # Three procedure-separated augmentation galleries. The practice's
+        # breast-augmentation-WITH-LIFT gallery is a fourth category and is
+        # excluded by construction, per the standing combined-procedure ruling.
+        gallery_paths=[
+            "/gallery/breast/silicone-breast-augmentation/",
+            "/gallery/breast/saline-breast-augmentation/",
+            "/gallery/breast/dual-plane-breast-augmentation/",
+        ],
+        kind="rmgallery2"),
+    "ciaravino": ClinicConfig(
+        slug="ciaravino", consent_ref="ciaravino-agreement-2026-08-25",
+        base_url="https://www.thebodydoc.com",
+        gallery_paths=[
+            "/before-after-gallery-houston/breast/breast-augmentation-silicone-implants/",
+            "/before-after-gallery-houston/breast/ultra-high-profile-silicone-implants/",
+            "/before-after-gallery-houston/breast/breast-augmentation-saline-implants/",
+        ],
+        # `page1solutions_paged`, not `page1solutions`: bandy above already
+        # claims that kind for the per-case-page parser in page1solutions.py,
+        # and two clinics on one kind means the first dispatch branch takes
+        # both (the psiw/ncps precedent - see `page1_inline`). This gallery is
+        # the paginated inline listing, parsed below in this module.
+        kind="page1solutions_paged"),
+    "gallatin": ClinicConfig(
+        slug="gallatin", consent_ref="gallatin-agreement-2026-08-25",
+        base_url="https://gallatinplasticsurgery.com",
+        gallery_paths=["/gallery/breast-augmentation/"], kind="gallatin"),
 }
 
 
@@ -4079,6 +4129,747 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
 
 
 # ---------------------------------------------------------------------------
+# Pure-procedure screen (shared by the 2026-08-25 batch)
+# ---------------------------------------------------------------------------
+#
+# The standing captain ruling excludes every combined procedure: the after
+# photograph shows a change the implants did not cause. The Etna family screens
+# on the image filename's procedure slug, but no other platform publishes one -
+# so these clinics are screened on the case's own TEXT (its procedure label,
+# chart and caption). Screening a filename or a gallery heading instead is what
+# let 86 combined cases through at the Etna clinics.
+#
+# The terms are the ones a clinic uses to NAME a procedure, not to describe
+# anatomy: 'lift' alone is not here, because 'the implant lifts the upper pole'
+# is prose about an augmentation. Every rejection records the matched term, so
+# the per-clinic accounting can evidence it rather than assert it.
+COMBINED_PROCEDURE_RE = re.compile(
+    r"\b(?:"
+    r"mommy\s*makeover"
+    r"|mastopexy|breast\s+lift|lift\s+and\s+augmentation"
+    r"|augmentation\s+(?:with|and)\s+(?:a\s+)?(?:breast\s+)?lift"
+    r"|breast\s+reduction|reduction\s+mammm?oplasty"
+    r"|explant\w*|implant\s+(?:removal|exchange)|breast\s+revision"
+    r"|revision\s+augmentation|capsulectomy|capsular\s+contracture"
+    r"|breast\s+reconstruction|reconstructive\s+breast"
+    r"|tummy\s+tuck|abdominoplasty"
+    r"|liposuction|lipoplasty|fat\s+transfer|fat\s+graft\w*"
+    r"|gynecomastia"
+    r")\b", re.I)
+
+
+def combined_procedure_term(*texts: str) -> str | None:
+    """The combined-procedure term a case's own text names, or None if pure."""
+    for text in texts:
+        if not text:
+            continue
+        m = COMBINED_PROCEDURE_RE.search(text)
+        if m:
+            return re.sub(r"\s+", " ", m.group(0)).lower()
+    return None
+
+
+def _label_regex(labels) -> re.Pattern:
+    """Scan-for-known-labels regex over a run-together chart line.
+
+    Same contract as ETNA_LABEL_RE: a label may start at a non-word boundary or
+    at a lowercase-to-uppercase transition, and the longest label wins so
+    'Implant Size (Left)' is not eaten by 'Implant Size'.
+    """
+    return re.compile(
+        r"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z])(?=[A-Z])))("
+        + "|".join(re.escape(label) for label in
+                   sorted(labels, key=len, reverse=True))
+        + r")\s*:\s*", re.I)
+
+
+def _split_labelled_line(line: str, label_re: re.Pattern
+                         ) -> tuple[list[tuple[str, str]], str]:
+    """(fields, leftover prose) for one chart line, per _etna_split_fields."""
+    matches = list(label_re.finditer(line))
+    if not matches:
+        return [], line
+    fields = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
+        fields.append((match.group(1).strip(), line[match.end():end].strip()))
+    return fields, line[:matches[0].start()].strip()
+
+
+# The leading figure of a field the clinic labelled as an implant size. The
+# label supplies the unit, so a bare number counts ('450 High Profile Xtra
+# Filled'); so does one written hard against an abbreviation ('430UHP',
+# '375HP'), which is why this is anchored at the start rather than matching the
+# whole value. Outside such a label a bare number is not a volume.
+LABELLED_LEADING_VOLUME_RE = re.compile(
+    r"^\s*(\d{2,4}(?:\.\d+)?)\s*(?:ccs?|mls?|gms?|grams?)?", re.I)
+
+
+def labelled_volume(value: str) -> float | None:
+    """cc figure from the value of a field whose label names it as a size."""
+    sided = _parse_fill_side(value)
+    if sided is not None and 100 <= sided <= 1000:
+        return sided
+    m = LABELLED_LEADING_VOLUME_RE.match(value)
+    if not m:
+        return None
+    cc = float(m.group(1))
+    return cc if 100 <= cc <= 1000 else None
+
+
+def _br_lines(block) -> list[str]:
+    """One text line per <br>-separated run inside a chart block."""
+    for br in block.find_all("br"):
+        br.replace_with("\n")
+    text = block.get_text(" ", strip=False)
+    return [re.sub(r"\s+", " ", line).strip()
+            for line in text.split("\n") if line.strip()]
+
+
+# ---------------------------------------------------------------------------
+# rmgallery2 parser family (Rosemont Media "RM Gallery 2")
+# ---------------------------------------------------------------------------
+#
+# Rosemont Media is a plastic-surgery web agency; RM Gallery 2 is the gallery
+# product it ships, so this is one parser configured per clinic in the same way
+# the etna family is. Markers, measured on tcplasticsurgery.com and recorded for
+# the ~50 other RM Gallery 2 practices on the prospecting lists:
+#
+#   * The category listing renders EVERY case inline - no pagination, no
+#     load-more, no ajax - as <div class="bna-group case-N"> blocks whose <h2>
+#     is 'Patient N' and whose <a href> points at <gallery_path>patient-N.
+#     The gallery publishes NO case total of its own, so enumeration is
+#     reconciled against the listing's own block count rather than a declared
+#     figure (see collect_cases).
+#   * A case page carries section.case-wrap > div.img-wrap, whose children
+#     alternate div.before-img.img-frame / div.after-img.img-frame. Each holds
+#     one <img> - the platform stores SEPARATE before and after files, so the
+#     file IS the half: no composite split, and the 400px floor applies to the
+#     delivered file.
+#   * Image URLs are /wp-content/uploads/rmgallery2/RMG<digits>-<n>-{b,a}/
+#     <size>.jpeg. 'original' is the camera-resolution file (up to 3648x2736 on
+#     tcplasticsurgery); the listing links 'small'. The -b/-a suffix agrees with
+#     the div that wraps it, and the div is what this parser trusts: the pairing
+#     is the page's own, not a filename convention.
+#   * Specs are a div.patient-details block of 'Label: value' lines separated by
+#     <br>, and MORE THAN ONE FIELD SHARES A LINE ('L implant: 339cc   R
+#     implant: 339cc'), so the line is scanned for known labels rather than
+#     split at its first ': '.
+#
+# Views are NOT documented anywhere on the platform - not in the markup, not in
+# the filename, not in alt text (alt is empty on every case image). Every view
+# label therefore comes from the visual-annotation pass, and pairs without one
+# are skipped rather than guessed.
+
+RMG_PATIENT_RE = re.compile(r"patient-(\d+)/?$", re.I)
+# Labels published in div.patient-details. 'L implant'/'R implant' are the
+# sided volume fields; 'Implant' and 'Implants' appear on the symmetric layout.
+RMG_FIELD_LABELS = (
+    "Age", "Height", "Weight", "Size preop", "Size postop", "Size pre-op",
+    "Size post-op", "Pre-op size", "Post-op size", "Bra size", "Cup size",
+    "L implant", "R implant", "Left implant", "Right implant",
+    "Implant", "Implants", "Implant Type", "Implant type", "Implant Size",
+    "Implant size", "Incision", "Placement", "Procedure", "Profile",
+    "Surgeon", "Gender", "Ethnicity",
+)
+RMG_LABEL_RE = _label_regex(RMG_FIELD_LABELS)
+RMG_SIDED_VOLUME_LABELS = {
+    "l implant": "left", "left implant": "left",
+    "r implant": "right", "right implant": "right",
+}
+RMG_VOLUME_LABELS = set(RMG_SIDED_VOLUME_LABELS) | {
+    "implant", "implants", "implant size",
+}
+RMG_NARRATIVE_LABELS = {"procedure", "surgeon"}
+
+
+def rmgallery2_list_cases(listing_html: str, gallery_path: str) -> list[str]:
+    """Case slugs ('patient-1', ...) the category listing renders inline."""
+    soup = BeautifulSoup(listing_html, "html.parser")
+    slugs: list[str] = []
+    for group in soup.select("div.bna-group"):
+        for a in group.select("a[href]"):
+            path = urlsplit(a["href"]).path
+            if not path.startswith(gallery_path):
+                continue
+            m = RMG_PATIENT_RE.search(path)
+            if m and f"patient-{m.group(1)}" not in slugs:
+                slugs.append(f"patient-{m.group(1)}")
+    return sorted(slugs, key=lambda s: int(s.split("-")[1]))
+
+
+def rmgallery2_listing_case_count(listing_html: str) -> int:
+    """How many case blocks the listing renders - the enumeration check.
+
+    RM Gallery 2 publishes no case total of its own, so this stands in for one:
+    a case-page walk that returns fewer cases than the listing rendered has
+    lost cases, and collect_cases says so.
+    """
+    return len(BeautifulSoup(listing_html, "html.parser").select("div.bna-group"))
+
+
+def rmgallery2_full_res(url: str) -> str:
+    """The camera-resolution file for an RM Gallery 2 image URL.
+
+    The listing links .../RMG<id>-<n>-{b,a}/small.jpeg; the case page links
+    original.jpeg in the same folder. Anything else is left alone.
+    """
+    return re.sub(r"/(?:small|medium|large|thumb)\.(jpe?g|png|webp)$",
+                  r"/original.\1", url, flags=re.I)
+
+
+def rmgallery2_parse_details(details, specs: CaseSpecs) -> None:
+    """Fill specs from a div.patient-details block."""
+    prose_parts: list[str] = []
+    for line in _br_lines(details):
+        fields, leftover = _split_labelled_line(line, RMG_LABEL_RE)
+        if leftover:
+            prose_parts.append(leftover)
+        for label, value in fields:
+            if not value:
+                continue
+            key = label.lower()
+            if key in RMG_NARRATIVE_LABELS:
+                prose_parts.append(f"{label}: {value}")
+                continue
+            specs.fields.setdefault(label, value)
+            if key not in RMG_VOLUME_LABELS:
+                continue
+            cc = labelled_volume(value)
+            if cc is None:
+                continue
+            side = RMG_SIDED_VOLUME_LABELS.get(key)
+            if side == "left":
+                specs.left_cc = cc
+            elif side == "right":
+                specs.right_cc = cc
+            elif specs.left_cc is None and specs.right_cc is None:
+                specs.left_cc = specs.right_cc = cc
+    specs.summary = " ".join(prose_parts).strip()
+
+
+def rmgallery2_parse_case(case_html: str, case_id: str, source_url: str,
+                          gallery_label: str = "") -> CaseData:
+    """One RM Gallery 2 case: alternating before/after frames plus a chart."""
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+
+    wrap = soup.select_one("section.case-wrap div.img-wrap") or soup.select_one(
+        "div.img-wrap")
+    pending_before: str | None = None
+    index = 0
+    if wrap is not None:
+        for frame in wrap.select("div.img-frame"):
+            classes = frame.get("class") or []
+            img = frame.find("img")
+            src = (img.get("src") or img.get("data-src") or "") if img else ""
+            if not src:
+                continue
+            src = rmgallery2_full_res(src)
+            if "before-img" in classes:
+                if pending_before is not None:
+                    case.warnings.append(
+                        "two consecutive before frames; the unmatched one is dropped")
+                pending_before = src
+            elif "after-img" in classes:
+                if pending_before is None:
+                    case.warnings.append(
+                        "after frame with no preceding before frame; dropped")
+                    continue
+                index += 1
+                case.pairs.append(ImagePair(
+                    key=f"pair{index}", before_url=pending_before, after_url=src))
+                pending_before = None
+    if pending_before is not None:
+        case.warnings.append("trailing before frame with no after; dropped")
+    if not case.pairs:
+        case.warnings.append("no usable image pairs")
+
+    specs = CaseSpecs()
+    details = soup.select_one("div.patient-details")
+    if details is None:
+        case.warnings.append("no div.patient-details block published")
+    else:
+        rmgallery2_parse_details(details, specs)
+
+    haystack = " ".join([specs.summary, *specs.fields.values()])
+    age = specs.fields.get("Age", "")
+    if age.strip().isdigit():
+        specs.age = int(age.strip())
+    height = specs.fields.get("Height", "")
+    if height:
+        specs.height = height.replace("’", "'").replace("”", '"').strip()
+        specs.height_cm = height_to_cm(specs.height)
+    weight = specs.fields.get("Weight", "")
+    m = re.match(r"^(\d{2,3})\s*(?:lbs?|pounds?)?\.?$", weight.strip(), re.I)
+    if m:
+        specs.weight_lbs = int(m.group(1))
+        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+    if specs.left_cc is None and specs.right_cc is None and specs.summary:
+        specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
+
+    classify_brand_shape_profile(specs, haystack)
+    if specs.profile is None:
+        # 'L implant: 375HP' - the same number-hard-against-abbreviation chart
+        # string CIARAVINO publishes, decoded under the same 2026-08-19 ruling
+        # and read only out of the labelled implant fields.
+        specs.profile = captain_profile_term(
+            " ".join(v for k, v in specs.fields.items()
+                     if k.lower() in RMG_VOLUME_LABELS or "implant" in k.lower()))
+    classify_placement_incision(
+        specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+    case.specs = specs
+
+    # Purity: the case's own chart text and the gallery heading it was published
+    # under. RM Gallery 2 galleries are procedure-separated (augmentation-with-
+    # lift is its own category), so this is the backstop for a mis-filed case.
+    term = combined_procedure_term(
+        gallery_label, " ".join(f"{k}: {v}" for k, v in specs.fields.items()),
+        specs.summary)
+    if term is not None:
+        case.warnings.append(
+            f"not pure breast augmentation (case text names '{term}'); "
+            "excluded by captain ruling")
+        case.pairs = []
+    return case
+
+
+# ---------------------------------------------------------------------------
+# Captain's 2026-08-19 profile vocabulary ruling
+# ---------------------------------------------------------------------------
+#
+# Terms the captain ruled decode to a schema profile on 2026-08-19. Kept as one
+# named table so the next platform family reuses the ruling instead of
+# re-deriving it, and applied ONLY to a field the clinic labelled as an implant
+# size/profile - a bare 'HP' in free prose is not a profile.
+#
+# Mentor's 'Xtra' product line deliberately does NOT appear: it is a product
+# name, not a projection, and manufacturer model codes stay unparseable (the
+# Natrelle 'SRM-445' precedent). 'Moderate High' (CIARAVINO's Mentor chart
+# string) is likewise absent - it is not in the ruling and is not decoded here.
+#
+# Applied to the 2026-08-25 batch only. Folding it into the shared
+# PROFILE_PATTERNS would change how 35 already-collected clinics parse, and
+# CLAUDE.md requires proving that blast radius first.
+# The abbreviations are written hard against the volume ('430UHP', '350HP'),
+# so the boundary is "not a letter" rather than \b: there is no word boundary
+# between '0' and 'U'. Case is NOT folded for the bare abbreviations - 'hp' and
+# 'mp' occur inside ordinary words, and only the upper-case chart form is the
+# clinic's abbreviation.
+CAPTAIN_PROFILE_TERMS = [
+    (re.compile(r"(?:(?<![A-Za-z])(?:UHP|VHP)(?![A-Za-z]))"
+                r"|(?i:\b(?:ultra[- ]high\s+profile|extra[- ]full(?:\s+projection)?"
+                r"|cors[e\u00e9]|extra[- ]high\s+range)\b)"), "extra-high"),
+    (re.compile(r"(?<![A-Za-z])HP(?![A-Za-z])"), "high"),
+    (re.compile(r"(?<![A-Za-z])MP(?![A-Za-z])"), "moderate"),
+]
+
+
+def captain_profile_term(text: str) -> str | None:
+    """Schema profile from the 2026-08-19 vocabulary ruling, or None."""
+    for pattern, profile in CAPTAIN_PROFILE_TERMS:
+        if pattern.search(text):
+            return profile
+    return None
+
+
+# ---------------------------------------------------------------------------
+# page1solutions_paged parser family (Page 1 Solutions paginated inline gallery)
+# ---------------------------------------------------------------------------
+#
+# `kind="page1solutions_paged"`. Page 1 Solutions has SEVERAL parsers in this
+# repo, one per gallery layout, and each has its own kind: `page1solutions`
+# (per-case pages, page1solutions.py), `page1` (per-case pages,
+# page1_solutions.py), `page1_inline` (single inline listing, above in this
+# module) and this one, the paginated inline listing. Read the one your
+# clinic's kind dispatches to; folding them together needs the shared-parser
+# blast-radius proof AGENTS.md demands.
+#
+# Page 1 Solutions is a medical-marketing agency; this is its gallery product,
+# already identified on four consented/prospected practices (CIARAVINO, Dr Amy
+# Bandy, Plastic Surgery Institute of Washington, North Coast). One parser
+# configured per clinic, as with etna and rmgallery2. What the platform fixes:
+#
+#   * Cases are div.patient blocks rendered ten to a listing page, paginated
+#     with ?page=N through ul.pager. The pager enumerates EVERY page number, so
+#     the gallery's own page count is the enumeration check - the last pager
+#     link times ten, less the short final page.
+#   * Every image of a case lives in one numbered asset folder referenced by a
+#     RELATIVE path, './378/01.jpg'. That folder number is the case key: the
+#     'Case #NNNN' the clinic prints is NOT unique (thebodydoc publishes two
+#     consecutive saline cases both labelled Case #2547), and the block's
+#     anchor href points at the gallery, not at the case.
+#   * The relative path must be resolved against the CANONICAL gallery URL.
+#     The block's own anchor points at a different path that serves the same
+#     listing (.../breast-augmentation-silicone-implants/2890/), and resolving
+#     './378/01.jpg' against that yields a 404.
+#   * div.slides holds one div.item per view pair, each with exactly two
+#     <img class="feat2"> - odd file first, even second. div.view.s3grid repeats
+#     only the FIRST pair, but marks it data-before/data-after, which is what
+#     documents the odd/even convention rather than assuming it.
+#   * Specs are div.patient-info > div.patient-meta-info, '<strong>Label:</strong>
+#     value<br>'. The same block is repeated inside div.details for the popup,
+#     so only the patient-info copy is read.
+#
+# Views are not documented: div.slides items are positional and carry no label,
+# and the alt text is one boilerplate string on every image. View labels come
+# from the visual-annotation pass; unannotated pairs are skipped, never guessed.
+
+P1S_FIELD_LABELS = (
+    "Age", "Case #", "Height", "Weight", "Gender", "Ethnicity",
+    "Implant Size", "Implant Size (Left)", "Implant Size (Right)",
+    "Implant Type", "Incision", "Placement", "Procedure", "Patient #",
+)
+P1S_LABEL_RE = _label_regex(P1S_FIELD_LABELS)
+P1S_SIDED_VOLUME_LABELS = {
+    "implant size (left)": "left", "implant size (right)": "right",
+}
+P1S_VOLUME_LABELS = set(P1S_SIDED_VOLUME_LABELS) | {"implant size"}
+P1S_NARRATIVE_LABELS = {"procedure"}
+P1S_ASSET_RE = re.compile(r"^\.?/?(\d+)/(\d+)\.(jpe?g|png|webp)$", re.I)
+P1S_CASE_NUMBER_RE = re.compile(r"case\s*#\s*(\d+)", re.I)
+
+
+def page1solutions_page_count(listing_html: str) -> int | None:
+    """Highest ?page=N the gallery's own pager offers, or None if unpaginated."""
+    highest = None
+    for m in re.finditer(r"[?&]page=(\d+)", listing_html):
+        n = int(m.group(1))
+        highest = n if highest is None else max(highest, n)
+    return highest
+
+
+def _p1s_asset_folder(src: str) -> str | None:
+    m = P1S_ASSET_RE.match(src.strip())
+    return m.group(1) if m else None
+
+
+def page1solutions_parse_meta(meta_block, specs: CaseSpecs) -> None:
+    """Fill specs from a div.patient-meta-info chart block."""
+    prose_parts: list[str] = []
+    for line in _br_lines(meta_block):
+        fields, leftover = _split_labelled_line(line, P1S_LABEL_RE)
+        if leftover:
+            prose_parts.append(leftover)
+        for label, value in fields:
+            if not value or value.strip() in {"--", "-", "N/A"}:
+                continue
+            key = label.lower()
+            if key in P1S_NARRATIVE_LABELS:
+                prose_parts.append(f"{label}: {value}")
+                continue
+            specs.fields.setdefault(label, value)
+            if key not in P1S_VOLUME_LABELS:
+                continue
+            cc = labelled_volume(value)
+            if cc is None:
+                continue
+            side = P1S_SIDED_VOLUME_LABELS.get(key)
+            if side == "left":
+                specs.left_cc = cc
+            elif side == "right":
+                specs.right_cc = cc
+            elif specs.left_cc is None and specs.right_cc is None:
+                specs.left_cc = specs.right_cc = cc
+    specs.summary = " ".join(prose_parts).strip()
+
+
+def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
+                                      gallery_tag: str) -> list[CaseData]:
+    """Every div.patient case rendered on one Page 1 Solutions listing page.
+
+    gallery_url is the CANONICAL listing URL; relative asset paths resolve
+    against it. gallery_tag namespaces the case id, because each sub-gallery
+    numbers its asset folders from 1 independently.
+    """
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases: list[CaseData] = []
+    for block in soup.select("div.patient"):
+        info = block.select_one("div.patient-info")
+        srcs = [i.get("src") or i.get("data-before") or i.get("data-after") or ""
+                for i in block.select("img")]
+        folders = [f for f in (_p1s_asset_folder(s) for s in srcs) if f]
+        if not folders:
+            continue
+        folder = folders[0]
+        case_id = f"{gallery_tag}-{folder}"
+        case = CaseData(case_id=case_id, source_url=gallery_url)
+
+        # div.slides carries every view pair; div.view.s3grid repeats only the
+        # first, but its data-before/data-after is what documents which of the
+        # two images in an item is which.
+        documented: dict[str, str] = {}
+        for item in block.select("div.view.s3grid div.item"):
+            b = item.select_one("img[data-before]")
+            a = item.select_one("img[data-after]")
+            if b is not None and a is not None:
+                documented[b["data-before"]] = a["data-after"]
+        for index, item in enumerate(block.select("div.slides div.item"), 1):
+            imgs = [i.get("src", "") for i in item.select("img") if i.get("src")]
+            if len(imgs) != 2:
+                case.warnings.append(
+                    f"slide {index} publishes {len(imgs)} image(s), not 2; skipped")
+                continue
+            before_src, after_src = imgs[0], imgs[1]
+            if before_src in documented and documented[before_src] != after_src:
+                case.warnings.append(
+                    f"slide {index} contradicts the page's own data-before/"
+                    f"data-after pairing; skipped")
+                continue
+            case.pairs.append(ImagePair(
+                key=f"pair{index}",
+                before_url=urljoin(gallery_url, before_src),
+                after_url=urljoin(gallery_url, after_src)))
+        if not case.pairs:
+            case.warnings.append("no usable image pairs")
+
+        specs = CaseSpecs()
+        meta_block = info.select_one("div.patient-meta-info") if info else None
+        if meta_block is None:
+            case.warnings.append("no div.patient-meta-info chart published")
+        else:
+            page1solutions_parse_meta(meta_block, specs)
+
+        procedure = ""
+        link = info.select_one("a") if info else None
+        if link is not None:
+            procedure = link.get_text(" ", strip=True)
+            m = P1S_CASE_NUMBER_RE.search(procedure)
+            if m:
+                specs.fields.setdefault("Case #", m.group(1))
+        age = specs.fields.get("Age", "")
+        if age.strip().isdigit():
+            specs.age = int(age.strip())
+        height = specs.fields.get("Height", "")
+        if height:
+            specs.height = (height.replace("’", "'").replace("”", '"')
+                            .replace("“", '"').strip())
+            specs.height_cm = height_to_cm(specs.height)
+        weight = specs.fields.get("Weight", "")
+        m = re.match(r"^(\d{2,3})\s*(?:lbs?|pounds?)?\.?$", weight.strip(), re.I)
+        if m:
+            specs.weight_lbs = int(m.group(1))
+            specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+
+        # Profile and brand come from the implant-size fields only - the
+        # clinic's own labelled statement of what was implanted.
+        size_text = " ".join(v for k, v in specs.fields.items()
+                             if k.lower() in P1S_VOLUME_LABELS
+                             or k.lower() == "implant type")
+        classify_brand_shape_profile(specs, size_text)
+        if specs.profile is None:
+            specs.profile = captain_profile_term(size_text)
+        classify_placement_incision(
+            specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+        case.specs = specs
+
+        term = combined_procedure_term(
+            procedure, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+        if term is not None:
+            case.warnings.append(
+                f"not pure breast augmentation (case text names '{term}'); "
+                "excluded by captain ruling")
+            case.pairs = []
+        cases.append(case)
+    return cases
+
+
+# ---------------------------------------------------------------------------
+# gallatin parser (bespoke WordPress gallery, one inline filterable list)
+# ---------------------------------------------------------------------------
+#
+# gallatinplasticsurgery.com publishes every photograph as its own
+# li.gps-gallery-item on a single page - no pagination, no ajax, and no case
+# total of its own. Three things carry the metadata, and each has a documented
+# failure mode this parser handles rather than assumes away:
+#
+#   * The FILENAME carries the patient number, the half and the view
+#     ('Patient-117-Before-Front-1024x1024.jpg'), but the token ORDER varies
+#     ('Patient-31-After-Side'), the spellings are typo'd ('Befoe', 'Sode',
+#     'AFter'), and some uploads carry none of it at all (a bare camera name
+#     like '20260505134635526.png'). So the filename is read token-wise, not
+#     positionally, and nothing is required of it.
+#   * The CAPTION (h6.caption) is the clinic's own statement of the case and
+#     the only volume source: the after caption reads '6 months post-op with
+#     410 cc high profile silicone gel implants', the before caption '29 year
+#     old patient before bilateral breast augmentation'. It resolves the half
+#     when the filename cannot, and it is the purity screen.
+#   * DOCUMENT ORDER pairs the halves: items come in consecutive before/after
+#     couples. The order WITHIN a couple is not fixed (the last case on the page
+#     publishes its after first), so a couple is matched by half, not position.
+#
+# A '-WWWxHHH' suffix marks a WordPress derivative; stripping it gives the
+# uploaded original (1200px on the recent uploads).
+#
+# View labels: 'front' and 'side' come from the filename, which is the clinic's
+# own label. 'side' still needs the case's laterality from the annotation pass,
+# because nothing on the page says which side faces the camera - and the pairs
+# whose filename carries no view need a full per-pair annotation.
+
+GALLATIN_SIZE_SUFFIX_RE = re.compile(r"-\d{2,4}x\d{2,4}(?=\.[A-Za-z]+$)")
+GALLATIN_PATIENT_RE = re.compile(r"Patient-(\d+)", re.I)
+GALLATIN_BEFORE_RE = re.compile(r"(?<![A-Za-z])(?:before|befoe|befor|bfore)(?![A-Za-z])", re.I)
+GALLATIN_AFTER_RE = re.compile(r"(?<![A-Za-z])(?:after|aftr|afer)(?![A-Za-z])", re.I)
+GALLATIN_FRONT_RE = re.compile(r"(?<![A-Za-z])(?:front|frnt|fron)(?![A-Za-z])", re.I)
+GALLATIN_SIDE_RE = re.compile(r"(?<![A-Za-z])(?:side|sode|sied)(?![A-Za-z])", re.I)
+GALLATIN_OBLIQUE_RE = re.compile(r"(?<![A-Za-z])oblique(?![A-Za-z])", re.I)
+GALLATIN_POSTOP_RE = re.compile(
+    r"\b(?:post[- ]?op|months?d?\s+(?:post|with)|weeks?\s+(?:post|with))", re.I)
+GALLATIN_TIMEPOINT_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(month|week|year)s?d?\b", re.I)
+GALLATIN_MONTHS_PER = {"month": 1.0, "week": 1 / 4.345, "year": 12.0}
+
+
+def gallatin_full_res(url: str) -> str:
+    """Drop a WordPress '-1024x1024' derivative suffix to reach the original."""
+    return GALLATIN_SIZE_SUFFIX_RE.sub("", url)
+
+
+def _gallatin_half(filename: str, caption: str) -> str | None:
+    if GALLATIN_BEFORE_RE.search(filename):
+        return "before"
+    if GALLATIN_AFTER_RE.search(filename):
+        return "after"
+    if GALLATIN_POSTOP_RE.search(caption or ""):
+        return "after"
+    if "before" in (caption or "").lower():
+        return "before"
+    return None
+
+
+def _gallatin_view(filename: str) -> str | None:
+    if GALLATIN_FRONT_RE.search(filename):
+        return "front"
+    if GALLATIN_SIDE_RE.search(filename):
+        return "side"
+    if GALLATIN_OBLIQUE_RE.search(filename):
+        return "oblique"
+    return None
+
+
+def gallatin_months_post_op(caption: str) -> float | None:
+    """Follow-up interval from an after caption ('6 months post-op')."""
+    m = GALLATIN_TIMEPOINT_RE.search(caption or "")
+    if m is None:
+        return None
+    months = float(m.group(1)) * GALLATIN_MONTHS_PER[m.group(2).lower()]
+    return round(months, 2)
+
+
+def gallatin_list_items(listing_html: str) -> list[tuple[str, str]]:
+    """(image url, caption) for every li.gps-gallery-item, in document order."""
+    soup = BeautifulSoup(listing_html, "html.parser")
+    items = []
+    for li in soup.select("li.gps-gallery-item"):
+        src = ""
+        for img in li.find_all("img"):
+            candidate = img.get("data-src") or img.get("src") or ""
+            if candidate and not candidate.startswith("data:"):
+                src = candidate
+                break
+        if not src:
+            continue
+        caption = li.select_one("h6.caption")
+        items.append((src, caption.get_text(" ", strip=True) if caption else ""))
+    return items
+
+
+def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """Every case on the gallery, paired by document order.
+
+    Items arrive as consecutive before/after couples. A couple that does not
+    hold exactly one of each is not silently dropped as a unit: the walk
+    advances by ONE item and retries, so a single stray item shifts the pairing
+    by one rather than mis-pairing every case after it. Whatever is still
+    unresolvable is counted and reported.
+    """
+    items = gallatin_list_items(listing_html)
+    by_case: dict[str, CaseData] = {}
+    order: list[str] = []
+    unresolved: list[str] = []
+    i = 0
+    while i < len(items):
+        if i + 1 >= len(items):
+            unresolved.append(items[i][0].rsplit("/", 1)[-1])
+            break
+        couple = [items[i], items[i + 1]]
+        names = [src.rsplit("/", 1)[-1] for src, _ in couple]
+        halves = [_gallatin_half(n, cap) for n, (_, cap) in zip(names, couple)]
+        case_ids = [m.group(1) for m in
+                    (GALLATIN_PATIENT_RE.search(n) for n in names) if m]
+        if sorted(h or "?" for h in halves) != ["after", "before"] or not case_ids:
+            unresolved.append(names[0])
+            i += 1
+            continue
+        before_src, before_cap = couple[halves.index("before")]
+        after_src, after_cap = couple[halves.index("after")]
+        i += 2
+        case_id = case_ids[0]
+        views = [v for v in (_gallatin_view(n) for n in names) if v]
+        view_hint = views[0] if views else None
+
+        case = by_case.get(case_id)
+        if case is None:
+            case = CaseData(case_id=case_id, source_url=source_url)
+            by_case[case_id] = case
+            order.append(case_id)
+        key = f"{view_hint or 'unlabelled'}{len(case.pairs) + 1}"
+        case.pairs.append(ImagePair(
+            key=key,
+            before_url=gallatin_full_res(before_src),
+            after_url=gallatin_full_res(after_src),
+            view_hint=view_hint))
+        if view_hint is None:
+            case.warnings.append(
+                f"pair {key}: filename documents no view; needs annotation")
+
+        # The after caption is the case's spec statement, and every pair of a
+        # case repeats it. Record the first that carries one, and say so when a
+        # later pair of the same case disagrees rather than silently keeping one.
+        if not case.specs.summary:
+            specs = CaseSpecs()
+            specs.summary = f"{before_cap} {after_cap}".strip()
+            specs.left_cc, specs.right_cc = parse_fill_volumes(after_cap)
+            classify_brand_shape_profile(specs, after_cap)
+            if specs.profile is None:
+                specs.profile = captain_profile_term(after_cap)
+            specs.months_post_op = gallatin_months_post_op(after_cap)
+            m = re.search(r"(\d{2})\s*year[- ]old", before_cap, re.I)
+            if m:
+                specs.age = int(m.group(1))
+            # 'partial submuscular pocket' / 'subpectoral pocket' is the
+            # clinic's own statement of this patient's placement, printed in
+            # the before caption rather than on a chart. Incision is never
+            # published here.
+            classify_placement_incision(specs, before_cap)
+            case.specs = specs
+        elif _cc_numbers(after_cap):
+            existing = volume_cc(case.specs)
+            fresh_l, fresh_r = parse_fill_volumes(after_cap)
+            fresh = [v for v in (fresh_l, fresh_r) if v is not None]
+            if existing is not None and fresh and int(round(
+                    sum(fresh) / len(fresh))) != existing:
+                case.warnings.append(
+                    f"pair {key}: caption volume disagrees with the case's "
+                    f"first caption; kept {existing}cc")
+
+    cases = [by_case[c] for c in order]
+    for case in cases:
+        term = combined_procedure_term(case.specs.summary)
+        if term is not None:
+            case.warnings.append(
+                f"not pure breast augmentation (caption names '{term}'); "
+                "excluded by captain ruling")
+            case.pairs = []
+    if unresolved:
+        print(f"  WARN gallatin: {len(unresolved)} gallery item(s) did not "
+              f"resolve into a before/after couple: {', '.join(unresolved[:8])}"
+              + (" ..." if len(unresolved) > 8 else ""))
+    return cases
+
+
+
+# ---------------------------------------------------------------------------
 # bayside parser (bespoke WordPress, Bayside Plastic Surgery, Melbourne AU)
 # ---------------------------------------------------------------------------
 #
@@ -6787,6 +7578,88 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         print(f"  {cfg.slug}: {len(cases)} distinct case(s) across "
               f"{len(cfg.gallery_paths)} categor(y/ies); gallery publishes no "
               f"declared total")
+        return cases
+    if cfg.kind == "rmgallery2":
+        cases = []
+        for gallery_path in cfg.gallery_paths:
+            tag = gallery_path.strip("/").rsplit("/", 1)[-1]
+            listing_url = cfg.base_url + gallery_path
+            listing = fetcher.get(
+                listing_url, f"{cfg.slug}_listing_{tag}.html").decode("utf-8", "replace")
+            rendered = rmgallery2_listing_case_count(listing)
+            slugs = rmgallery2_list_cases(listing, gallery_path)
+            label = BeautifulSoup(listing, "html.parser").select_one("h1")
+            gallery_label = label.get_text(" ", strip=True) if label else tag
+            walked = 0
+            for slug in slugs:
+                url = f"{cfg.base_url}{gallery_path}{slug}"
+                html = _fetch_seed(
+                    fetcher, url, f"{cfg.slug}_case_{tag}_{slug}.html")
+                if html is None:
+                    print(f"  WARN {cfg.slug}/{tag}: case page {slug} unavailable")
+                    continue
+                # The case id namespaces the gallery: all three galleries
+                # number their patients from 1, and the id becomes the pair id.
+                cases.append(rmgallery2_parse_case(
+                    html, f"{tag}-{slug}", url, gallery_label))
+                walked += 1
+            # RM Gallery 2 publishes no case total, so the listing's own block
+            # count is the completeness check.
+            if walked != rendered:
+                print(f"  WARN {cfg.slug}/{tag}: walked {walked} case page(s) "
+                      f"but the listing renders {rendered} case block(s)")
+            else:
+                print(f"  {cfg.slug}/{tag}: walked all {walked} case(s) the "
+                      f"listing renders")
+        return cases
+    if cfg.kind == "page1solutions_paged":
+        cases = []
+        for gallery_path in cfg.gallery_paths:
+            tag = gallery_path.strip("/").rsplit("/", 1)[-1]
+            short = re.sub(r"^breast-augmentation-|-implants$", "", tag) or tag
+            gallery_url = cfg.base_url + gallery_path
+            first = fetcher.get(
+                gallery_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
+                    "utf-8", "replace")
+            declared_pages = page1solutions_page_count(first)
+            page_cases = page1solutions_parse_listing_page(
+                first, gallery_url, short)
+            cases.extend(page_cases)
+            pages_walked = 1
+            page = 2
+            while declared_pages is not None and page <= declared_pages:
+                html = _fetch_optional(
+                    fetcher, f"{gallery_url}?page={page}",
+                    f"{cfg.slug}_listing_{tag}_p{page}.html")
+                if html is None:
+                    print(f"  WARN {cfg.slug}/{tag}: page {page} unavailable")
+                    break
+                more = page1solutions_parse_listing_page(html, gallery_url, short)
+                if not more:
+                    print(f"  WARN {cfg.slug}/{tag}: page {page} rendered no cases")
+                    break
+                cases.extend(more)
+                pages_walked += 1
+                page += 1
+            # The pager enumerates every page, so it is the enumeration check.
+            if declared_pages is not None and pages_walked != declared_pages:
+                print(f"  WARN {cfg.slug}/{tag}: walked {pages_walked} of the "
+                      f"{declared_pages} page(s) the pager offers")
+            else:
+                print(f"  {cfg.slug}/{tag}: walked all "
+                      f"{declared_pages or 1} listing page(s)")
+        return cases
+    if cfg.kind == "gallatin":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = gallatin_parse_listing(listing, url)
+        # The gallery publishes no case total of its own; the honest check is
+        # that every rendered item landed in a pair.
+        items = len(gallatin_list_items(listing))
+        paired = sum(len(c.pairs) for c in cases) * 2
+        print(f"  {cfg.slug}: listing renders {items} item(s); "
+              f"{paired} of them paired into {sum(len(c.pairs) for c in cases)} "
+              f"pair(s) across {len(cases)} case(s)")
         return cases
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 
