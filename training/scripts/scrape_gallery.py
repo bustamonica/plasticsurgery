@@ -327,6 +327,24 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+    # -- 2026-08-25 batch: prospected clinics
+    #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
+    "bayside": ClinicConfig(
+        slug="bayside", consent_ref="bayside-agreement-2026-08-25",
+        base_url="https://baysideplasticsurgery.com.au",
+        # Cases are filed by age decade, and the decade categories are the only
+        # ones that partition them: 'breast-augmentation-cases' is an alias for
+        # the twenties category (identical 33 cases), listed so a case filed
+        # only there would still be reached. Deduplicated by case id.
+        # The ?custom_categories= query form 301s to /surgery/<term>/ for the
+        # thirties and 404s for the other two, so the canonical paths are used.
+        gallery_paths=[
+            "/surgery/breast-augmentation-twenties-breast-augmentation-cases/",
+            "/surgery/breast-augmentation-the-thirties/",
+            "/surgery/breast-augmentation-forties/",
+            "/surgery/breast-augmentation-cases/",
+        ],
+        kind="bayside"),
 }
 
 
@@ -2458,6 +2476,197 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# bayside parser (bespoke WordPress, Bayside Plastic Surgery, Melbourne AU)
+# ---------------------------------------------------------------------------
+#
+# Cases are a `before_and_after` custom post type at /Procedures/<slug>/, filed
+# into age-decade `custom_categories` terms. Every case renders all of its
+# photographs inline in one `div.carousel-wrapper`, one `<li>` per view holding
+# exactly one `div.before img` and one `div.after img` - so before/after is
+# page-documented here and never inferred from filename order.
+#
+# Two traps this parser exists to avoid:
+#
+# 1. The carousel is preceded by the HTML comments `profile_view`,
+#    `frontal_view`, `oblique_view`, `oblique_view`. They look like per-view
+#    labels and are NOT: the identical four-comment sequence appears on all 78
+#    cases including the two that publish only two views, so they are static
+#    template boilerplate. They also disagree with the photographs - slot 1 is
+#    a front view on every case, not a profile. Never read them.
+# 2. Photographs are served at whatever WordPress size the template picked;
+#    150 of 464 come through as `-300x225` thumbnails, all below ingest.py's
+#    400px floor. `bayside_full_res()` strips the size suffix to reach the
+#    uploaded original. That is not always a rescue - the 2014-era uploads are
+#    only ~300px in the original too - but without it a third of the gallery
+#    would be rejected for a resolution the clinic did in fact publish.
+#
+# Specs are one narrative sentence in the `Patient Information` block, e.g.
+# `30 year old female 4 months following breast augmentation surgery with
+# 275ml MP saline implants`. Volume is in ml and profile is a two-letter
+# abbreviation; both are read here rather than by the shared helpers, and
+# deliberately so - see BAYSIDE_VOLUME_RE and BAYSIDE_PROFILE_PATTERNS.
+#
+# Views are NOT page-documented and come from the visual-annotation file (see
+# training/annotations/bayside.json), like drdanielbarrett and sanantonio.
+
+BAYSIDE_CASE_RE = re.compile(
+    r'href="https://baysideplasticsurgery\.com\.au/Procedures/([^"/?]+)/[^"]*"')
+BAYSIDE_SIZE_SUFFIX_RE = re.compile(r"-\d+x\d+(?=\.\w+$)")
+
+# Volume: an explicit ml or cc unit, including inside a narrative sentence
+# (captain's ruling of 2026-08-19, which extends the 2026-08-15 labelled-field
+# ruling to narrative prose and reads ml as cc). This is deliberately NOT added
+# to the shared VOLUME_UNIT: 'mL' there measures what a COMBINED procedure
+# removed rather than what an implant holds - sanantonio case 24139 reads
+# '225 mL of lipoaspirate' - and widening the shared pattern would turn that
+# into an implant volume. Bayside publishes exactly one figure per case.
+BAYSIDE_VOLUME_RE = re.compile(r"\b(\d{3})\s*(?:ml|cc)\b", re.I)
+
+# Profile: 'MP' / 'HP' / 'MP plus' / 'MP+' (captain's ruling of 2026-08-19,
+# which decodes MP to moderate and HP to high). Kept local and CASE-SENSITIVE
+# for the bare abbreviations: a two-letter token is far too weak a signal to
+# put in the shared PROFILE_PATTERNS, where it would fire on any clinic whose
+# prose happens to contain the letters. Moderate-plus is tried first because
+# 'MP plus' contains 'MP'. This practice uses saline implants, which are made
+# only in moderate and high profile, so there is no extra-high here to decode.
+BAYSIDE_PROFILE_PATTERNS = [
+    (re.compile(r"\bMP\s*\+|\bMP\s+plus\b|\bmoderate\s+plus\b", re.I), "moderate-plus"),
+    (re.compile(r"\bMP\b"), "moderate"),
+    (re.compile(r"\bHP\b"), "high"),
+]
+
+# Purity: pure breast augmentation only (captain ruling). Screened on the case
+# TEXT, never the slug - 37 of the 78 cases are published under a 'bam-' slug
+# and every one of them describes a plain augmentation in its own words, while
+# the two genuinely combined cases sit under both slug families.
+BAYSIDE_COMBINED_RE = re.compile(
+    r"\b(mastopexy|breast lift|lipectomy|liposuction|abdominoplasty|tummy tuck"
+    r"|breast reduction|reconstruction|implant (?:exchange|removal|replacement)"
+    r"|revisional?|explant)\b", re.I)
+# A combined-procedure word is not a combined procedure when the sentence is
+# saying the patient did NOT have it: three cases read 'breast enlargement
+# surgery (without breast lift)' and one reads 'breast augmentation only ... to
+# avoid scarring from mastopexy'. These clauses are removed before screening.
+BAYSIDE_NEGATION_RES = [
+    re.compile(r"\([^)]*\bwithout\b[^)]*\)", re.I),
+    re.compile(r"\bto avoid\b[^.;]*", re.I),
+    re.compile(r"\bwithout\b[^.;,)]*", re.I),
+]
+
+BAYSIDE_AGE_RE = re.compile(r"\b(\d{2})\s*(?:yo\b|y/o\b|years?[- ]old\b|yr\b)", re.I)
+# Follow-up interval. Every duration the sentence names is counted, not only
+# the one attached to 'following': two cases read 'both 3 months and then 6
+# years following', where matching on 'following' alone would silently pick the
+# 6 years and drop the ambiguity that makes the figure unusable.
+# The trailing lookahead keeps the patient's AGE out of it: every sentence
+# opens with '30 year old female ...', which is not a follow-up interval.
+BAYSIDE_DURATION_RE = re.compile(
+    r"\b(\d{1,3})\s*(months?|years?)\b(?!\s*old)", re.I)
+
+
+def bayside_full_res(url: str) -> str:
+    """The uploaded original behind a WordPress resized derivative."""
+    return BAYSIDE_SIZE_SUFFIX_RE.sub("", url)
+
+
+def bayside_list_cases(listing_html: str) -> list[str]:
+    """Case slugs linked from one category listing, in document order."""
+    return list(dict.fromkeys(BAYSIDE_CASE_RE.findall(listing_html)))
+
+
+def bayside_screen_purity(text: str) -> str | None:
+    """The combined procedure this case also had, or None if pure."""
+    stripped = text
+    for pattern in BAYSIDE_NEGATION_RES:
+        stripped = pattern.sub(" ", stripped)
+    m = BAYSIDE_COMBINED_RE.search(stripped)
+    return m.group(1).lower() if m else None
+
+
+def bayside_parse_specs(text: str) -> CaseSpecs:
+    """Specs from the one-sentence Patient Information narrative."""
+    specs = CaseSpecs(summary=text)
+    m = BAYSIDE_AGE_RE.search(text)
+    if m:
+        specs.age = int(m.group(1))
+    if re.search(r"\b(?:woman|female)\b", text, re.I):
+        specs.gender = "female"
+
+    volumes = [float(v) for v in BAYSIDE_VOLUME_RE.findall(text)]
+    volumes = [v for v in volumes if 100 <= v <= 1000]
+    if len(volumes) == 1:
+        # One published figure for both breasts. Where the clinic notes an
+        # asymmetric fill it still publishes only that one number ('300 ml MP
+        # saline implants differentially filled to correct asymmetry'), so the
+        # per-side split it implies is not recorded - it was never stated.
+        specs.left_cc = specs.right_cc = volumes[0]
+    elif len(volumes) >= 2:
+        specs.left_cc, specs.right_cc = volumes[0], volumes[1]
+
+    for pattern, profile in BAYSIDE_PROFILE_PATTERNS:
+        if pattern.search(text):
+            specs.profile = profile
+            break
+
+    # Follow-up interval, only when the sentence states exactly one duration.
+    # 'both 3 months and then 6 years following' names two timepoints for one
+    # pair of photographs and identifies neither, so it records nothing.
+    durations = BAYSIDE_DURATION_RE.findall(text)
+    if len(durations) == 1:
+        value, unit = durations[0]
+        specs.months_post_op = float(value) * (12 if unit.lower().startswith("year") else 1)
+
+    # brand/shape stay unrecorded: 'saline' is a fill, not a manufacturer, and
+    # the practice names neither a brand nor a shell shape.
+    return specs
+
+
+def bayside_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
+    """One Bayside case page: labelled before/after pairs plus one narrative."""
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+
+    text = ""
+    for node in soup.find_all(string=lambda s: s and "Patient Information" in s):
+        block = node.find_parent(["div", "section", "article"])
+        if block is not None:
+            text = block.get_text(" ", strip=True)
+            text = re.sub(r"^\s*Patient Information\s*", "", text).strip()
+            break
+    if not text:
+        case.warnings.append("no Patient Information block published")
+    case.specs = bayside_parse_specs(text)
+
+    wrapper = soup.select_one("div.carousel-wrapper")
+    for li in wrapper.select("li") if wrapper else []:
+        before = li.select_one("div.before img")
+        after = li.select_one("div.after img")
+        if before is None or after is None:
+            continue
+        before_src, after_src = before.get("src", ""), after.get("src", "")
+        if not before_src or not after_src:
+            continue
+        # The slot attribute ('img1-2') is the case's own key for this view and
+        # is what the annotation file is keyed on.
+        slot = next((k for k in li.attrs if k.startswith("img")), None)
+        if slot is None:
+            continue
+        case.pairs.append(ImagePair(
+            key=slot,
+            before_url=bayside_full_res(before_src),
+            after_url=bayside_full_res(after_src)))
+
+    combined = bayside_screen_purity(text) if text else None
+    if combined is not None:
+        case.warnings.append(
+            f"not pure breast augmentation (case text names '{combined}'); "
+            "excluded by captain ruling")
+        case.pairs = []
+    if not case.pairs and not case.warnings:
+        case.warnings.append("no usable image pairs")
+    return case
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2900,6 +3109,31 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             page += 1
             if page > 40:
                 break
+        return cases
+    if cfg.kind == "bayside":
+        # Every case renders inline on its category listing; ?page/N/ serves
+        # page 1 again rather than 404ing, so there is no pagination to walk
+        # and a second page would only re-list what page 1 already gave.
+        # The gallery publishes no case total of its own, so the enumeration
+        # is reconciled against the union of the categories and nothing else.
+        cases, seen = [], set()
+        for path in cfg.gallery_paths:
+            slug = path.strip("/").rsplit("/", 1)[-1]
+            listing = fetcher.get(cfg.base_url + path,
+                                  f"{cfg.slug}_cat_{slug}.html").decode("utf-8", "replace")
+            ids = bayside_list_cases(listing)
+            print(f"  {cfg.slug}: category {slug} lists {len(ids)} case(s)")
+            for case_id in ids:
+                if case_id in seen:
+                    continue
+                seen.add(case_id)
+                url = f"{cfg.base_url}/Procedures/{case_id}/"
+                html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
+                    "utf-8", "replace")
+                cases.append(bayside_parse_case(html, case_id, url))
+        print(f"  {cfg.slug}: {len(cases)} distinct case(s) across "
+              f"{len(cfg.gallery_paths)} categor(y/ies); gallery publishes no "
+              f"declared total")
         return cases
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 

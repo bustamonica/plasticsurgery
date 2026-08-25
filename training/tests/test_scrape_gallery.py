@@ -1304,3 +1304,143 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# bayside: narrative specs in ml, MP/HP profiles, text-only purity screen
+# ---------------------------------------------------------------------------
+
+
+def bayside_case(fixture: str, case_id: str = "case-x"):
+    return sg.bayside_parse_case(load_fixture(fixture), case_id, "x")
+
+
+def test_bayside_listing_lists_every_case_once():
+    ids = sg.bayside_list_cases(load_fixture("bayside_listing_forties.html"))
+    assert len(ids) == 16
+    assert len(set(ids)) == 16
+    assert "breast-augmentation-case-50-age-40" in ids
+
+
+def test_bayside_parses_three_labelled_before_after_pairs():
+    case = bayside_case("bayside_case_three_views.html")
+    assert [p.key for p in case.pairs] == ["img1-2", "img3-4", "img5-6"]
+    # before/after come from div.before / div.after, never from filename order.
+    assert all(p.before_url != p.after_url for p in case.pairs)
+    assert case.pairs[0].before_url.endswith("Photos-2012-11-November-061.jpg")
+    assert case.pairs[0].after_url.endswith("Photos-2015-3-March-026.jpg")
+    # The page documents no view; that comes from the annotation file.
+    assert all(p.view_hint is None for p in case.pairs)
+
+
+def test_bayside_case_with_only_two_published_views():
+    case = bayside_case("bayside_case_two_views.html")
+    assert [p.key for p in case.pairs] == ["img1-2", "img3-4"]
+    assert not case.warnings
+
+
+def test_bayside_strips_wordpress_size_suffix_to_reach_the_original():
+    case = bayside_case("bayside_case_two_views.html")
+    # The page serves -300x225 derivatives, all below ingest.py's 400px floor.
+    assert all("300x225" not in p.before_url for p in case.pairs)
+    assert case.pairs[0].before_url.endswith("/2014/06/737.jpg")
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://x/a/737-300x225.jpg", "https://x/a/737.jpg"),
+    ("https://x/a/Photos-2012-11-November-061.jpg",
+     "https://x/a/Photos-2012-11-November-061.jpg"),
+    # A dimension-looking token that is not the WordPress size suffix stays.
+    ("https://x/a/1024x768-portrait.jpg", "https://x/a/1024x768-portrait.jpg"),
+])
+def test_bayside_full_res(url, expected):
+    assert sg.bayside_full_res(url) == expected
+
+
+def test_bayside_volume_in_ml_and_two_letter_profile():
+    case = bayside_case("bayside_case_three_views.html")
+    assert sg.volume_cc(case.specs) == 275      # '275ml' reads as cc
+    assert case.specs.profile == "moderate"     # 'MP'
+    assert case.specs.age == 30
+    assert case.specs.gender == "female"
+    assert case.specs.months_post_op == 4.0
+    # 'saline' is a fill, not a manufacturer, and no shell shape is published.
+    assert case.specs.brand == "unknown"
+    assert case.specs.shape is None
+
+
+def test_bayside_moderate_plus_beats_bare_mp():
+    case = bayside_case("bayside_case_moderate_plus.html")
+    assert case.specs.profile == "moderate-plus"
+    assert sg.volume_cc(case.specs) == 300
+
+
+def test_bayside_case_publishing_no_profile_records_none():
+    case = bayside_case("bayside_case_no_profile.html")
+    assert case.specs.profile is None
+    assert sg.volume_cc(case.specs) == 300      # volume is still published
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("300ml MP saline implants", None),
+    ("380ml HP saline filled breast implants", None),
+    ("350ml MP saline filled implants and suction lipectomy of axillary folds",
+     "lipectomy"),
+    ("300ml MP saline implants with left periareolar mastopexy to improve "
+     "breast symmetry", "mastopexy"),
+    # Negated mentions are not combined procedures.
+    ("breast enlargement surgery (without breast lift) with 460ml HP implants",
+     None),
+    ("breast augmentation only with 330 ml HP saline implants to avoid "
+     "scarring from mastopexy", None),
+    # A tattoo and an asymmetric fill are not procedures either.
+    ("460ml HP saline filled breast implants (and new tattoo)", None),
+    ("300 ml MP saline implants differentially filled to correct asymmetry",
+     None),
+])
+def test_bayside_purity_is_screened_on_case_text(text, expected):
+    assert sg.bayside_screen_purity(text) == expected
+
+
+@pytest.mark.parametrize("fixture,named", [
+    ("bayside_case_combined_lipectomy.html", "lipectomy"),
+    ("bayside_case_combined_mastopexy.html", "mastopexy"),
+])
+def test_bayside_combined_case_emits_no_pairs(fixture, named):
+    case = bayside_case(fixture)
+    assert case.pairs == []
+    assert any(named in w for w in case.warnings)
+
+
+@pytest.mark.parametrize("fixture", [
+    "bayside_case_without_lift.html",
+    "bayside_case_augmentation_only.html",
+])
+def test_bayside_negated_lift_mention_still_yields_pairs(fixture):
+    """37 of 78 cases sit under a 'bam-' slug and are plain augmentations.
+
+    Screening the slug instead of the text would drop every one of them.
+    """
+    case = bayside_case(fixture)
+    assert len(case.pairs) == 3
+    assert not case.warnings
+
+
+def test_bayside_two_timepoint_caption_records_no_follow_up_interval():
+    """'both 3 months and then 6 years following' names neither timepoint."""
+    case = bayside_case("bayside_case_two_timepoints.html")
+    assert case.specs.months_post_op is None
+    assert sg.volume_cc(case.specs) == 420
+    assert case.specs.profile == "high"
+
+
+def test_bayside_template_view_comments_are_never_read():
+    """The carousel's profile_view/frontal_view/oblique_view comments are
+
+    static boilerplate: the same four appear on the two-view cases too, and
+    they disagree with the photographs (slot 1 is a front view, not a profile).
+    """
+    two = load_fixture("bayside_case_two_views.html")
+    assert two.count("profile_view") == 1 and two.count("frontal_view") == 1
+    case = bayside_case("bayside_case_two_views.html")
+    assert all(p.view_hint is None for p in case.pairs)
