@@ -35,6 +35,12 @@ Politeness contract (per the clinic agreements): sequential requests only,
 parallelism. All fetches go through a local on-disk cache so re-runs (parser
 iterations, re-emitting metadata) never re-hit the site.
 
+Access contract, separate from the consent instrument: a path a site's robots.txt
+disallows is fetched only under that practice's own written grant. The one such
+route today is the Etna gallery's case-list endpoint, opened by --gallery-endpoint
+and refused unless the clinic's ClinicConfig.endpoint_grant document is on disk;
+see that field and the case-list-endpoint section below.
+
 View labels and laterality: dataset_schema.json requires view in
 front/oblique-left/oblique-right/side-left/side-right, but neither gallery
 documents laterality in text (Barrett does not document view at all). Rather
@@ -118,7 +124,7 @@ MOTIVA_PROFILE_PATTERNS = [
 # submuscular. Only terms clinics actually print on a spec chart are listed:
 # 'over the muscle' and 'incision around the areola' are prose descriptions of
 # a placement/incision, not the documented value, and reading them as one would
-# be the kind of inference CLAUDE.md rules out.
+# be the kind of inference AGENTS.md rules out.
 PLACEMENT_PATTERNS = [
     (re.compile(r"\bdual[- ]?plane\b", re.I), "dual-plane"),
     (re.compile(r"\b(?:sub[- ]?muscular|subpectoral|retropectoral)\b", re.I), "submuscular"),
@@ -1960,7 +1966,7 @@ def wny_next_case_ids(case_html: str) -> list[str]:
 # Etna publishes each view either positionally ('view-1') or by name
 # ('left-oblique'). A named token documents the view - and, for the lateral
 # views, the laterality - in the clinic's own filename, which is the only
-# laterality source CLAUDE.md accepts without a visual call. Named tokens
+# laterality source AGENTS.md accepts without a visual call. Named tokens
 # follow the corpus convention derived from heavenly's Left-Oblique filenames:
 # 'left' means the patient's LEFT side faces the camera.
 ETNA_VIEW_TOKENS = {
@@ -2814,7 +2820,7 @@ def etna_parse_case(case_html: str, case_id: str, source_url: str,
         specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
 
     classify_brand_shape_profile(specs, haystack)
-    # Chart text only - the narrative is deliberately excluded (CLAUDE.md).
+    # Chart text only - the narrative is deliberately excluded (AGENTS.md).
     classify_placement_incision(
         specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
     case.specs = specs
