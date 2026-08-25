@@ -119,38 +119,104 @@ Fixing a parser bug at wny recovered 39 pairs, but only 5 of those 39 were
 pure augmentation - the pure fraction, not the raw recovery count, is what
 should go into the yield estimate.
 
-### Screen 4: no on-body watermark
+### Screen 4: watermarks - on-body, and the edge band that looks harmless
 
-**Off-body corner captions ("Before" / "© Dr. X") are harmless and need no
-mask.** A watermark drawn across the torso is a different problem: it sits
-exactly where the anatomy is, and the corpus's own censorship/watermark
-detectors cannot see it (see the self-measurement lesson below).
+Two separate defects live here. The on-body one is obvious and disqualifying.
+The edge-band one looks harmless, was called harmless by this skill until
+2026-08-19, and is **the single most expensive defect this project has found.**
 
-Check by eye at full resolution on a sample from each backdrop/template
-variant the clinic uses (a script overlay can look different on a light vs
-dark backdrop and still be the same mark).
+#### 4a. An edge watermark on ONE half only is a label leak
 
-Measured cost - heavenly, universal, on-body, across two backdrop families,
-and all 119 of its pairs ruled unusable (which clinic carries which mark, the
+**A watermark in a corner or edge band is CROPPED, not tolerated and not
+masked** (captain, 2026-08-19).
+
+When a mark appears on only the before half or only the after half, it
+correlates *perfectly* with the training label. An edit model asked to "make the
+breasts larger" can satisfy that by learning to add or remove the mark, and it
+will have learned nothing about anatomy. This is invisible to every quality gate
+the pipeline has - resolution, censorship, schema, duplicate detection all pass
+- and shows up only as a model that does not work.
+
+Measured across the corpus on 2026-08-19, by averaging every frame of a clinic
+and high-passing the average (body content cancels; a mark burned in at a fixed
+position survives). Ratio is the before-half structure peak against the
+after-half peak, so 1.0 is "no one-sided mark":
+
+| clinic | pairs | mark on | ratio before -> after fix | crop | cost to the 400px floor |
+| --- | ---: | --- | --- | ---: | ---: |
+| roth | 162 | AFTER half | 16.9 -> 1.17 | 175px | 0 |
+| wny | 10 | AFTER half | 11.5 -> 1.30 | 60px | 0 |
+| camp | 299 | AFTER half | 7.4 -> 1.25 | 110px | 53 |
+| tccs | 743 | BEFORE half | 96.4% of pairs -> 0.0% | 130px | 9 |
+
+**1214 pairs across four clinics carried this** - a little under half of
+everything collected - and every one of them would have trained.
+
+The floor column is what the 400px gate ITSELF rejected, measured on the cropped
+images, and it is smaller than people assume: 62 pairs total, and the two
+largest crops in the table cost nothing at all. Measure it, do not estimate it,
+and do not blend it with the other gates - 60 camp pairs land below 400px after
+the crop but 7 of those were already going to be rejected for carrying no
+`volume_cc`, so 53 is the floor's own count; roth's smallest cropped half is
+462px and wny's is 508px, so neither clinic loses a pair to the floor however
+much the ratio column suggests a big crop should hurt. wny's one exclusion,
+`wny-19-front`, is a missing `volume_cc` and has nothing to do with the crop.
+
+Four things the fix has to get right:
+
+- **Crop, do not mask.** A mask preserves the leak: the masked region is still
+  present on one half and absent from the other.
+- **Measure the crop per clinic; never transfer one.** Same defect, opposite
+  position: tccs carries its mark on the BEFORE half, roth and camp on the
+  AFTER half. Check whether the offset is constant in PIXELS or as a fraction of
+  height by measuring per height group - on all four of these it was pixels.
+- **Crop both halves by the same amount.** Mismatched before/after dimensions
+  would be a worse label leak than the watermark.
+- **Exclude what falls below the resolution floor; never ship it shrunken.** And
+  re-emit from untouched raw sources rather than re-cropping delivered files, so
+  nothing is degraded twice.
+
+Detection recipe, one line per clinic, runnable before you commit to a gallery:
+
+```python
+# High-pass the average of each half; a fixed-position mark survives, bodies do not.
+avg = lambda ps: Image.fromarray((sum(np.asarray(Image.open(p).convert('L').resize((384,384)), float) for p in ps)/len(ps)).astype('uint8'))
+peak = lambda im: np.abs(np.asarray(im, float) - np.asarray(im.filter(ImageFilter.GaussianBlur(6)), float)).max()
+# ratio >= 2 means one half carries something the other does not -> crop it
+```
+
+Screen for this **at intake, by comparing before-half against after-half mark
+incidence** - not after delivery. tccs reached the finished corpus twice before
+anyone compared the two halves.
+
+#### 4b. An on-body watermark rules the clinic out
+
+A watermark drawn across the torso sits exactly where the anatomy is, and the
+corpus's own censorship/watermark detectors cannot see it (see the
+self-measurement lesson below).
+
+Check by eye at full resolution on a sample from each backdrop/template variant
+the clinic uses (a script overlay can look different on a light vs dark backdrop
+and still be the same mark).
+
+Measured cost - heavenly, universal, on-body, across two backdrop families, and
+all 119 of its pairs ruled unusable (which clinic carries which mark, the
 verdict on each, and whether that verdict is actually enforced on disk, is
 `training/clinic_watermarks.md`):
 
-- Masking the watermark band (`masked_regions`, `dataset_schema.json`) is
-  the correct, honest fix - but the band covers the breasts on essentially
-  every pair, so "kept with a mask" and "usable for breast augmentation
-  training" are different claims.
+- Masking the watermark band (`masked_regions`, `dataset_schema.json`) is the
+  correct, honest fix - but the band covers the breasts on essentially every
+  pair, so "kept with a mask" and "usable for breast augmentation training" are
+  different claims.
 - A GPU inpainting attempt cost $6.75 (RunPod, H100) and *reported* 99.4%
-  removal; a visual audit of the delivered images then found **38 still
-  legibly watermarked and 22 more with a partial residual**, and a third look
-  found the remainder no cleaner. Three clean-up passes, each overstating its
-  own success, and the clinic was discarded outright in the end. See the
-  self-measurement lesson below for why every one of those metrics read
-  optimistically.
-- Off-body watermarks are cheap by comparison: wny's "WNY PLASTIC SURGERY"
-  band sits at the bottom 9% of the after-image frame only, never touching
-  the breasts, and needs no mask - but being on the *after* image alone
-  correlates it perfectly with the training label, which is its own open
-  question.
+  removal; a visual audit of the delivered images then found **38 still legibly
+  watermarked and 22 more with a partial residual**, and a third look found the
+  remainder no cleaner. Three clean-up passes, each overstating its own success,
+  and the clinic was discarded outright in the end. See the self-measurement
+  lesson below for why every one of those metrics read optimistically.
+- Inpainting is not the tool for an edge-band mark. A free crop solved all four
+  clinics in 4a for the price of 62 pairs; heavenly's inpainting cost $28 across
+  three passes and still failed.
 
 ---
 

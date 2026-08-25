@@ -33,9 +33,12 @@ the hosted Gemini model in `app/api/generate/route.ts`.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
 - Censored and annotated photos are rejected, not repaired (`censorship.py`).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
-  a clinic's blur bands. Corner clinic watermarks are fine and are kept; which
-  clinic carries what, and whether it touches breast tissue, is in
-  `clinic_watermarks.md`.
+  a clinic's blur bands. A clinic watermark clear of breast tissue is kept
+  unmasked *only* when it appears on both halves of the pair: a mark burned into
+  one half alone correlates perfectly with the before/after label and is cropped
+  out of both halves at scrape time (`ClinicConfig.bottom_crop_px` in
+  `scripts/scrape_gallery.py`). Which clinic carries what, whether it touches
+  breast tissue, and the verdict on each is in `clinic_watermarks.md`.
 - Pairs are **retired, not deleted**. `retired_pairs.json` enumerates every pair
   id withheld from the finished corpus with the ruling and the reason;
   `emit_corpus.py` reads it and copies each withheld pair into the quarantine
@@ -156,7 +159,10 @@ guarantee that the optional chart/frame fields never reach a caption), caption
 assembly with its `clothing` variants, the censorship detector, the emit stage
 and its retirements (`retired_pairs.json` is asserted directly - count, shape
 and named exceptions - and again through the only code that can put a pair in
-the corpus), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's
+the corpus), the gallery parsers against pinned per-clinic fixtures (including
+the Etna case-list endpoint, whose access gate is asserted from both sides: it
+refuses a clinic holding no grant, and the seven already-enumerated clinics hold
+none), and a drift guard on `configs/qwen_edit_lora.yaml`. The detector's
 tests draw their own torsos - no patient imagery is ever committed. Six tests
 reference the real corpus and its quarantine tree by path and skip when those
 are not mounted: two in the detector's suite, and four asserting that heavenly's

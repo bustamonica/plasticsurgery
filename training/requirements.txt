@@ -2,7 +2,7 @@ pillow>=10.0
 # <5 is a compatibility pin, not a feature pin: nothing here needs the Haar
 # CascadeClassifier any more (the face stage was removed 2026-08-14), but the
 # corpus tooling has only ever been measured against OpenCV 4. censorship.py's
-# thresholds in particular are calibrated against its decoder, and CLAUDE.md
+# thresholds in particular are calibrated against its decoder, and AGENTS.md
 # requires a corpus-wide re-measurement before those move.
 opencv-python-headless>=4.9,<5
 numpy>=1.26

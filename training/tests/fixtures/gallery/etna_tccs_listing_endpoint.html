@@ -1,0 +1,75 @@
+<!-- Trimmed verbatim from the tccs breast-augmentation listing page in the
+     scraper cache. Endpoint enumeration reads two things from a listing: the
+     EII_GALLERY_JS block, which names the endpoint URL, its action and the
+     gallery's own declared total, and the filter form's hidden category_id,
+     which says WHICH category the endpoint should answer for. The Gender /
+     Age / provider controls are kept here because the parser must ignore
+     them - submitting them with a value would narrow the result set. -->
+<html><body>
+<form action="" class="noconvert" id="filter-cases-form" method="GET">
+<input name="category_id" type="hidden" value="535"/>
+<div class="category-filters-wrap">
+<div class="category-filters">
+<div class="category-filter" id="gender">
+<label for="category_filter_gender">Gender</label>
+<fieldset>
+<div class="radio-group">
+<input id="Male" name="filters[Gender]" tabindex="0" type="radio" value="Male"/>
+<label class="radio-label" for="Male">Male</label>
+</div>
+<div class="radio-group">
+<input id="Female" name="filters[Gender]" tabindex="0" type="radio" value="Female"/>
+<label class="radio-label" for="Female">Female</label>
+</div>
+<div class="radio-group">
+<input id="all" name="filters[Gender]" tabindex="0" type="radio" value="__all__"/>
+<label class="radio-label" for="all">All</label>
+</div>
+</fieldset>
+</div>
+<div class="category-filter" id="age">
+<label for="category_filter_surgeon">Age</label>
+<div class="select-wrapper">
+<select id="category_filter_surgeon" name="filters[Age]">
+<option disabled="" selected="" value="__all__">Select Age Range</option>
+<option value="__all__">-- All --</option>
+<option value="Under 25">Under 25</option>
+<option value="25-34">25-34</option>
+<option value="35-44">35-44</option>
+<option value="45-54">45-54</option>
+<option value="55-64">55-64</option>
+<option value="65+">65+</option>
+</select>
+</div>
+</div>
+<div class="category-filter" id="surgeon">
+<label for="category_filter_surgeon">Provider</label>
+<div class="select-wrapper">
+<select id="category_filter_surgeon" name="provider">
+<option disabled="" selected="" value="__all__">Select a Provider</option>
+<option value="__all__">-- All --</option>
+<option value="208">Steven D. Vath, M.D.</option>
+<option value="209">Andrew J. Wolfe, M.D.</option>
+<option value="210">Rejuvenate MedSpa</option>
+<option value="211">Paul M. Steinwald, M.D.</option>
+<option value="716">Matthew D. Freeman, M.D.</option>
+<option value="774">Teresa C. Cunningham, M.D.</option>
+<option value="967">Matthew Miller, M.D.</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+<div class="category-filters-submit mobile">
+<button class="button secondary" onclick="filterClick()" type="button">Apply Filters</button>
+</div>
+<div class="category-filters-clear">
+<a>Clear Filters</a>
+</div>
+</form>
+<script type="text/javascript" id="gallery_public_js-js-extra">
+/* <![CDATA[ */
+EII_GALLERY_JS = {"CATEGORY_RESULTS":{"env":{"config":{"initial_num_cases":12,"num_scroll_loads":1000,"cases_per_scroll_load":9,"cases_per_load_more":6},"state":{"showing":12,"next_returned_position":13,"cases_remaining":567,"cases_by_scroll_load":9012,"will_load_more":false,"total":579}},"url":"https://www.thecenterforcosmeticsurgery.net/wordpress/wp-admin/admin-ajax.php","action":"gallery_category_results"}};
+/* ]]> */
+</script>
+</body></html>

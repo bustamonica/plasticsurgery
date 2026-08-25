@@ -33,9 +33,13 @@ caffeinate -i &            # SEE WARNING BELOW
 > entire time because every local guard was suspended with the laptop. `caffeinate -i`
 > prevents idle sleep. Do not rely on any local watchdog to save you — it sleeps too.
 
-The dataset is already built and verified at
+A dataset is already built and verified at
 `~/firstmate/data/ba-viz-train-conditioning/dataset` (1902 pairs, zero heavenly,
-zero EXIF, patient-level train/val split). You do not need to rebuild it.
+zero EXIF, patient-level train/val split), so the plumbing below can be run
+against it as-is. It is a snapshot: it predates the 2026-08-19 Etna collection,
+which roughly doubled the finished corpus (current coverage per axis is in
+`AGENTS.md`). Rebuild it with `scripts/build_dataset.py` from the finished corpus
+before a run whose results are meant to stand.
 
 ## 1. Create the pod
 
@@ -240,17 +244,22 @@ checkpoint. Sampling ~400 images takes ~1-2h and ~$5.
 
 Be sceptical of it in these specific ways:
 
-- **Volume (cc) is the strongest axis.** 1902 pairs span 140-700cc, but only
-  250-389cc has a long contiguous run of well-populated 10cc buckets. A granularity
-  claim outside roughly 230-490cc is not supported by the data.
+- **Volume (cc) is the strongest axis**, but only a middle band of it is densely
+  populated: on the 1902-pair build above, the only long contiguous run of
+  well-populated 10cc buckets was 250-389cc. Read the current band off `AGENTS.md`
+  for the dataset you actually train on, and treat a granularity claim outside it
+  as unsupported by the data.
 - **10cc granularity is unproven.** The caption states the exact figure, so it is
   *possible*; whether the model resolves a 10cc step above its own seed noise has
   never been measured. Generate the same prompt twice with different seeds first —
   that difference is the floor any real effect must clear.
-- **extra-high profile should be expected to fail.** 6 pairs from 4 patients, only
-  2 of them lateral — and lateral is the only view where profile is visible at all.
-  It stays gated in the configurator for exactly this reason.
-- **Right-facing views are the weakest.** front 995, left-facing 592, right-facing 315.
+- **extra-high profile should be expected to fail.** 6 pairs from 4 patients on
+  the build above, and 12 from 6 after the 2026-08-19 collection - only 3 of them
+  lateral, and lateral is the only view where profile is visible at all. It stays
+  gated in the configurator for exactly this reason.
+- **Right-facing views are the weakest** - about a third fewer examples than
+  left-facing, on the build above and on the corpus since (per-view counts in
+  `AGENTS.md`).
 - **Profile only shows on side/oblique views.** At a fixed volume, moderate and high
   look nearly identical from the front; the difference is forward projection.
 - Compare everything against the **base model with no LoRA loaded**. If stock
