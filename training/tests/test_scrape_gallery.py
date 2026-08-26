@@ -5632,6 +5632,23 @@ def test_page1solutions_matches_markers_and_slides_spelled_differently():
     assert any("data-before in the after slot" in w for w in case.warnings)
 
 
+def test_page1solutions_reads_the_cases_numbering_however_the_grid_spells_it():
+    """The grid and the slides need not spell one image the same way.
+
+    _P1SMarks canonicalises every reference for exactly that reason; reading
+    the raw attribute for the numbering instead loses the case's own after-first
+    convention and drops every pair past the one the grid marks.
+    """
+    html = _p1s_marked_block(
+        "./44/02.jpg", "./44/01.jpg",
+        ("./44/04.jpg", "./44/03.jpg"), ("./44/06.jpg", "./44/05.jpg"),
+        marked_before=P1S_SILICONE + "44/02.jpg",
+        marked_after=P1S_SILICONE + "44/01.jpg")
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert [p.key for p in case.pairs] == ["pair1", "pair2", "pair3"]
+    assert not any("skipped" in w for w in case.warnings)
+
+
 def test_page1solutions_reports_markers_that_match_no_slide_image():
     """A guard that silently checked nothing is invisible from both ends."""
     html = _p1s_marked_block("./44/01.jpg", "./44/02.jpg",
@@ -6058,6 +6075,51 @@ def test_gallatin_takes_the_specs_from_the_first_caption_that_states_them():
     assert case.specs.profile == "high"
     assert case.specs.age == 31
     assert case.warnings == []
+
+
+def _gallatin_two_pair_case(second_after_caption: str):
+    return sg.gallatin_parse_listing(_gallatin_listing(
+        ("Patient-900-Before-Front.jpg", "31 year old patient before bilateral "
+         "breast augmentation"),
+        ("Patient-900-Front-After.jpg",
+         "6 months post-op with 410 cc high profile silicone gel implants"),
+        ("Patient-900-Before-Side.jpg", "31 year old patient before bilateral "
+         "breast augmentation"),
+        ("Patient-900-Side-After.jpg", second_after_caption),
+    ), GALLATIN_URL)[0]
+
+
+def test_gallatin_notes_quote_the_pairs_own_caption_not_its_siblings():
+    """A pair's notes describe THAT photograph.
+
+    The case's specs merge every caption so the purity screen can read all of
+    them, but a note that recites the side pair's caption under the front
+    pair's id is a provenance error in the curation metadata.
+    """
+    case = _gallatin_two_pair_case(
+        "18 months post-op with 410 cc high profile silicone gel implants")
+    front, side = case.pairs
+    front_notes = sg.build_meta("gallatin-900-front", "front", case.specs, {},
+                                {}, None, "ref", front.caption)["notes"]
+    side_notes = sg.build_meta("gallatin-900-side-left", "side-left",
+                               case.specs, {}, {}, None, "ref",
+                               side.caption)["notes"]
+    assert "6 months post-op" in front_notes
+    assert "18 months post-op" not in front_notes
+    assert "18 months post-op" in side_notes
+    assert "6 months post-op" not in side_notes
+
+
+def test_gallatin_screens_a_combined_term_stated_on_a_later_pair():
+    """The clinic restates the case per pair, and may name it only once.
+
+    Reading the first caption alone is the gallery-heading mistake one level
+    down, so the screen reads every caption the case published.
+    """
+    case = _gallatin_two_pair_case(
+        "6 months post-op after a mommy makeover with 410 cc implants")
+    assert case.pairs == []
+    assert any("mommy makeover" in w for w in case.warnings)
 
 
 def test_gallatin_reports_a_case_whose_captions_disagree_on_the_volume():

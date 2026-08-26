@@ -725,6 +725,12 @@ class CaseSpecs:
     """Structured implant/patient specs parsed from a case's text."""
 
     summary: str = ""
+    # Every scrap of case text a purity screen should read, where that is more
+    # than `summary` alone. A clinic that restates its case once per pair
+    # publishes a term on any of them, so the screen needs all of them - but
+    # `summary` is also what a pair's own notes quote, and a note describing a
+    # photograph other than its own is a provenance error.
+    screen_text: str = ""
     fields: dict[str, str] = field(default_factory=dict)
     age: int | None = None
     gender: str = ""
@@ -787,6 +793,10 @@ class ImagePair:
     # composite that draws a divider strip between its two photos.
     crop_caption_band: bool = False
     seam_trim: int = 0
+    # The clinic's own text for THESE two photographs, where it publishes one
+    # per pair rather than one per case. It is what the pair's notes quote; the
+    # case's specs stay the merge of every pair's.
+    caption: str = ""
 
 
 @dataclass
@@ -4536,6 +4546,8 @@ P1S_SIDED_VOLUME_LABELS = {
 P1S_VOLUME_LABELS = set(P1S_SIDED_VOLUME_LABELS) | {"implant size"}
 P1S_NARRATIVE_LABELS = {"procedure"}
 P1S_ASSET_RE = re.compile(r"^\.?/?(\d+)/(\d+)\.(jpe?g|png|webp)$", re.I)
+# The same numbered-folder/numbered-file tail, wherever it sits in a URL.
+P1S_ASSET_TAIL_RE = re.compile(r"(?:^|/)(\d+)/(\d+)\.(?:jpe?g|png|webp)$", re.I)
 P1S_CASE_NUMBER_RE = re.compile(r"case\s*#\s*(\d+)", re.I)
 
 
@@ -4588,17 +4600,25 @@ def _p1s_asset_folder(src: str) -> str | None:
     return m.group(1) if m else None
 
 
-def _p1s_asset_number(src: str) -> int | None:
-    m = P1S_ASSET_RE.match(src.strip())
-    return int(m.group(2)) if m else None
+def _p1s_asset_ref(src: str) -> tuple[str, int] | None:
+    """(asset folder, file number) from ANY spelling of an asset reference.
+
+    Keying a case is a different question and stays on P1S_ASSET_RE: only the
+    platform's relative './44/01.jpg' names a case's own folder there, so an
+    absolute CDN path is a block this parser cannot key. But the NUMBERING is
+    a property of the file whatever the page spells it as, and the grid and
+    the slides do not always spell one image the same way - reading only the
+    anchored form there silently drops the evidence instead of using it.
+    """
+    m = P1S_ASSET_TAIL_RE.search(src.strip().split("?", 1)[0].split("#", 1)[0])
+    return (m.group(1), int(m.group(2))) if m else None
 
 
 def _p1s_descending(before_src: str, after_src: str) -> bool:
     """True when the after asset is numbered BELOW its before, in one folder."""
-    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
-    return (before_n is not None and after_n is not None
-            and _p1s_asset_folder(before_src) == _p1s_asset_folder(after_src)
-            and after_n < before_n)
+    before, after = _p1s_asset_ref(before_src), _p1s_asset_ref(after_src)
+    return (before is not None and after is not None
+            and before[0] == after[0] and after[1] < before[1])
 
 
 def _p1s_numbering_note(before_src: str, after_src: str,
@@ -4612,11 +4632,10 @@ def _p1s_numbering_note(before_src: str, after_src: str,
     Two assets are only comparable within one case's own numbered folder: the
     numbers restart per folder, so a number from another folder says nothing.
     """
-    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
-    if before_n is None or after_n is None:
+    before, after = _p1s_asset_ref(before_src), _p1s_asset_ref(after_src)
+    if before is None or after is None or before[0] != after[0]:
         return None
-    if _p1s_asset_folder(before_src) != _p1s_asset_folder(after_src):
-        return None
+    before_n, after_n = before[1], after[1]
     if after_first:
         if before_n % 2 == 0 and after_n % 2 == 1 and after_n < before_n:
             return None
@@ -4708,8 +4727,9 @@ def _p1s_pair_problem(before_src: str, after_src: str, marks: _P1SMarks,
             and before_folder != after_folder):
         return (f"pairs asset folder {before_folder} against {after_folder}, "
                 f"but a case's images all live in one folder"), None
-    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
     if note is not None:
+        before_n, after_n = (_p1s_asset_ref(before_src)[1],
+                             _p1s_asset_ref(after_src)[1])
         reversed_shape = (after_n > before_n if marks.after_first
                           else after_n < before_n)
         if reversed_shape:
@@ -5014,9 +5034,13 @@ def _gallatin_merge_specs(case: CaseData, fresh: CaseSpecs, key: str) -> None:
     the case to whichever caption came first therefore discards a volume the
     clinic did publish, and a pair carrying no volume_cc produces no training
     caption at all. So each field is taken from the first caption that states
-    it, a volume that disagrees with one already recorded is reported rather
-    than silently resolved, and the summary accumulates every distinct caption
-    so the purity screen reads all of them rather than only the first.
+    it, and a volume that disagrees with one already recorded is reported
+    rather than silently resolved.
+
+    Every caption is accumulated into screen_text, which the purity screen
+    reads - a combined-procedure term the clinic states on the second pair
+    excludes the case as surely as one on the first. It is kept apart from
+    summary because each PAIR quotes its own caption in its own notes.
     """
     specs = case.specs
     existing_cc, fresh_cc = volume_cc(specs), volume_cc(fresh)
@@ -5040,8 +5064,10 @@ def _gallatin_merge_specs(case: CaseData, fresh: CaseSpecs, key: str) -> None:
         specs.placement = fresh.placement
     if specs.incision is None:
         specs.incision = fresh.incision
-    if fresh.summary and fresh.summary not in specs.summary:
-        specs.summary = f"{specs.summary} {fresh.summary}".strip()
+    if not specs.summary:
+        specs.summary = fresh.summary
+    if fresh.summary and fresh.summary not in specs.screen_text:
+        specs.screen_text = f"{specs.screen_text} {fresh.summary}".strip()
 
 
 def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
@@ -5098,7 +5124,8 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
             key=key,
             before_url=gallatin_full_res(before_src),
             after_url=gallatin_full_res(after_src),
-            view_hint=view_hint))
+            view_hint=view_hint,
+            caption=f"{before_cap} {after_cap}".strip()))
         if view_hint is None:
             case.warnings.append(
                 f"pair {key}: filename documents no view; needs annotation")
@@ -5109,7 +5136,8 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
     cases = [by_case[c] for c in order]
     excluded_pairs = 0
     for case in cases:
-        term = combined_procedure_term(case.specs.summary)
+        term = combined_procedure_term(
+            case.specs.screen_text or case.specs.summary)
         if term is not None:
             case.warnings.append(
                 f"not pure breast augmentation (caption names '{term}'); "
@@ -7130,10 +7158,12 @@ def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int],
 # ---------------------------------------------------------------------------
 
 
-def build_notes(specs: CaseSpecs, laterality_source: str | None) -> str:
+def build_notes(specs: CaseSpecs, laterality_source: str | None,
+                pair_caption: str = "") -> str:
     parts = []
-    if specs.summary:
-        parts.append(f"Clinic description: {specs.summary}")
+    description = pair_caption or specs.summary
+    if description:
+        parts.append(f"Clinic description: {description}")
     details = []
     if specs.age is not None:
         details.append(f"age {specs.age}")
@@ -7321,7 +7351,7 @@ def emitted_pair_digest(pair_dir: Path) -> str:
 
 def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
                pair_annotations: dict, view_source: str | None,
-               consent_ref: str) -> dict:
+               consent_ref: str, pair_caption: str = "") -> dict:
     meta: dict = {"pair_id": pair_id, "view": view, "consent_ref": consent_ref}
     vol = volume_cc(specs)
     if vol is not None:
@@ -7345,7 +7375,7 @@ def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
     clothing = pair_annotations.get("clothing") or annotations.get("clothing")
     if clothing in SCHEMA_CLOTHING:
         meta["clothing"] = clothing
-    notes = build_notes(specs, view_source)
+    notes = build_notes(specs, view_source, pair_caption)
     if notes:
         meta["notes"] = notes
     return meta
@@ -8282,7 +8312,7 @@ def main() -> int:
                       f"patient is published under two case keys")
             pair_ann = annotations.get("pairs", {}).get(pair.key, {})
             meta = build_meta(pair_id, view, specs, annotations, pair_ann,
-                              view_source, cfg.consent_ref)
+                              view_source, cfg.consent_ref, pair.caption)
             (pair_dir / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
             emitted += 1
             print(f"    OK {pair_id}")
