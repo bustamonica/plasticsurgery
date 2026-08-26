@@ -186,6 +186,30 @@ class ClinicConfig:
     # the run is invoked, and `--gallery-endpoint` must be passed as well, so neither
     # a config edit nor a stray flag alone opens it.
     endpoint_grant: str | None = None
+    # Rows trimmed from the BOTTOM of every emitted image, as a fraction of
+    # that image's WIDTH, applied equally to the before and the after of a pair.
+    #
+    # A corner or edge watermark is CROPPED rather than tolerated or masked
+    # (captain, 2026-08-19). Masking preserves the defect it is meant to remove
+    # - the masked region is still present on whichever half carried the mark -
+    # and where a mark falls on only one half of a pair it correlates perfectly
+    # with the training label, so an edit model can satisfy "make the breasts
+    # larger" by learning to add or remove a logo.
+    #
+    # Against WIDTH, and as a fraction, because that is how a burned-in mark is
+    # actually drawn. arps publishes one "(c) Dr Eddie Cheng" mark across six
+    # export sizes from 667x1000 to 1707x2560: measured against height its top
+    # edge ranges over 2.5%-6% (the aspect ratios differ), against width it is
+    # a much tighter 3.8%-7.2%, and in pixels it is nothing like constant. A
+    # single pixel figure would either miss the mark on the large exports or
+    # eat a sixth of the small ones.
+    #
+    # Measure it per clinic and never transfer another clinic's number; the
+    # verification that matters is that the mark is GONE afterwards, not that
+    # the arithmetic looked right. Both halves are cropped by the same amount:
+    # a framing difference between before and after would be the same
+    # correlated-with-the-label artifact in another form.
+    bottom_crop_frac: float = 0.0
 
 
 CLINICS: dict[str, ClinicConfig] = {
@@ -433,6 +457,28 @@ CLINICS: dict[str, ClinicConfig] = {
         base_url="https://www.drbandy.com",
         gallery_paths=["/before-after-photos/breast-augmentation/"],
         kind="page1solutions"),
+    # 2026-08-25 batch (CONSENT-2026-08-25-PROSPECTED-CLINICS.md). Parser and
+    # every gallery-specific constant live in arps_gallery.py.
+    #
+    # gallery_paths is informational for this clinic: the walk is paginated and
+    # scoped to the consent signatory's own cases, so arps_gallery builds each
+    # listing URL itself (arps_listing_url) rather than fetching this path.
+    "arps": ClinicConfig(
+        slug="arps", consent_ref="arps-agreement-2026-08-25",
+        base_url="https://arplasticsurgery.com.au",
+        gallery_paths=["/breast-augmentation-gallery/"], kind="arps",
+        # "(c) Dr Eddie Cheng" (some exports "(c) DR Eddie Cheng AR Plastic
+        # Surgery") burned into the bottom band of EVERY image - both halves of
+        # every pair, so it is not a label leak, but a corner or edge mark is
+        # cropped rather than tolerated (captain, 2026-08-19). Measured on the
+        # per-size mean of all 186 published images: the mark's top edge sits
+        # 3.8%-7.2% of the frame's width above the bottom across the six export
+        # sizes; 10% clears the worst by a third. Verified by looking at the
+        # cropped bottom edge of all 186, and by the mean's high-pass peak in
+        # the bottom band falling from 3.4x-28x the body baseline to ~1x.
+        # Costs 0 pairs to the 400px floor: every image is portrait, so the
+        # short edge is the width and a bottom crop does not touch it.
+        bottom_crop_frac=0.10),
 }
 
 
@@ -3626,6 +3672,34 @@ def postprocess_pair(cfg: ClinicConfig, before: bytes,
     return before, after, False
 
 
+def crop_bottom_frac(data: bytes, frac: float) -> bytes:
+    """Trim `frac` of the image's WIDTH off the bottom (ClinicConfig.bottom_crop_frac).
+
+    Distinct from `crop_bottom`, which trims an absolute number of PIXEL rows
+    (`ClinicConfig.bottom_crop_px`). The two mechanisms coexist because they
+    were measured differently per clinic: see AGENTS.md on both bullets.
+
+    Returns the bytes unchanged when frac is 0, so a clinic with no burned-in
+    mark keeps the file the site delivered and is not re-encoded here for
+    nothing (ingest.py re-encodes everything on the way to staging anyway).
+    """
+    import io
+
+    from PIL import Image
+
+    if frac <= 0:
+        return data
+    img = Image.open(io.BytesIO(data))
+    keep = img.height - int(round(img.width * frac))
+    if keep <= 0:
+        raise ValueError(
+            f"bottom_crop_frac={frac} removes the whole {img.width}x{img.height} frame")
+    buf = io.BytesIO()
+    img.crop((0, 0, img.width, keep)).convert("RGB").save(
+        buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
 def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int]) -> bytes:
     """Crop one (row, col) cell out of a rows x cols grid composite image.
 
@@ -4195,6 +4269,13 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             if page > 20:
                 break
         return cases
+    if cfg.kind == "arps":
+        # Imported here rather than at module scope: arps_gallery imports this
+        # module for the shared data model, and by the time collect_cases runs
+        # this module is fully loaded.
+        import arps_gallery
+
+        return arps_gallery.arps_collect_cases(cfg, fetcher)
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 
 
@@ -4319,9 +4400,13 @@ def main() -> int:
                     before_data, after_data, _ = postprocess_pair(
                         cfg, before_data, after_data)
                     (pair_dir / "before.jpg").write_bytes(
-                        crop_bottom(before_data, cfg.bottom_crop_px))
+                        crop_bottom(crop_bottom_frac(
+                            before_data, cfg.bottom_crop_frac),
+                            cfg.bottom_crop_px))
                     (pair_dir / "after.jpg").write_bytes(
-                        crop_bottom(after_data, cfg.bottom_crop_px))
+                        crop_bottom(crop_bottom_frac(
+                            after_data, cfg.bottom_crop_frac),
+                            cfg.bottom_crop_px))
                 elif pair.split_composite:
                     full_url = (pair.before_url
                                 if pair.before_url.startswith("http")
@@ -4339,9 +4424,13 @@ def main() -> int:
                     before_data, after_data, _ = postprocess_pair(
                         cfg, before_data, after_data)
                     (pair_dir / "before.jpg").write_bytes(
-                        crop_bottom(before_data, cfg.bottom_crop_px))
+                        crop_bottom(crop_bottom_frac(
+                            before_data, cfg.bottom_crop_frac),
+                            cfg.bottom_crop_px))
                     (pair_dir / "after.jpg").write_bytes(
-                        crop_bottom(after_data, cfg.bottom_crop_px))
+                        crop_bottom(crop_bottom_frac(
+                            after_data, cfg.bottom_crop_frac),
+                            cfg.bottom_crop_px))
                 else:
                     halves = {}
                     for stem, url in (("before", pair.before_url),
@@ -4358,11 +4447,14 @@ def main() -> int:
                         # A postprocessed half is re-encoded as JPEG, so it may
                         # keep the source extension only when neither
                         # postprocess_pair nor crop_bottom touched it.
-                        name = (f"{stem}.jpg" if cropped
+                        name = (f"{stem}.jpg"
+                                if cropped or cfg.bottom_crop_frac
                                 else emitted_image_name(stem, halves[stem][0],
                                                         cfg.bottom_crop_px))
                         (pair_dir / name).write_bytes(
-                            crop_bottom(data, cfg.bottom_crop_px))
+                            crop_bottom(crop_bottom_frac(
+                                data, cfg.bottom_crop_frac),
+                                cfg.bottom_crop_px))
             except requests.exceptions.HTTPError as exc:
                 # One image missing from the CDN must not end the clinic. tccs
                 # publishes case 11336 with a front photograph that 404s, and an
