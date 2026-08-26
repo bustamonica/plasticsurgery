@@ -4352,6 +4352,7 @@ def rmgallery2_parse_case(case_html: str, case_id: str, source_url: str,
         "div.img-wrap")
     pending_before: str | None = None
     index = 0
+    desynced = False
     if wrap is not None:
         for frame in wrap.select("div.img-frame"):
             classes = frame.get("class") or []
@@ -4364,11 +4365,13 @@ def rmgallery2_parse_case(case_html: str, case_id: str, source_url: str,
                 if pending_before is not None:
                     case.warnings.append(
                         "two consecutive before frames; the unmatched one is dropped")
+                    desynced = True
                 pending_before = src
             elif "after-img" in classes:
                 if pending_before is None:
                     case.warnings.append(
                         "after frame with no preceding before frame; dropped")
+                    desynced = True
                     continue
                 index += 1
                 case.pairs.append(ImagePair(
@@ -4376,6 +4379,18 @@ def rmgallery2_parse_case(case_html: str, case_id: str, source_url: str,
                 pending_before = None
     if pending_before is not None:
         case.warnings.append("trailing before frame with no after; dropped")
+        desynced = True
+    if desynced and case.pairs:
+        # Once the run stops alternating, the halves either side of the gap
+        # belong to different VIEWS of this patient, so the pair reads as a
+        # pose change on top of a size change and every downstream gate passes
+        # it. A parser that says it cannot trust the run must not then emit
+        # from it: hold the case, as gallatin and page1solutions do.
+        case.warnings.append(
+            f"the frame run does not alternate, so the {len(case.pairs)} pair(s) "
+            "it produced may span two views; the case is held rather than paired "
+            "across the gap")
+        case.pairs = []
     if not case.pairs:
         case.warnings.append("no usable image pairs")
 
@@ -4525,9 +4540,21 @@ P1S_CASE_NUMBER_RE = re.compile(r"case\s*#\s*(\d+)", re.I)
 
 
 def page1solutions_page_count(listing_html: str) -> int | None:
-    """Highest ?page=N the gallery's own pager offers, or None if unpaginated."""
+    """Highest ?page=N the gallery's OWN pager offers, or None if unpaginated.
+
+    Read from ul.pager alone. This count is the family's whole enumeration
+    check, and a footer nav, a related-content widget or an inline script
+    carries ?page= links of its own: an inflated figure walks pages the gallery
+    does not have, and on a CMS that serves page 1 for an out-of-range ?page it
+    re-collects page 1's blocks under the case ids they already have, where the
+    per-page block reconciliation counts them as a match and nothing warns.
+    """
     highest = None
-    for m in re.finditer(r"[?&]page=(\d+)", listing_html):
+    soup = BeautifulSoup(listing_html, "html.parser")
+    for link in soup.select("ul.pager a[href]"):
+        m = re.search(r"[?&]page=(\d+)", link["href"])
+        if m is None:
+            continue
         n = int(m.group(1))
         highest = n if highest is None else max(highest, n)
     return highest
@@ -4553,8 +4580,21 @@ def _p1s_asset_number(src: str) -> int | None:
     return int(m.group(2)) if m else None
 
 
-def _p1s_numbering_note(before_src: str, after_src: str) -> str | None:
-    """How this couple departs from odd-before/even-after, or None if it holds.
+def _p1s_descending(before_src: str, after_src: str) -> bool:
+    """True when the after asset is numbered BELOW its before, in one folder."""
+    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
+    return (before_n is not None and after_n is not None
+            and _p1s_asset_folder(before_src) == _p1s_asset_folder(after_src)
+            and after_n < before_n)
+
+
+def _p1s_numbering_note(before_src: str, after_src: str,
+                        after_first: bool = False) -> str | None:
+    """How this couple departs from the numbering in force, or None if it holds.
+
+    The platform habit is odd file before, even file after, ascending. Where
+    the page's own markers show this install numbers its after file FIRST, that
+    is the convention the case is read against instead.
 
     Two assets are only comparable within one case's own numbered folder: the
     numbers restart per folder, so a number from another folder says nothing.
@@ -4564,42 +4604,89 @@ def _p1s_numbering_note(before_src: str, after_src: str) -> str | None:
         return None
     if _p1s_asset_folder(before_src) != _p1s_asset_folder(after_src):
         return None
+    if after_first:
+        if before_n % 2 == 0 and after_n % 2 == 1 and after_n < before_n:
+            return None
+        return (f"asset numbering {before_n}/{after_n} departs from this case's "
+                f"own even-before/odd-after numbering")
     if before_n % 2 == 1 and after_n % 2 == 0 and after_n > before_n:
         return None
     return (f"asset numbering {before_n}/{after_n} departs from the platform's "
             f"odd-before/even-after convention")
 
 
-def _p1s_pair_problem(before_src: str, after_src: str,
-                      documented: dict[str, str], documented_afters: set,
+class _P1SMarks:
+    """What div.view.s3grid states about which image of a pair is which.
+
+    Two spellings of ONE image have to compare equal. The grid publishes its
+    markers as data-before/data-after and the slides publish src; an install
+    that renders one relative and the other absolute, or that appends a
+    cache-buster, would make every lookup miss and silently reduce the guard to
+    the numbering habit with no trace in the output. So every reference is
+    canonicalised against the gallery URL before it is compared.
+
+    The markers also state the case's own NUMBERING: a marked pairing whose
+    after file is numbered below its before says this install numbers
+    after-first, and every slide of the case is then read that way. The grid
+    repeats only the first pair, so re-deciding per slide with the marker
+    discarded would lose every pair past the first at such a practice.
+    """
+
+    def __init__(self, block, gallery_url: str):
+        self._gallery_url = gallery_url
+        self.pairs: dict[str, str] = {}
+        self.after_first = False
+        for item in block.select("div.view.s3grid div.item"):
+            b = item.select_one("img[data-before]")
+            a = item.select_one("img[data-after]")
+            if b is None or a is None:
+                continue
+            self.pairs[self.key(b["data-before"])] = self.key(a["data-after"])
+            if _p1s_descending(b["data-before"], a["data-after"]):
+                self.after_first = True
+        self.afters = set(self.pairs.values())
+
+    def key(self, src: str) -> str:
+        """One image's comparable form, whatever attribute it was read from."""
+        resolved = urljoin(self._gallery_url, (src or "").strip())
+        return resolved.split("?", 1)[0].split("#", 1)[0]
+
+    def describes(self, src: str) -> bool:
+        """True when the grid names this image on either side of a pairing."""
+        key = self.key(src)
+        return key in self.pairs or key in self.afters
+
+
+def _p1s_pair_problem(before_src: str, after_src: str, marks: _P1SMarks,
                       ) -> tuple[str | None, str | None]:
     """(contradiction, note) for one div.slides item read in DOM order.
 
     DOM order alone is too weak to carry a label this consequential: a reversed
     pair teaches the edit model to SHRINK breasts and passes every downstream
     gate silently. Two sources on the page can speak to it - the data-before/
-    data-after markers the s3grid puts on the first pair, and the platform's
-    odd-first/even-second asset numbering - and they do not rank equally. The
-    markers are the page's own statement of which image is which, checked in
-    both directions because an image the page names as a before turning up in
-    the after slot is the same evidence as the pairing itself disagreeing. The
-    numbering is a platform habit: it can raise a suspicion where nothing else
-    speaks, but it never overrules a marker, or a practice that numbers its
-    after file first would lose the first pair of every case.
+    data-after markers the s3grid publishes, and the platform's odd-first/
+    even-second asset numbering - and they do not rank equally. The markers are
+    the page's own statement of which image is which, checked in both
+    directions because an image the page names as a before turning up in the
+    after slot is the same evidence as the pairing itself disagreeing. The
+    numbering is a habit: it can raise a suspicion where nothing else speaks,
+    but it never overrules a marker, and where a marker establishes the case's
+    numbering the whole case is read against THAT.
 
-    So a marker contradiction skips the pair; a marker AFFIRMATION keeps it
-    whatever the numbering does; and with no marker either way, only a
-    descending pair - the shape of an actual reversal - skips. Anything else
-    unconventional is reported and kept.
+    So a marker contradiction skips the pair; a marker affirmation keeps it
+    whatever the numbering does; and with no marker either way, only a couple
+    running against the case's own numbering - the shape of an actual reversal
+    - skips. Anything else unconventional is reported and kept.
     """
-    if before_src in documented and documented[before_src] != after_src:
+    before_key, after_key = marks.key(before_src), marks.key(after_src)
+    if before_key in marks.pairs and marks.pairs[before_key] != after_key:
         return "contradicts the page's own data-before/data-after pairing", None
-    if after_src in documented:
+    if after_key in marks.pairs:
         return "puts an image the page marks data-before in the after slot", None
-    if before_src in documented_afters:
+    if before_key in marks.afters:
         return "puts an image the page marks data-after in the before slot", None
-    note = _p1s_numbering_note(before_src, after_src)
-    if documented.get(before_src) == after_src:
+    note = _p1s_numbering_note(before_src, after_src, marks.after_first)
+    if marks.pairs.get(before_key) == after_key:
         return None, (f"{note}; kept, the page marks this pairing itself"
                       if note else None)
     before_folder = _p1s_asset_folder(before_src)
@@ -4609,9 +4696,13 @@ def _p1s_pair_problem(before_src: str, after_src: str,
         return (f"pairs asset folder {before_folder} against {after_folder}, "
                 f"but a case's images all live in one folder"), None
     before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
-    if note is not None and after_n < before_n:
-        return (f"numbers its after asset ({after_n}) below its before "
-                f"({before_n})"), None
+    if note is not None:
+        reversed_shape = (after_n > before_n if marks.after_first
+                          else after_n < before_n)
+        if reversed_shape:
+            direction = "above" if marks.after_first else "below"
+            return (f"numbers its after asset ({after_n}) {direction} its "
+                    f"before ({before_n})"), None
     return None, f"{note}; kept in DOM order" if note else None
 
 
@@ -4679,13 +4770,8 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
         # div.slides carries every view pair; div.view.s3grid repeats only the
         # first, but its data-before/data-after is what documents which of the
         # two images in an item is which.
-        documented: dict[str, str] = {}
-        for item in block.select("div.view.s3grid div.item"):
-            b = item.select_one("img[data-before]")
-            a = item.select_one("img[data-after]")
-            if b is not None and a is not None:
-                documented[b["data-before"]] = a["data-after"]
-        documented_afters = set(documented.values())
+        marks = _P1SMarks(block, gallery_url)
+        marks_matched = False
         for index, item in enumerate(block.select("div.slides div.item"), 1):
             imgs = [i.get("src", "") for i in item.select("img") if i.get("src")]
             if len(imgs) != 2:
@@ -4693,8 +4779,9 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
                     f"slide {index} publishes {len(imgs)} image(s), not 2; skipped")
                 continue
             before_src, after_src = imgs[0], imgs[1]
-            contradiction, note = _p1s_pair_problem(
-                before_src, after_src, documented, documented_afters)
+            if marks.describes(before_src) or marks.describes(after_src):
+                marks_matched = True
+            contradiction, note = _p1s_pair_problem(before_src, after_src, marks)
             if contradiction is not None:
                 case.warnings.append(f"slide {index} {contradiction}; skipped")
                 continue
@@ -4704,6 +4791,12 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
                 key=f"pair{index}",
                 before_url=urljoin(gallery_url, before_src),
                 after_url=urljoin(gallery_url, after_src)))
+        if marks.pairs and not marks_matched:
+            # The guard the module docstring calls the page's own statement of
+            # which image is which, silently inert.
+            case.warnings.append(
+                "div.view.s3grid marks a before/after pairing that names none "
+                "of the case's slide images; the pairing guard checked nothing")
         if not case.pairs:
             case.warnings.append("no usable image pairs")
 
@@ -4854,8 +4947,15 @@ def gallatin_months_post_op(caption: str) -> float | None:
     return round(months, 2)
 
 
-def gallatin_list_items(listing_html: str) -> list[tuple[str, str]]:
-    """(image url, caption) for every li.gps-gallery-item, in document order."""
+# The per-patient values the gallery's own filter UI publishes on every item.
+# They are the only evidence on the page that two items belong to one patient
+# when the filenames cannot say so.
+GALLATIN_PATIENT_ATTRS = ("data-age", "data-weight", "data-height", "data-time",
+                          "data-implant-size", "data-kids", "data-bra-cup-before")
+
+
+def gallatin_list_items(listing_html: str) -> list[tuple[str, str, dict]]:
+    """(image url, caption, filter attributes) per li.gps-gallery-item, in order."""
     soup = BeautifulSoup(listing_html, "html.parser")
     items = []
     for li in soup.select("li.gps-gallery-item"):
@@ -4868,8 +4968,24 @@ def gallatin_list_items(listing_html: str) -> list[tuple[str, str]]:
         if not src:
             continue
         caption = li.select_one("h6.caption")
-        items.append((src, caption.get_text(" ", strip=True) if caption else ""))
+        attrs = {name: li.get(name) for name in GALLATIN_PATIENT_ATTRS
+                 if li.get(name)}
+        items.append(
+            (src, caption.get_text(" ", strip=True) if caption else "", attrs))
     return items
+
+
+def _gallatin_attrs_disagree(first: dict, second: dict) -> str | None:
+    """The first per-patient filter attribute the two items state differently.
+
+    Only attributes BOTH items publish are compared: one half routinely
+    publishes a subset of the other's, and absence is not disagreement.
+    """
+    for name in GALLATIN_PATIENT_ATTRS:
+        a, b = first.get(name), second.get(name)
+        if a and b and a != b:
+            return name
+    return None
 
 
 def _gallatin_pair_specs(before_cap: str, after_cap: str) -> CaseSpecs:
@@ -4884,10 +5000,15 @@ def _gallatin_pair_specs(before_cap: str, after_cap: str) -> CaseSpecs:
     m = re.search(r"(\d{2})\s*year[- ]old", before_cap, re.I)
     if m:
         specs.age = int(m.group(1))
-    # 'partial submuscular pocket' / 'subpectoral pocket' is the clinic's own
-    # statement of this patient's placement, printed in the before caption
-    # rather than on a chart. Incision is never published here.
-    classify_placement_incision(specs, before_cap)
+    # No placement. AGENTS.md's standing rule is chart text only, never
+    # narrative, and gallatin publishes no chart - 'partial submuscular pocket'
+    # appears in the before caption's prose. A missing placement beats a wrong
+    # one, and placement is curation metadata that reaches no training caption.
+    #
+    # For a future captain revisit only, not acted on here: unlike the marina
+    # prose the rule was settled on, which walks through dual-plane AND
+    # subglandular before naming one, gallatin's captions are single-sentence
+    # per-patient statements of what this patient had.
     return specs
 
 
@@ -4950,23 +5071,29 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
             unresolved.append(items[i][0].rsplit("/", 1)[-1])
             break
         couple = [items[i], items[i + 1]]
-        names = [src.rsplit("/", 1)[-1] for src, _ in couple]
-        halves = [_gallatin_half(n, cap) for n, (_, cap) in zip(names, couple)]
+        names = [src.rsplit("/", 1)[-1] for src, _, _ in couple]
+        halves = [_gallatin_half(n, cap) for n, (_, cap, _) in zip(names, couple)]
         case_ids = [m.group(1) for m in
                     (GALLATIN_PATIENT_RE.search(n) for n in names) if m]
+        # A couple where only ONE filename carries a Patient-N number takes its
+        # case from its partner, so the number cannot cross-check it and one
+        # stray item is enough to stand a numbered half next to a FOREIGN
+        # bare-named one. The item's own filter attributes are the remaining
+        # evidence: where both halves publish one, they must agree.
+        attr_conflict = (_gallatin_attrs_disagree(couple[0][2], couple[1][2])
+                         if len(case_ids) < 2 else None)
         # One before and one after is not enough to pair on: a stray item makes
         # the couple straddle two patients, and a couple whose filenames name
         # two different Patient-N numbers is a fabricated cross-patient pair
-        # that nothing downstream can detect. A couple where only one filename
-        # carries a number is still paired - the bare camera-name uploads take
-        # their case from their partner - but two that disagree are unresolved.
+        # that nothing downstream can detect.
         if (sorted(h or "?" for h in halves) != ["after", "before"]
-                or not case_ids or len(set(case_ids)) != 1):
+                or not case_ids or len(set(case_ids)) != 1
+                or attr_conflict is not None):
             unresolved.append(names[0])
             i += 1
             continue
-        before_src, before_cap = couple[halves.index("before")]
-        after_src, after_cap = couple[halves.index("after")]
+        before_src, before_cap, _ = couple[halves.index("before")]
+        after_src, after_cap, _ = couple[halves.index("after")]
         i += 2
         case_id = case_ids[0]
         views = [v for v in (_gallatin_view(n) for n in names) if v]
@@ -7101,10 +7228,11 @@ def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
     reported as one: a held pair is fully view-typed and waiting on a single
     laterality field, an unannotated one has never been looked at.
 
-    A laterality the annotator DID write but that resolve_view will not accept
-    ('Left', 'l', 'unknown') is a third disposition. Reporting it as 'no
-    laterality' tells them the release path is still waiting on the field they
-    just filled in, with nothing pointing at the value that was rejected.
+    A value the annotator DID write but that resolve_view will not accept - a
+    laterality of 'Left' or 'l', a view of 'Front' or 'oblique-l' - is a third
+    disposition, and neither field may be reported as absent because of it.
+    Saying 'no view annotation' about a pair somebody has annotated sends them
+    looking for work already done instead of at the value that was rejected.
     """
     pair_ann = annotations.get("pairs", {}).get(pair.key, {})
     view_type, _ = _pair_view_type(pair, pair_ann)
@@ -7116,7 +7244,66 @@ def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
                     "left/right label")
         return (f"view type '{view_type}' recorded but no laterality; held "
                 "pending a left/right label")
+    view = pair_ann.get("view")
+    if view:
+        return (f"view {view!r} is neither a schema view "
+                f"({'/'.join(sorted(SCHEMA_VIEWS))}) nor a view type "
+                f"({'/'.join(sorted(LATERAL_VIEW_TYPES))} plus a laterality)")
     return "no view annotation"
+
+
+class DuplicatePatientLog:
+    """Cases whose emitted images are byte-identical - one patient, two keys.
+
+    A clinic's gallery categories are not always disjoint: ciaravino publishes
+    an ultra-high-profile category that is a name-subset of its silicone one,
+    and gryskiewicz a dual-plane category that is a PLACEMENT, orthogonal to
+    the silicone/saline fill types it also publishes. A case appearing in two
+    of them is keyed per gallery, so one patient becomes two pair ids, and
+    build_dataset.py splits train/val by patient precisely so that one person
+    cannot sit on both sides of the split.
+
+    Identical image bytes under two case keys is the one signal that survives
+    that: the asset folder numbering and the printed Case # are both
+    per-gallery. This RECORDS the collision and nothing more - choosing a
+    canonical case and rewriting keys is deliberately out of scope, and no
+    pair is dropped or renamed here.
+    """
+
+    def __init__(self):
+        self._first: dict[str, tuple[str, str]] = {}
+        self.groups: dict[tuple[str, str], list[str]] = {}
+
+    def record(self, case_id: str, pair_id: str, digest: str) -> str | None:
+        """The earlier pair id this one duplicates, or None if it is the first."""
+        first_case, first_pair = self._first.setdefault(digest, (case_id, pair_id))
+        if first_case == case_id:
+            return None
+        self.groups.setdefault(
+            tuple(sorted((first_case, case_id))), []).append(pair_id)
+        return first_pair
+
+    def report_lines(self) -> list[str]:
+        if not self.groups:
+            return []
+        lines = [f"WARN {len(self.groups)} patient(s) collected under more than "
+                 f"one case key (byte-identical images):"]
+        for (first, second), pair_ids in sorted(self.groups.items()):
+            shown = ", ".join(pair_ids[:4]) + (" ..." if len(pair_ids) > 4 else "")
+            lines.append(
+                f"  {first} == {second} ({len(pair_ids)} pair(s): {shown})")
+        lines.append("  A by-patient train/val split must treat each group as ONE "
+                     "patient; nothing was merged or renamed here.")
+        return lines
+
+
+def emitted_pair_digest(pair_dir: Path) -> str:
+    """Content hash of the images a pair emitted, in a stable order."""
+    digest = hashlib.sha256()
+    for path in (sorted(pair_dir.glob("before.*"))
+                 + sorted(pair_dir.glob("after.*"))):
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
@@ -7953,6 +8140,7 @@ def main() -> int:
     print(f"Collected {len(cases)} case(s) for clinic {cfg.slug}")
 
     out_clinic = args.out / cfg.slug
+    duplicates = DuplicatePatientLog()
     emitted = skipped = 0
     stats = {"cc": 0, "shape": 0, "brand": 0, "profile": 0, "specs": 0, "pairs": 0}
     for i, case in enumerate(cases, 1):
@@ -8069,6 +8257,11 @@ def main() -> int:
                 print(f"    SKIP {pair.key}: image unavailable ({exc})")
                 skipped += 1
                 continue
+            twin = duplicates.record(case.case_id, pair_id,
+                                     emitted_pair_digest(pair_dir))
+            if twin is not None:
+                print(f"    WARN {pair_id}: byte-identical to {twin}; the same "
+                      f"patient is published under two case keys")
             pair_ann = annotations.get("pairs", {}).get(pair.key, {})
             meta = build_meta(pair_id, view, specs, annotations, pair_ann,
                               view_source, cfg.consent_ref)
@@ -8082,6 +8275,8 @@ def main() -> int:
     if not args.parse_only:
         print(f"Emitted {emitted} pair(s), skipped {skipped} pair(s); "
               f"{fetcher.requests_made} network request(s)")
+        for line in duplicates.report_lines():
+            print(line)
     return 0
 
 

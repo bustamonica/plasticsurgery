@@ -2465,6 +2465,95 @@ def _run_emit(tmp_path, monkeypatch, image_status):
     return session, sg.main()
 
 
+class _DuplicatePatientSession:
+    """Two Page 1 Solutions categories publishing ONE patient's photographs."""
+
+    headers: dict = {}
+    IMAGE = b"\xff\xd8\xff\xe0 one patient's photograph \xff\xd9"
+
+    def __init__(self, base: str):
+        self.base = base
+
+    def _listing(self, folder: str) -> bytes:
+        root = f"./{folder}/"
+        return (
+            '<html><body><div class="patient"><div class="patient-info">'
+            '<a>Breast Augmentation</a><div class="patient-meta-info">'
+            '<strong>Implant Size:</strong> 350 High Profile</div></div>'
+            f'<div class="slides"><div class="item">'
+            f'<img src="{root}01.jpg"/><img src="{root}02.jpg"/>'
+            "</div></div></div></body></html>").encode()
+
+    def get(self, url, timeout=None):
+        if url.endswith(".jpg"):
+            body = self.IMAGE
+        elif "ultra-high-profile" in url:
+            body = self._listing("55")
+        else:
+            body = self._listing("44")
+
+        class R:
+            status_code = 200
+            content = body
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def test_one_patient_published_in_two_categories_is_reported(
+        tmp_path, monkeypatch, capsys):
+    """A clinic's categories are not always disjoint.
+
+    ciaravino's ultra-high-profile category is a name-subset of its silicone
+    one, so a case in both becomes two pair ids for one person - and
+    build_dataset.py splits train/val BY PATIENT precisely so that one person
+    cannot sit on both sides. Identical image bytes is the only signal that
+    survives per-gallery case keys, so the collision is recorded (and only
+    recorded - nothing is merged or renamed).
+    """
+    cfg = sg.ClinicConfig(
+        slug="p1sdup", consent_ref="p1sdup-agreement",
+        base_url="https://p1s.example.com",
+        gallery_paths=["/gallery/breast-augmentation-silicone-implants/",
+                       "/gallery/ultra-high-profile-silicone-implants/"],
+        kind="page1solutions_paged")
+    monkeypatch.setitem(sg.CLINICS, "p1sdup", cfg)
+    annotations = tmp_path / "ann.json"
+    annotations.write_text(json.dumps({
+        "p1sdup:silicone-44": {"pairs": {"pair1": {"view": "front"}}},
+        "p1sdup:ultra-high-profile-silicone-55": {
+            "pairs": {"pair1": {"view": "front"}}},
+    }))
+
+    session = _DuplicatePatientSession(cfg.base_url)
+    real = sg.PoliteFetcher
+
+    def build(*a, **kw):
+        f = real(*a, **kw)
+        f.session = session
+        return f
+
+    monkeypatch.setattr(sg, "PoliteFetcher", build)
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sg.sys, "argv",
+                        ["scrape_gallery.py", "--clinic", "p1sdup",
+                         "--out", str(tmp_path / "out"), "--delay", "0",
+                         "--annotations", str(annotations)])
+    assert sg.main() == 0
+
+    out = capsys.readouterr().out
+    emitted = sorted(p.parent.name
+                     for p in (tmp_path / "out" / "p1sdup").glob("*/meta.json"))
+    # Both pairs are still emitted: this detects and records, it does not merge.
+    assert emitted == ["p1sdup-silicone-44-front",
+                       "p1sdup-ultra-high-profile-silicone-55-front"]
+    assert "byte-identical to p1sdup-silicone-44-front" in out
+    assert "patient(s) collected under more than one case key" in out
+    assert "silicone-44 == ultra-high-profile-silicone-55" in out
+
+
 def test_a_missing_photograph_skips_the_pair_and_the_clinic_run_continues(
         tmp_path, monkeypatch, capsys):
     """tccs case 11336 publishes a front photograph that 404s.
@@ -5062,6 +5151,46 @@ def test_rmgallery2_listing_ignores_links_outside_its_gallery():
     assert "patient-9" not in sg.rmgallery2_list_cases(html, RMG_GALLERY)
 
 
+def _rmg_frames(*halves: str) -> str:
+    """A case whose img-wrap publishes the given before/after frame run."""
+    frames = "".join(
+        f'<div class="{half}-img img-frame"><img data-src="/x/RMG{n}-9-'
+        f'{half[0]}/small.jpeg"></div>'
+        for n, half in enumerate(halves, 1))
+    return ('<section class="case-wrap">'
+            f'<div class="img-wrap">{frames}</div></section>')
+
+
+def test_rmgallery2_holds_a_case_whose_frame_run_stops_alternating():
+    """Pairing across the gap crosses two VIEWS of one patient.
+
+    The 'after' half would then show a pose change on top of the size change,
+    and the pair id, the 400px floor, the censorship gate and the schema all
+    pass it. A parser that says it cannot trust the run must not emit from it.
+    """
+    case = sg.rmgallery2_parse_case(
+        _rmg_frames("before", "before", "after", "after"), "patient-9", "x")
+    assert case.pairs == []
+    assert any("two consecutive before frames" in w for w in case.warnings)
+    assert any("held rather than paired across the gap" in w
+               for w in case.warnings)
+
+
+def test_rmgallery2_holds_a_case_with_a_trailing_unmatched_before_frame():
+    case = sg.rmgallery2_parse_case(
+        _rmg_frames("before", "after", "before"), "patient-9", "x")
+    assert case.pairs == []
+    assert any("trailing before frame" in w for w in case.warnings)
+
+
+def test_rmgallery2_keeps_an_alternating_run_untouched():
+    """The hold is for a desync only - a clean run still pairs every frame."""
+    case = sg.rmgallery2_parse_case(
+        _rmg_frames("before", "after", "before", "after"), "patient-9", "x")
+    assert [p.key for p in case.pairs] == ["pair1", "pair2"]
+    assert not any("held rather than paired" in w for w in case.warnings)
+
+
 def test_rmgallery2_pairs_each_before_frame_with_the_after_that_follows():
     """The page's own before/after divs pair the files, not a filename rule."""
     case = _rmg_case("silicone-breast-augmentation_patient-1")
@@ -5158,6 +5287,20 @@ def test_page1solutions_pager_is_the_enumeration_check():
     html = load_fixture("page1solutions_ciaravino_silicone.html")
     assert sg.page1solutions_page_count(html) == 38
     assert sg.page1solutions_page_count("<html>no pager</html>") is None
+
+
+def test_page1solutions_page_count_reads_the_pager_and_nothing_else():
+    """The pager is this family's whole enumeration check.
+
+    A footer nav or a related-content widget carries ?page= links of its own,
+    and an inflated count walks pages the gallery does not have - re-collecting
+    page 1 under the case ids it already emitted on any CMS that serves it.
+    """
+    html = load_fixture("page1solutions_ciaravino_silicone.html").replace(
+        "</body>",
+        '<div class="site-footer"><a href="/blog/?page=99">older posts</a></div>'
+        '<script>var related = "/news/?page=250";</script></body>')
+    assert sg.page1solutions_page_count(html) == 38
 
 
 def test_page1solutions_keys_a_case_on_its_asset_folder():
@@ -5325,36 +5468,84 @@ def test_page1solutions_rejects_a_reversed_slide_the_grid_never_marks():
     assert any("below its before" in w for w in case.warnings)
 
 
-def _p1s_marked_block(before_asset: str, after_asset: str) -> str:
-    """One case whose s3grid marks its first slide pair data-before/data-after."""
+def _p1s_marked_block(before_asset: str, after_asset: str,
+                      *more_slides,
+                      marked_before: str = "",
+                      marked_after: str = "") -> str:
+    """One case whose s3grid marks its FIRST slide pair data-before/data-after.
+
+    marked_before/marked_after override how the grid spells the two images, so
+    an install that publishes its markers and its slides in different forms can
+    be exercised.
+    """
+    slides = "".join(
+        f'<div class="item"><img class="feat2" src="{b}"/>'
+        f'<img class="feat2" src="{a}"/></div>'
+        for b, a in ((before_asset, after_asset), *more_slides))
     return (
         '<html><body><div class="patient"><div class="patient-info">'
         '<a>Breast Augmentation (Silicone Implants)</a>'
         '<div class="patient-meta-info">'
         '<strong>Implant Size:</strong> 350 High Profile</div></div>'
         '<div class="view s3grid"><div class="item">'
-        f'<img class="feat2" data-before="{before_asset}" src="{before_asset}"/>'
-        f'<img class="feat2" data-after="{after_asset}" src="{after_asset}"/>'
+        f'<img class="feat2" data-before="{marked_before or before_asset}"/>'
+        f'<img class="feat2" data-after="{marked_after or after_asset}"/>'
         "</div></div>"
-        f'<div class="slides"><div class="item">'
-        f'<img class="feat2" src="{before_asset}"/>'
-        f'<img class="feat2" src="{after_asset}"/>'
-        "</div></div></div></body></html>")
+        f'<div class="slides">{slides}</div></div></body></html>')
 
 
 def test_page1solutions_asset_numbering_never_overrules_the_pages_own_marks():
     """A practice may number its after file first; the page still says which.
 
     The markers are the clinic's statement of which image is which and the
-    numbering is a platform habit. Letting the habit veto the statement would
-    drop the first pair of every case at such an install.
+    numbering is a platform habit. They also state the case's OWN numbering,
+    so every slide is read that way - the grid repeats only the first pair, and
+    re-deciding per slide would drop every pair past it at such an install.
     """
-    html = _p1s_marked_block("./44/02.jpg", "./44/01.jpg")
+    html = _p1s_marked_block("./44/02.jpg", "./44/01.jpg",
+                             ("./44/04.jpg", "./44/03.jpg"),
+                             ("./44/06.jpg", "./44/05.jpg"))
     case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
     assert [(p.before_url, p.after_url) for p in case.pairs] == [
-        (P1S_SILICONE + "44/02.jpg", P1S_SILICONE + "44/01.jpg")]
-    assert any("departs from the platform's" in w and "kept" in w
-               for w in case.warnings)
+        (P1S_SILICONE + f"44/0{b}.jpg", P1S_SILICONE + f"44/0{a}.jpg")
+        for b, a in ((2, 1), (4, 3), (6, 5))]
+    assert not any("skipped" in w for w in case.warnings)
+
+
+def test_page1solutions_still_rejects_a_slide_against_the_cases_own_numbering():
+    """After-first is this case's convention, so ascending is now the reversal."""
+    html = _p1s_marked_block("./44/02.jpg", "./44/01.jpg",
+                             ("./44/03.jpg", "./44/04.jpg"))
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert [p.key for p in case.pairs] == ["pair1"]
+    assert any("above its before" in w and "skipped" in w for w in case.warnings)
+
+
+def test_page1solutions_matches_markers_and_slides_spelled_differently():
+    """The grid publishes data-before/data-after; the slides publish src.
+
+    An install that spells one relative and the other absolute, or appends a
+    cache-buster, would make every lookup miss and silently reduce the guard to
+    the numbering habit - which cannot see a reversal that the numbering happens
+    to agree with.
+    """
+    html = _p1s_marked_block(
+        "./44/02.jpg", "./44/01.jpg",
+        marked_before=P1S_SILICONE + "44/01.jpg?v=7",
+        marked_after=P1S_SILICONE + "44/02.jpg?v=7")
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert case.pairs == []
+    assert any("data-before in the after slot" in w for w in case.warnings)
+
+
+def test_page1solutions_reports_markers_that_match_no_slide_image():
+    """A guard that silently checked nothing is invisible from both ends."""
+    html = _p1s_marked_block("./44/01.jpg", "./44/02.jpg",
+                             marked_before="./99/01.jpg",
+                             marked_after="./99/02.jpg")
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert [p.key for p in case.pairs] == ["pair1"]
+    assert any("the pairing guard checked nothing" in w for w in case.warnings)
 
 
 def test_page1solutions_rejects_a_slide_pairing_two_asset_folders():
@@ -5394,7 +5585,7 @@ P1S_TEST_CFG = sg.ClinicConfig(
     slug="p1sfamily", consent_ref="p1sfamily-agreement",
     base_url="https://p1s.example.com",
     gallery_paths=["/gallery/breast-augmentation-silicone-implants/"],
-    kind="page1solutions")
+    kind="page1solutions_paged")
 
 
 def _p1s_listing_page(folder: str, *, cdn: bool = False,
@@ -5526,8 +5717,20 @@ def test_gallatin_reads_the_case_specs_off_its_captions():
     assert case.specs.profile == "high"
     assert case.specs.months_post_op == 6.0
     assert case.specs.age == 29
-    # 'partial submuscular pocket' is the clinic's own statement of placement.
-    assert case.specs.placement == "submuscular"
+
+
+def test_gallatin_records_no_placement_from_its_caption_prose():
+    """Placement comes from CHART text only, never narrative (AGENTS.md).
+
+    The caption says 'in partial submuscular pocket' and gallatin publishes no
+    chart at all, so the field stays unrecorded: a missing placement beats a
+    wrong one, and the marina precedent settled that prose naming a placement
+    may be explaining options rather than reporting this patient's.
+    """
+    case = _gallatin()["117"]
+    assert "submuscular" in case.specs.summary
+    assert case.specs.placement is None
+    assert case.specs.incision is None
 
 
 @pytest.mark.parametrize("caption,months", [
@@ -5655,6 +5858,45 @@ def test_gallatin_never_pairs_two_different_patients(capsys):
     assert "did not resolve" in capsys.readouterr().out
 
 
+def _gallatin_set_item_attr(html: str, filename: str, name: str, value: str) -> str:
+    """Rewrite one gallery item's filter attribute, found by its image name."""
+    soup = sg.BeautifulSoup(html, "html.parser")
+    for li in soup.select("li.gps-gallery-item"):
+        if filename in str(li):
+            li[name] = value
+    return str(soup)
+
+
+def test_gallatin_cross_checks_a_bare_named_half_against_the_filter_attributes():
+    """A bare camera-name upload has no patient number to check.
+
+    The gallery publishes exactly this shape (Patient-151-.png next to
+    20250827105422627.png), and one stray item is enough to stand a numbered
+    half beside a FOREIGN bare-named one - the same fabricated cross-patient
+    pair the numbered guard exists to stop. The item's own filter attributes
+    are the remaining evidence, so where both halves publish one they must
+    agree; the real couple's do, and it still pairs.
+    """
+    html = load_fixture("gallatin_listing.html")
+    assert _gallatin()["151"].pairs[0].after_url.endswith("20250827105422627.png")
+
+    conflicting = _gallatin_set_item_attr(
+        html, "20250827105422627.png", "data-implant-size", "201-400")
+    cases = {c.case_id: c
+             for c in sg.gallatin_parse_listing(conflicting, GALLATIN_URL)}
+    assert "151" not in cases
+    assert set(cases) == {"117", "121", "31"}
+
+
+def test_gallatin_accepts_a_bare_named_half_when_the_attributes_are_absent():
+    """Absence is not disagreement: one half routinely publishes a subset."""
+    html = _gallatin_set_item_attr(
+        load_fixture("gallatin_listing.html"),
+        "20250827105422627.png", "data-implant-size", "")
+    cases = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}
+    assert len(cases["151"].pairs) == 1
+
+
 GALLATIN_ITEM = ('<li class="gps-gallery-item"><img data-src="https://x/{name}">'
                  '<div class="image-meta"><h6 class="caption">{caption}</h6>'
                  '</div></li>')
@@ -5687,7 +5929,6 @@ def test_gallatin_takes_the_specs_from_the_first_caption_that_states_them():
     assert sg.volume_cc(case.specs) == 410
     assert case.specs.profile == "high"
     assert case.specs.age == 31
-    assert case.specs.placement == "submuscular"
     assert case.warnings == []
 
 
@@ -5802,6 +6043,21 @@ def test_a_laterality_the_release_path_rejects_is_named_not_called_missing(
     reason = sg.view_skip_reason(_lateral_pair(), ann)
     assert repr(laterality) in reason
     assert "no laterality" not in reason
+
+
+@pytest.mark.parametrize("view", ["Front", "Side", "oblique-l", "front view"])
+def test_a_view_the_release_path_rejects_is_named_not_called_missing(view):
+    """'no view annotation' about an annotated pair sends work back to be redone.
+
+    A pair carrying a view AND a laterality is fully annotated; reporting it as
+    one nobody has looked at is the same confusion the laterality message was
+    fixed for, on the release path this batch's held lateral pairs depend on.
+    """
+    ann = {"pairs": {"pair2": {"view": view, "laterality": "left"}}}
+    assert sg.resolve_view(_lateral_pair(), ann) == (None, None)
+    reason = sg.view_skip_reason(_lateral_pair(), ann)
+    assert repr(view) in reason
+    assert reason != "no view annotation"
 
 
 def test_a_case_level_laterality_the_release_path_rejects_is_named_too():
