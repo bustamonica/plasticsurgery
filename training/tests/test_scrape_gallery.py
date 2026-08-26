@@ -5825,16 +5825,17 @@ def test_gallatin_pairs_a_couple_published_after_first():
     assert pair.after_url.endswith("Patient-31-After-Side.jpg")
 
 
-def test_gallatin_falls_back_to_the_caption_when_the_filename_says_nothing():
+def test_gallatin_reads_the_half_off_the_caption_when_the_filename_says_nothing():
     """One upload is a bare camera name: no patient number, no half, no view.
 
-    Its half comes from the caption and its case id from the couple's other
-    file. The view is left unset - it is annotated, never guessed.
+    The caption still resolves its HALF - that is what keeps the walk in step
+    over it rather than shifting every couple after it. What the caption cannot
+    supply is the patient, which is why the couple itself is held.
     """
-    case = _gallatin()["151"]
-    assert [(p.key, p.view_hint) for p in case.pairs] == [("unlabelled1", None)]
-    assert case.pairs[0].after_url.endswith("20250827105422627.png")
-    assert any("documents no view" in w for w in case.warnings)
+    assert sg._gallatin_half(
+        "20250827105422627.png",
+        "2 months post-op with 425cc full profile silicone gel implants") == "after"
+    assert sg._gallatin_view("20250827105422627.png") is None
 
 
 def test_gallatin_reads_the_case_specs_off_its_captions():
@@ -5925,10 +5926,11 @@ def test_gallatin_accounting_separates_a_ruling_from_a_parse_failure(capsys):
         "before a mommy makeover", 1)
     sg.gallatin_parse_listing(html, GALLATIN_URL)
     line = capsys.readouterr().out
-    assert "renders 8 item(s); 8 of them paired into 4 pair(s)" in line
-    assert "across 4 case(s)" in line
+    assert "renders 8 item(s); 6 of them paired into 3 pair(s)" in line
+    assert "across 3 case(s)" in line
     assert "1 pair(s) excluded as combined procedures" in line
-    assert "0 item(s) unresolved" in line
+    # The two held items are the bare-name couple, reported as their own term.
+    assert "2 item(s) unresolved" in line
 
 
 def test_gallatin_reports_a_listing_that_rendered_nothing_as_a_failure(capsys):
@@ -5952,10 +5954,11 @@ def test_gallatin_accounting_sums_every_item_when_one_will_not_pair(capsys):
         'bilateral breast augmentation</h6></div></li>', 1)
     sg.gallatin_parse_listing(html, GALLATIN_URL)
     line = capsys.readouterr().out
-    # 9 rendered = 3 pairs x 2 paired + 3 unresolved, none of them excluded.
-    assert "renders 9 item(s); 6 of them paired into 3 pair(s)" in line
+    # 9 rendered = 2 pairs x 2 paired + 5 unresolved, none of them excluded:
+    # the stray, the couple it straddles, and the bare-name couple.
+    assert "renders 9 item(s); 4 of them paired into 2 pair(s)" in line
     assert "0 pair(s) excluded as combined procedures" in line
-    assert "3 item(s) unresolved" in line
+    assert "5 item(s) unresolved" in line
 
 
 def test_gallatin_unresolvable_item_shifts_the_pairing_by_one(capsys):
@@ -5972,7 +5975,7 @@ def test_gallatin_unresolvable_item_shifts_the_pairing_by_one(capsys):
         '<div class="image-meta"><h6 class="caption">31 year old patient before '
         'bilateral breast augmentation</h6></div></li>', 1)
     cases = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}
-    assert set(cases) == {"117", "151", "121", "31"}
+    assert set(cases) == {"117", "121", "31"}
     assert all(len(c.pairs) == 1 for c in cases.values())
     assert "did not resolve" in capsys.readouterr().out
 
@@ -5998,47 +6001,28 @@ def test_gallatin_never_pairs_two_different_patients(capsys):
                      for m in [sg.GALLATIN_PATIENT_RE.search(url)] if m}
             assert named <= {case.case_id}
     # The stray and the couple it straddles are reported, not paired anyway.
-    assert {c.case_id for c in cases} == {"151", "121", "31"}
+    assert {c.case_id for c in cases} == {"121", "31"}
     assert "did not resolve" in capsys.readouterr().out
 
 
-def _gallatin_set_item_attr(html: str, filename: str, name: str, value: str) -> str:
-    """Rewrite one gallery item's filter attribute, found by its image name."""
-    soup = sg.BeautifulSoup(html, "html.parser")
-    for li in soup.select("li.gps-gallery-item"):
-        if filename in str(li):
-            li[name] = value
-    return str(soup)
-
-
-def test_gallatin_cross_checks_a_bare_named_half_against_the_filter_attributes():
-    """A bare camera-name upload has no patient number to check.
+def test_gallatin_holds_a_couple_only_one_half_of_which_names_a_patient(capsys):
+    """A bare camera-name upload has no patient number, so nothing checks it.
 
     The gallery publishes exactly this shape (Patient-151-.png next to
     20250827105422627.png), and one stray item is enough to stand a numbered
     half beside a FOREIGN bare-named one - the same fabricated cross-patient
-    pair the numbered guard exists to stop. The item's own filter attributes
-    are the remaining evidence, so where both halves publish one they must
-    agree; the real couple's do, and it still pairs.
+    pair the numbered guard exists to stop, with no evidence left on the page
+    to tell the two apart. Held rather than paired: a wrong pair is worse than
+    a missing one (captain ruling, 2026-08-26).
     """
-    html = load_fixture("gallatin_listing.html")
-    assert _gallatin()["151"].pairs[0].after_url.endswith("20250827105422627.png")
-
-    conflicting = _gallatin_set_item_attr(
-        html, "20250827105422627.png", "data-implant-size", "201-400")
-    cases = {c.case_id: c
-             for c in sg.gallatin_parse_listing(conflicting, GALLATIN_URL)}
+    cases = {c.case_id: c for c in sg.gallatin_parse_listing(
+        load_fixture("gallatin_listing.html"), GALLATIN_URL)}
     assert "151" not in cases
     assert set(cases) == {"117", "121", "31"}
-
-
-def test_gallatin_accepts_a_bare_named_half_when_the_attributes_are_absent():
-    """Absence is not disagreement: one half routinely publishes a subset."""
-    html = _gallatin_set_item_attr(
-        load_fixture("gallatin_listing.html"),
-        "20250827105422627.png", "data-implant-size", "")
-    cases = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}
-    assert len(cases["151"].pairs) == 1
+    out = capsys.readouterr().out
+    # Held, and counted as held - not quietly absent.
+    assert "2 item(s) unresolved" in out
+    assert "Patient-151-.png" in out and "20250827105422627.png" in out
 
 
 GALLATIN_ITEM = ('<li class="gps-gallery-item"><img data-src="https://x/{name}">'

@@ -4960,15 +4960,8 @@ def gallatin_months_post_op(caption: str) -> float | None:
     return round(months, 2)
 
 
-# The per-patient values the gallery's own filter UI publishes on every item.
-# They are the only evidence on the page that two items belong to one patient
-# when the filenames cannot say so.
-GALLATIN_PATIENT_ATTRS = ("data-age", "data-weight", "data-height", "data-time",
-                          "data-implant-size", "data-kids", "data-bra-cup-before")
-
-
-def gallatin_list_items(listing_html: str) -> list[tuple[str, str, dict]]:
-    """(image url, caption, filter attributes) per li.gps-gallery-item, in order."""
+def gallatin_list_items(listing_html: str) -> list[tuple[str, str]]:
+    """(image url, caption) for every li.gps-gallery-item, in document order."""
     soup = BeautifulSoup(listing_html, "html.parser")
     items = []
     for li in soup.select("li.gps-gallery-item"):
@@ -4981,24 +4974,8 @@ def gallatin_list_items(listing_html: str) -> list[tuple[str, str, dict]]:
         if not src:
             continue
         caption = li.select_one("h6.caption")
-        attrs = {name: li.get(name) for name in GALLATIN_PATIENT_ATTRS
-                 if li.get(name)}
-        items.append(
-            (src, caption.get_text(" ", strip=True) if caption else "", attrs))
+        items.append((src, caption.get_text(" ", strip=True) if caption else ""))
     return items
-
-
-def _gallatin_attrs_disagree(first: dict, second: dict) -> str | None:
-    """The first per-patient filter attribute the two items state differently.
-
-    Only attributes BOTH items publish are compared: one half routinely
-    publishes a subset of the other's, and absence is not disagreement.
-    """
-    for name in GALLATIN_PATIENT_ATTRS:
-        a, b = first.get(name), second.get(name)
-        if a and b and a != b:
-            return name
-    return None
 
 
 def _gallatin_pair_specs(before_cap: str, after_cap: str) -> CaseSpecs:
@@ -5071,8 +5048,8 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
     """Every case on the gallery, paired by document order.
 
     Items arrive as consecutive before/after couples. A couple that does not
-    hold exactly one of each, or whose two filenames name two different
-    patients, is not silently dropped as a unit: the walk advances by ONE item
+    hold exactly one of each, or whose two filenames do not both name the same
+    patient, is not silently dropped as a unit: the walk advances by ONE item
     and retries, so a single stray item shifts the pairing by one rather than
     mis-pairing every case after it. Whatever is still unresolvable is counted
     and reported.
@@ -5087,29 +5064,25 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
             unresolved.append(items[i][0].rsplit("/", 1)[-1])
             break
         couple = [items[i], items[i + 1]]
-        names = [src.rsplit("/", 1)[-1] for src, _, _ in couple]
-        halves = [_gallatin_half(n, cap) for n, (_, cap, _) in zip(names, couple)]
+        names = [src.rsplit("/", 1)[-1] for src, _ in couple]
+        halves = [_gallatin_half(n, cap) for n, (_, cap) in zip(names, couple)]
         case_ids = [m.group(1) for m in
                     (GALLATIN_PATIENT_RE.search(n) for n in names) if m]
-        # A couple where only ONE filename carries a Patient-N number takes its
-        # case from its partner, so the number cannot cross-check it and one
-        # stray item is enough to stand a numbered half next to a FOREIGN
-        # bare-named one. The item's own filter attributes are the remaining
-        # evidence: where both halves publish one, they must agree.
-        attr_conflict = (_gallatin_attrs_disagree(couple[0][2], couple[1][2])
-                         if len(case_ids) < 2 else None)
-        # One before and one after is not enough to pair on: a stray item makes
-        # the couple straddle two patients, and a couple whose filenames name
-        # two different Patient-N numbers is a fabricated cross-patient pair
-        # that nothing downstream can detect.
+        # One before and one after is not enough to pair on. A stray item makes
+        # the couple straddle two patients, so BOTH filenames have to name the
+        # same Patient-N: two that disagree are a fabricated cross-patient pair
+        # nothing downstream can detect, and a couple where only one carries a
+        # number cannot be checked at all - a bare camera-name upload beside a
+        # foreign numbered half passes every other test on this page. Both are
+        # held rather than paired, per the standing rule that a WRONG pair is
+        # worse than a MISSING one (captain ruling, 2026-08-26).
         if (sorted(h or "?" for h in halves) != ["after", "before"]
-                or not case_ids or len(set(case_ids)) != 1
-                or attr_conflict is not None):
+                or len(case_ids) != 2 or len(set(case_ids)) != 1):
             unresolved.append(names[0])
             i += 1
             continue
-        before_src, before_cap, _ = couple[halves.index("before")]
-        after_src, after_cap, _ = couple[halves.index("after")]
+        before_src, before_cap = couple[halves.index("before")]
+        after_src, after_cap = couple[halves.index("after")]
         i += 2
         case_id = case_ids[0]
         views = [v for v in (_gallatin_view(n) for n in names) if v]
