@@ -1304,3 +1304,223 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# tcclinic (Toronto Cosmetic Clinic; bespoke WordPress / Divi)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def tcclinic_cases():
+    return sg.tcclinic_parse_listing(
+        load_fixture("tcclinic_listing.html"),
+        "https://www.tcclinic.com/surgical/breast-augmentation/before-after-photos/")
+
+
+def test_tcclinic_reads_both_photo_module_shapes(tcclinic_cases):
+    """The gallery publishes its photos two ways and a parser must read both.
+
+    4 of the 26 cases use a Divi `et_pb_gallery` whose composites are ordinary
+    `<a href>`s; the other 22 use an `et_pb_slider` whose images exist ONLY as
+    `background-image` rules in the page's inline CSS. Reading markup alone
+    finds 12 of the 65 published composites.
+    """
+    by_id = {c.case_id: c for c in tcclinic_cases}
+    assert [p.key for p in by_id["67436"].pairs] == ["01", "02", "03"]      # gallery
+    assert [p.key for p in by_id["patient-11"].pairs] == ["1101", "1102", "1103"]  # slider
+    assert all(p.before_url.startswith("https://www.tcclinic.com/")
+               for c in tcclinic_cases for p in c.pairs)
+
+
+def test_tcclinic_case_id_is_the_asset_folder_not_the_displayed_number(tcclinic_cases):
+    """'Patient 25' publishes out of `patient-03`.
+
+    The displayed number is a running position on the page, so keying cases by
+    it would renumber every pair the moment the clinic reorders the gallery.
+    """
+    by_id = {c.case_id: c for c in tcclinic_cases}
+    assert by_id["patient-03"].specs.fields["Case"] == "Patient 25"
+    assert by_id["patient-01"].specs.fields["Case"] == "Patient 4"
+
+
+def test_tcclinic_every_case_carries_volume_and_profile(tcclinic_cases):
+    for case in tcclinic_cases:
+        assert sg.volume_cc(case.specs) is not None
+        assert case.specs.profile is not None
+
+
+def test_tcclinic_reads_asymmetric_left_right_volumes(tcclinic_cases):
+    """'Left: 400cc / Right: 425cc' - both sides, then the schema's average."""
+    case = next(c for c in tcclinic_cases if c.case_id == "patient-01")
+    assert (case.specs.left_cc, case.specs.right_cc) == (400.0, 425.0)
+    assert sg.volume_cc(case.specs) == 412
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("Left: 450 cc / Right: 450cc", (450.0, 450.0)),
+    ("Left: 400cc / Right: 425cc", (400.0, 425.0)),
+    ("350cc", (350.0, 350.0)),
+])
+def test_tcclinic_implant_volumes(value, expected):
+    assert sg.tcclinic_implant_volumes(value) == expected
+
+
+def test_tcclinic_moderate_plus_shorthand_decodes(tcclinic_cases):
+    """This clinic writes moderate-plus as 'Moderate +' on its chart.
+
+    Decoded locally rather than in the shared PROFILE_PATTERNS: curtsinger
+    publishes 'moderate + xtra', Mentor's product line, which the captain's
+    2026-08-19 ruling says does NOT decode.
+    """
+    case = next(c for c in tcclinic_cases if c.case_id == "patient-11")
+    assert case.specs.fields["Implant Profile"] == "Moderate +"
+    assert case.specs.profile == "moderate-plus"
+    assert not sg.PROFILE_PATTERNS[1][0].search("moderate + xtra")
+
+
+def test_tcclinic_chart_placement_and_incision(tcclinic_cases):
+    by_id = {c.case_id: c for c in tcclinic_cases}
+    assert by_id["67436"].specs.placement == "submuscular"
+    assert by_id["67436"].specs.incision == "periareolar"      # 'Peri Areola'
+    assert by_id["66963"].specs.placement == "subglandular"
+    assert by_id["66963"].specs.incision == "inframammary"     # 'Inframmary'
+
+
+def test_tcclinic_photo_taken_converts_weeks_to_months(tcclinic_cases):
+    """'*Photo Taken 6 Weeks after Surgery' - a unit conversion, not a guess;
+    the clinic's own wording survives in the chart fields."""
+    case = next(c for c in tcclinic_cases if c.case_id == "66963")
+    assert case.specs.months_post_op == 1.38
+    assert case.specs.fields["Photo Taken"] == "Photo Taken 6 Weeks after Surgery"
+    assert next(c for c in tcclinic_cases
+                if c.case_id == "67436").specs.months_post_op == 6.0
+
+
+def test_tcclinic_pairs_are_watermark_cropped_composites(tcclinic_cases):
+    for case in tcclinic_cases:
+        for pair in case.pairs:
+            assert pair.split_composite and pair.crop_caption_band
+            assert pair.seam_trim == sg.TCCLINIC_SEAM_TRIM
+            assert pair.before_url == pair.after_url
+            assert pair.view_hint is None      # the '-01' index is positional
+
+
+def test_tcclinic_chart_without_photos_is_reported_not_dropped():
+    html = ('<div class="et_pb_toggle"><h5 class="et_pb_toggle_title">Patient 9</h5>'
+            '<div class="et_pb_toggle_content"><table><tr><td>Implant Size:</td>'
+            '<td>350cc</td></tr></table></div></div>')
+    case, = sg.tcclinic_parse_listing(html, "x")
+    assert case.pairs == []
+    assert case.warnings == ["'Patient 9': chart published with no photos"]
+
+
+# ---------------------------------------------------------------------------
+# Caption-band watermark cropping
+# ---------------------------------------------------------------------------
+
+
+def _banded_composite(width=1200, height=571, band_top=454, badge_top=410,
+                      badge_radius=55):
+    """A composite shaped like tcclinic's: two photo halves, a white caption
+    band across the bottom, and a dark logo badge centred on the seam that
+    rises out of the band into the photo."""
+    import io
+
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    arr = np.zeros((height, width, 3), dtype=np.uint8)
+    arr[:, :width // 2] = (200, 120, 110)     # before half
+    arr[:, width // 2:] = (110, 120, 200)     # after half
+    arr[band_top:, :] = 255
+    img = Image.fromarray(arr)
+    mid = width // 2
+    ImageDraw.Draw(img).ellipse(
+        [mid - badge_radius, badge_top, mid + badge_radius,
+         badge_top + 2 * badge_radius], outline=(35, 31, 32), width=4)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
+def test_caption_band_crop_removes_the_band_and_the_badge_above_it():
+    """The band height alone is the wrong answer.
+
+    tcclinic's badge straddles the seam and rises 44px out of the band into the
+    frame, so cropping only the band leaves the watermark on BOTH halves.
+    """
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    data = _banded_composite()
+    crop = sg.caption_band_crop(data)
+    assert crop > 571 - 454          # more than the band alone
+    with Image.open(io.BytesIO(data)) as im:
+        kept = np.asarray(im.convert("RGB")).astype(int)[: 571 - crop]
+    window = kept[:, 1200 // 2 - sg.LOGO_HALF_WIDTH: 1200 // 2 + sg.LOGO_HALF_WIDTH]
+    assert not ((window.max(axis=2) < sg.LOGO_VALUE)
+                & (window.max(axis=2) - window.min(axis=2) < sg.LOGO_NEUTRAL)).any()
+
+
+def test_caption_band_crop_is_zero_without_a_band():
+    """Same gallery, other image family: 835x455 with no band at all. A
+    detector that always trims would silently shrink 53 of 65 composites."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (835, 455), (180, 140, 130)).save(buf, format="JPEG")
+    assert sg.caption_band_crop(buf.getvalue()) == 0
+
+
+def test_split_composite_image_crops_and_trims_symmetrically():
+    import io
+
+    from PIL import Image
+
+    data = _banded_composite()
+    before_data, after_data = sg.split_composite_image(
+        data, bottom_crop=sg.caption_band_crop(data), seam_trim=8)
+    before, after = (Image.open(io.BytesIO(b)) for b in (before_data, after_data))
+    # Both halves lose exactly the same rows and columns: an unequal crop on a
+    # before/after pair is a label leak.
+    assert before.size == after.size
+    assert before.size[0] == 1200 // 2 - 8
+    assert before.size[1] == 571 - sg.caption_band_crop(data)
+    assert before.convert("RGB").getpixel((296, 205))[0] > 150
+    assert after.convert("RGB").getpixel((296, 205))[2] > 150
+
+
+def test_split_composite_image_rejects_an_impossible_crop():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (900, 450)).save(buf, format="JPEG")
+    with pytest.raises(ValueError, match="exceeds image height"):
+        sg.split_composite_image(buf.getvalue(), bottom_crop=450)
+    with pytest.raises(ValueError, match="seam trim"):
+        sg.split_composite_image(buf.getvalue(), seam_trim=450)
+
+
+def test_split_composite_image_default_path_is_unchanged_for_odd_widths():
+    """Untrimmed, an odd-width composite still gives an after one pixel wider.
+
+    Every clinic already in the corpus was emitted through this path, and
+    emit_corpus.py reads a byte difference as a clash rather than a merge, so
+    adding the crop options must not shift it.
+    """
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (901, 450), (170, 130, 120)).save(buf, format="JPEG")
+    before, after = (Image.open(io.BytesIO(b))
+                     for b in sg.split_composite_image(buf.getvalue()))
+    assert (before.size, after.size) == ((450, 450), (451, 450))
