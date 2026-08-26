@@ -5258,6 +5258,69 @@ def test_page1solutions_reports_a_case_with_no_chart():
                for c in cases for w in c.warnings)
 
 
+def _p1s_swap_slide(html: str, folder: str, index: int) -> str:
+    """Republish one case's Nth div.slides pair in after|before DOM order."""
+    soup = sg.BeautifulSoup(html, "html.parser")
+    for block in soup.select("div.patient"):
+        items = block.select("div.slides div.item")
+        if len(items) < index:
+            continue
+        imgs = items[index - 1].select("img")
+        if len(imgs) != 2 or sg._p1s_asset_folder(imgs[0]["src"]) != folder:
+            continue
+        imgs[0]["src"], imgs[1]["src"] = imgs[1]["src"], imgs[0]["src"]
+    return str(soup)
+
+
+def test_page1solutions_rejects_a_slide_the_page_marks_the_other_way_round():
+    """A reversed pair teaches the model to SHRINK breasts, and passes every gate.
+
+    DOM order alone cannot carry that label. The page marks case 375's first
+    pair data-before='./375/01.jpg' / data-after='./375/02.jpg', so a slide
+    publishing them the other way round contradicts the clinic's own statement
+    and must not be emitted on DOM order.
+    """
+    html = _p1s_swap_slide(
+        load_fixture("page1solutions_ciaravino_silicone.html"), "375", 1)
+    case = {c.case_id: c for c in sg.page1solutions_parse_listing_page(
+        html, P1S_SILICONE, "silicone")}["silicone-375"]
+    assert [p.key for p in case.pairs] == ["pair2", "pair3", "pair4", "pair5"]
+    assert all(p.before_url.endswith(("03.jpg", "05.jpg", "07.jpg", "09.jpg"))
+               for p in case.pairs)
+    assert any("data-before" in w and "skipped" in w for w in case.warnings)
+
+
+def test_page1solutions_rejects_a_reversed_slide_the_grid_never_marks():
+    """div.view.s3grid repeats only the FIRST pair, so it cannot mark the rest.
+
+    The asset numbering is the second, independent source: an after asset
+    numbered below its before is the pair published back to front.
+    """
+    html = _p1s_swap_slide(
+        load_fixture("page1solutions_ciaravino_silicone.html"), "375", 2)
+    case = {c.case_id: c for c in sg.page1solutions_parse_listing_page(
+        html, P1S_SILICONE, "silicone")}["silicone-375"]
+    assert [p.key for p in case.pairs] == ["pair1", "pair3", "pair4", "pair5"]
+    assert any("below its before" in w for w in case.warnings)
+
+
+def test_page1solutions_reports_a_block_it_could_not_key(capsys):
+    """A block with no numbered asset path cannot be keyed - but it is a case.
+
+    Dropping it silently makes it invisible from both ends: the pager counts
+    pages, not cases, so nothing downstream can sum what went missing.
+    """
+    html = load_fixture("page1solutions_ciaravino_silicone.html").replace(
+        'src="./376/', 'src="https://cdn.example.com/376/')
+    cases = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")
+    assert [c.case_id for c in cases] == ["silicone-378", "silicone-375"]
+    assert sg.page1solutions_listing_case_count(html) == 3
+    out = capsys.readouterr().out
+    assert "no numbered asset path" in out
+    # The block is named by whatever it does publish, so the drop is evidenced.
+    assert "https://cdn.example.com/376/01.jpg" in out
+
+
 # ---------------------------------------------------------------------------
 # gallatin parser (bespoke WordPress; one inline list, paired by document order)
 # ---------------------------------------------------------------------------
@@ -5373,6 +5436,87 @@ def test_gallatin_unresolvable_item_shifts_the_pairing_by_one(capsys):
     assert set(cases) == {"117", "151", "121", "31"}
     assert all(len(c.pairs) == 1 for c in cases.values())
     assert "did not resolve" in capsys.readouterr().out
+
+
+def test_gallatin_never_pairs_two_different_patients(capsys):
+    """One before and one after is not enough: they must name the same patient.
+
+    A stray item inserted AFTER the first makes the next couple straddle two
+    patients. Pairing it on half alone fabricates a before/after spanning two
+    people - a corruption the pair id, the 400px floor, the censorship gate and
+    the schema all pass, and that surfaces only as a model that learned nothing.
+    """
+    html = load_fixture("gallatin_listing.html").replace(
+        "</li>",
+        '</li><li class="gps-gallery-item">'
+        '<img data-src="https://x/Patient-500-Before-Front.jpg">'
+        '<div class="image-meta"><h6 class="caption">31 year old patient before '
+        'bilateral breast augmentation</h6></div></li>', 1)
+    cases = sg.gallatin_parse_listing(html, GALLATIN_URL)
+    for case in cases:
+        for pair in case.pairs:
+            named = {m.group(1) for url in (pair.before_url, pair.after_url)
+                     for m in [sg.GALLATIN_PATIENT_RE.search(url)] if m}
+            assert named <= {case.case_id}
+    # The stray and the couple it straddles are reported, not paired anyway.
+    assert {c.case_id for c in cases} == {"151", "121", "31"}
+    assert "did not resolve" in capsys.readouterr().out
+
+
+GALLATIN_ITEM = ('<li class="gps-gallery-item"><img data-src="https://x/{name}">'
+                 '<div class="image-meta"><h6 class="caption">{caption}</h6>'
+                 '</div></li>')
+
+
+def _gallatin_listing(*items: tuple[str, str]) -> str:
+    return ('<html><body><ul class="gps-gallery-list">'
+            + "".join(GALLATIN_ITEM.format(name=n, caption=c) for n, c in items)
+            + "</ul></body></html>")
+
+
+def test_gallatin_takes_the_specs_from_the_first_caption_that_states_them():
+    """Not every caption of a case repeats every field.
+
+    A pair carrying no volume_cc produces no training caption and drops out of
+    the trainable corpus, so a case whose FIRST caption omits the volume the
+    clinic published on its second must not be locked to the first.
+    """
+    case = sg.gallatin_parse_listing(_gallatin_listing(
+        ("Patient-900-Before-Front.jpg",
+         "31 year old patient before bilateral breast augmentation in partial "
+         "submuscular pocket"),
+        ("Patient-900-Front-After.jpg", "6 months post-op result"),
+        ("Patient-900-Before-Side.jpg",
+         "31 year old patient before bilateral breast augmentation"),
+        ("Patient-900-Side-After.jpg",
+         "6 months post-op with 410 cc high profile silicone gel implants"),
+    ), GALLATIN_URL)[0]
+    assert [p.key for p in case.pairs] == ["front1", "side2"]
+    assert sg.volume_cc(case.specs) == 410
+    assert case.specs.profile == "high"
+    assert case.specs.age == 31
+    assert case.specs.placement == "submuscular"
+    assert case.warnings == []
+
+
+def test_gallatin_reports_a_case_whose_captions_disagree_on_the_volume():
+    case = sg.gallatin_parse_listing(_gallatin_listing(
+        ("Patient-901-Before-Front.jpg", "31 year old patient before bilateral "
+         "breast augmentation"),
+        ("Patient-901-Front-After.jpg", "6 months post-op with 410 cc implants"),
+        ("Patient-901-Before-Side.jpg", "31 year old patient before bilateral "
+         "breast augmentation"),
+        ("Patient-901-Side-After.jpg", "6 months post-op with 375 cc implants"),
+    ), GALLATIN_URL)[0]
+    assert sg.volume_cc(case.specs) == 410
+    assert any("disagrees" in w and "410cc" in w for w in case.warnings)
+
+
+def test_gallatin_timepoint_does_not_read_the_patients_age():
+    """The captions open with the age, so an unanchored figure reads as one."""
+    assert sg.gallatin_months_post_op(
+        "29 year old patient, 6 months post-op with 410 cc implants") == 6.0
+    assert sg.gallatin_months_post_op("29 year old patient") is None
 
 
 # ---------------------------------------------------------------------------

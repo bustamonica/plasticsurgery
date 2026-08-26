@@ -1225,6 +1225,45 @@ def volume_cc(specs: CaseSpecs) -> int | None:
     return int(round(sum(values) / len(values)))
 
 
+def _label_regex(labels) -> re.Pattern:
+    """Scan-for-known-labels regex over a run-together chart line.
+
+    Longest label first so 'Implant Size (Left)' wins over 'Implant Size', and
+    'Patient Height' over 'Height'.
+
+    A plain \\b before the label is not enough. northraleigh runs its fields
+    together with no separator, so the next label begins mid-word
+    ('...InframammaryPlacement: Subfascial...'): there is no word boundary
+    between 'y' and 'P', \\bPlacement never matches, and the first field's value
+    swallows the entire rest of the chart. A label may therefore also start at a
+    lowercase-to-uppercase transition. That second alternative has ignorecase
+    switched off with (?-i:...) on purpose - under re.I the class [a-z] also
+    matches capitals, which would let a label start between any two letters.
+    """
+    return re.compile(
+        r"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z])(?=[A-Z])))("
+        + "|".join(re.escape(label) for label in
+                   sorted(labels, key=len, reverse=True))
+        + r")\s*:\s*", re.I)
+
+
+def _split_labelled_line(line: str, label_re: re.Pattern
+                         ) -> tuple[list[tuple[str, str]], str]:
+    """(fields, leftover prose) for one chart line.
+
+    Each known label ends the previous field's value, so a line carrying a whole
+    undelimited chart yields every field instead of one that swallowed the rest.
+    """
+    matches = list(label_re.finditer(line))
+    if not matches:
+        return [], line
+    fields = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
+        fields.append((match.group(1).strip(), line[match.end():end].strip()))
+    return fields, line[:matches[0].start()].strip()
+
+
 # ---------------------------------------------------------------------------
 # drkolker parser
 # ---------------------------------------------------------------------------
@@ -2985,22 +3024,7 @@ ETNA_FIELD_LABELS = (
     "Patient Height", "Patient Weight", "Placement", "Procedure", "Right",
     "Size", "Weight",
 )
-# Longest label first so 'Implant Size (Left)' wins over 'Implant Size', and
-# 'Patient Height' over 'Height'.
-#
-# A plain \b before the label is not enough. northraleigh runs its fields
-# together with no separator, so the next label begins mid-word
-# ('...InframammaryPlacement: Subfascial...'): there is no word boundary
-# between 'y' and 'P', \bPlacement never matches, and the first field's value
-# swallows the entire rest of the chart. A label may therefore also start at a
-# lowercase-to-uppercase transition. That second alternative has ignorecase
-# switched off with (?-i:...) on purpose - under re.I the class [a-z] also
-# matches capitals, which would let a label start between any two letters.
-ETNA_LABEL_RE = re.compile(
-    r"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z])(?=[A-Z])))("
-    + "|".join(re.escape(label) for label in
-               sorted(ETNA_FIELD_LABELS, key=len, reverse=True))
-    + r")\s*:\s*", re.I)
+ETNA_LABEL_RE = _label_regex(ETNA_FIELD_LABELS)
 ETNA_EMPTY_DESCRIPTIONS = re.compile(
     r"^\s*no case details (?:for this patient|available)\.?\s*$", re.I)
 # Fields whose label names the value as an implant size/volume. Per the
@@ -3043,19 +3067,8 @@ def _etna_description_lines(desc) -> list[str]:
 
 
 def _etna_split_fields(line: str) -> tuple[list[tuple[str, str]], str]:
-    """(fields, leftover prose) for one description line.
-
-    Each known label ends the previous field's value, so a line carrying a whole
-    undelimited chart yields every field instead of one that swallowed the rest.
-    """
-    matches = list(ETNA_LABEL_RE.finditer(line))
-    if not matches:
-        return [], line
-    fields = []
-    for i, match in enumerate(matches):
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
-        fields.append((match.group(1).strip(), line[match.end():end].strip()))
-    return fields, line[:matches[0].start()].strip()
+    """(fields, leftover prose) for one .case-description line."""
+    return _split_labelled_line(line, ETNA_LABEL_RE)
 
 
 def _etna_labelled_volume(label: str, value: str) -> float | None:
@@ -4177,33 +4190,6 @@ def combined_procedure_term(*texts: str) -> str | None:
     return None
 
 
-def _label_regex(labels) -> re.Pattern:
-    """Scan-for-known-labels regex over a run-together chart line.
-
-    Same contract as ETNA_LABEL_RE: a label may start at a non-word boundary or
-    at a lowercase-to-uppercase transition, and the longest label wins so
-    'Implant Size (Left)' is not eaten by 'Implant Size'.
-    """
-    return re.compile(
-        r"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z])(?=[A-Z])))("
-        + "|".join(re.escape(label) for label in
-                   sorted(labels, key=len, reverse=True))
-        + r")\s*:\s*", re.I)
-
-
-def _split_labelled_line(line: str, label_re: re.Pattern
-                         ) -> tuple[list[tuple[str, str]], str]:
-    """(fields, leftover prose) for one chart line, per _etna_split_fields."""
-    matches = list(label_re.finditer(line))
-    if not matches:
-        return [], line
-    fields = []
-    for i, match in enumerate(matches):
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
-        fields.append((match.group(1).strip(), line[match.end():end].strip()))
-    return fields, line[:matches[0].start()].strip()
-
-
 # The leading figure of a field the clinic labelled as an implant size. The
 # label supplies the unit, so a bare number counts ('450 High Profile Xtra
 # Filled'); so does one written hard against an abbreviation ('430UHP',
@@ -4547,9 +4533,61 @@ def page1solutions_page_count(listing_html: str) -> int | None:
     return highest
 
 
+def page1solutions_listing_case_count(listing_html: str) -> int:
+    """div.patient blocks one listing page renders, parsed or not.
+
+    The pager states how many PAGES the gallery has, so it cannot see a case
+    the parser dropped inside a page. This is the per-page half of the
+    enumeration check.
+    """
+    return len(BeautifulSoup(listing_html, "html.parser").select("div.patient"))
+
+
 def _p1s_asset_folder(src: str) -> str | None:
     m = P1S_ASSET_RE.match(src.strip())
     return m.group(1) if m else None
+
+
+def _p1s_asset_number(src: str) -> int | None:
+    m = P1S_ASSET_RE.match(src.strip())
+    return int(m.group(2)) if m else None
+
+
+def _p1s_pair_problem(before_src: str, after_src: str,
+                      documented: dict[str, str], documented_afters: set,
+                      ) -> tuple[str | None, str | None]:
+    """(contradiction, note) for one div.slides item read in DOM order.
+
+    DOM order alone is too weak to carry a label this consequential: a reversed
+    pair teaches the edit model to SHRINK breasts and passes every downstream
+    gate silently. Two independent sources on the page can contradict it - the
+    data-before/data-after markers the s3grid puts on the first pair, and the
+    platform's odd-first/even-second asset numbering - and each is checked in
+    both directions, because an image the page names as a before turning up in
+    the after slot is the same evidence as the pairing itself disagreeing.
+
+    A contradiction skips the pair. A numbering that merely departs from the
+    convention without reversing it is reported and kept: the numbering is a
+    platform habit rather than a statement, and a family parser reused on
+    further practices must not drop pairs over one.
+    """
+    if before_src in documented and documented[before_src] != after_src:
+        return "contradicts the page's own data-before/data-after pairing", None
+    if after_src in documented:
+        return "puts an image the page marks data-before in the after slot", None
+    if before_src in documented_afters:
+        return "puts an image the page marks data-after in the before slot", None
+    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
+    if before_n is None or after_n is None:
+        return None, None
+    if after_n < before_n:
+        return (f"numbers its after asset ({after_n}) below its before "
+                f"({before_n})"), None
+    if before_n % 2 != 1 or after_n % 2 != 0:
+        return None, (f"asset numbering {before_n}/{after_n} departs from the "
+                      f"platform's odd-before/even-after convention; kept in "
+                      f"DOM order")
+    return None, None
 
 
 def page1solutions_parse_meta(meta_block, specs: CaseSpecs) -> None:
@@ -4598,6 +4636,16 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
                 for i in block.select("img")]
         folders = [f for f in (_p1s_asset_folder(s) for s in srcs) if f]
         if not folders:
+            # The asset folder is the case key, so a block that publishes none
+            # cannot be collected - but it is a case the gallery rendered, and
+            # dropping it silently is a case that no accounting can sum.
+            link = info.select_one("a") if info else None
+            m = (P1S_CASE_NUMBER_RE.search(link.get_text(" ", strip=True))
+                 if link is not None else None)
+            evidence = (f"Case #{m.group(1)}" if m
+                        else next((s for s in srcs if s), "no image published"))
+            print(f"  WARN page1solutions/{gallery_tag}: case block "
+                  f"({evidence}) publishes no numbered asset path; dropped")
             continue
         folder = folders[0]
         case_id = f"{gallery_tag}-{folder}"
@@ -4612,6 +4660,7 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
             a = item.select_one("img[data-after]")
             if b is not None and a is not None:
                 documented[b["data-before"]] = a["data-after"]
+        documented_afters = set(documented.values())
         for index, item in enumerate(block.select("div.slides div.item"), 1):
             imgs = [i.get("src", "") for i in item.select("img") if i.get("src")]
             if len(imgs) != 2:
@@ -4619,11 +4668,13 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
                     f"slide {index} publishes {len(imgs)} image(s), not 2; skipped")
                 continue
             before_src, after_src = imgs[0], imgs[1]
-            if before_src in documented and documented[before_src] != after_src:
-                case.warnings.append(
-                    f"slide {index} contradicts the page's own data-before/"
-                    f"data-after pairing; skipped")
+            contradiction, note = _p1s_pair_problem(
+                before_src, after_src, documented, documented_afters)
+            if contradiction is not None:
+                case.warnings.append(f"slide {index} {contradiction}; skipped")
                 continue
+            if note is not None:
+                case.warnings.append(f"slide {index} {note}")
             case.pairs.append(ImagePair(
                 key=f"pair{index}",
                 before_url=urljoin(gallery_url, before_src),
@@ -4723,8 +4774,12 @@ GALLATIN_SIDE_RE = re.compile(r"(?<![A-Za-z])(?:side|sode|sied)(?![A-Za-z])", re
 GALLATIN_OBLIQUE_RE = re.compile(r"(?<![A-Za-z])oblique(?![A-Za-z])", re.I)
 GALLATIN_POSTOP_RE = re.compile(
     r"\b(?:post[- ]?op|months?d?\s+(?:post|with)|weeks?\s+(?:post|with))", re.I)
+# The interval must sit against a post-op marker, exactly as GALLATIN_POSTOP_RE
+# reads one. The captions open with the patient's age ('29 year old patient'),
+# so a bare first number-and-unit anywhere in the string reads an age as a
+# follow-up interval and writes it to months_post_op in meta.json.
 GALLATIN_TIMEPOINT_RE = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(month|week|year)s?d?\b", re.I)
+    r"(\d+(?:\.\d+)?)[\s-]*(month|week|year)s?d?[\s-]*(?:post|with)", re.I)
 GALLATIN_MONTHS_PER = {"month": 1.0, "week": 1 / 4.345, "year": 12.0}
 
 
@@ -4782,14 +4837,73 @@ def gallatin_list_items(listing_html: str) -> list[tuple[str, str]]:
     return items
 
 
+def _gallatin_pair_specs(before_cap: str, after_cap: str) -> CaseSpecs:
+    """The case's specs as ONE pair's captions state them."""
+    specs = CaseSpecs()
+    specs.summary = f"{before_cap} {after_cap}".strip()
+    specs.left_cc, specs.right_cc = parse_fill_volumes(after_cap)
+    classify_brand_shape_profile(specs, after_cap)
+    if specs.profile is None:
+        specs.profile = captain_profile_term(after_cap)
+    specs.months_post_op = gallatin_months_post_op(after_cap)
+    m = re.search(r"(\d{2})\s*year[- ]old", before_cap, re.I)
+    if m:
+        specs.age = int(m.group(1))
+    # 'partial submuscular pocket' / 'subpectoral pocket' is the clinic's own
+    # statement of this patient's placement, printed in the before caption
+    # rather than on a chart. Incision is never published here.
+    classify_placement_incision(specs, before_cap)
+    return specs
+
+
+def _gallatin_merge_specs(case: CaseData, fresh: CaseSpecs, key: str) -> None:
+    """Fold one pair's caption specs into the case they belong to.
+
+    Every pair of a case restates the case, but not every caption states every
+    field: one pair's after caption reads '6 months post-op' and the next
+    '6 months post-op with 410 cc high profile silicone gel implants'. Locking
+    the case to whichever caption came first therefore discards a volume the
+    clinic did publish, and a pair carrying no volume_cc produces no training
+    caption at all. So each field is taken from the first caption that states
+    it, a volume that disagrees with one already recorded is reported rather
+    than silently resolved, and the summary accumulates every distinct caption
+    so the purity screen reads all of them rather than only the first.
+    """
+    specs = case.specs
+    existing_cc, fresh_cc = volume_cc(specs), volume_cc(fresh)
+    if existing_cc is None:
+        specs.left_cc, specs.right_cc = fresh.left_cc, fresh.right_cc
+    elif fresh_cc is not None and fresh_cc != existing_cc:
+        case.warnings.append(
+            f"pair {key}: caption volume disagrees with the case's "
+            f"first caption; kept {existing_cc}cc")
+    if specs.profile is None:
+        specs.profile = fresh.profile
+    if specs.shape is None:
+        specs.shape = fresh.shape
+    if specs.brand == "unknown":
+        specs.brand = fresh.brand
+    if specs.months_post_op is None:
+        specs.months_post_op = fresh.months_post_op
+    if specs.age is None:
+        specs.age = fresh.age
+    if specs.placement is None:
+        specs.placement = fresh.placement
+    if specs.incision is None:
+        specs.incision = fresh.incision
+    if fresh.summary and fresh.summary not in specs.summary:
+        specs.summary = f"{specs.summary} {fresh.summary}".strip()
+
+
 def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     """Every case on the gallery, paired by document order.
 
     Items arrive as consecutive before/after couples. A couple that does not
-    hold exactly one of each is not silently dropped as a unit: the walk
-    advances by ONE item and retries, so a single stray item shifts the pairing
-    by one rather than mis-pairing every case after it. Whatever is still
-    unresolvable is counted and reported.
+    hold exactly one of each, or whose two filenames name two different
+    patients, is not silently dropped as a unit: the walk advances by ONE item
+    and retries, so a single stray item shifts the pairing by one rather than
+    mis-pairing every case after it. Whatever is still unresolvable is counted
+    and reported.
     """
     items = gallatin_list_items(listing_html)
     by_case: dict[str, CaseData] = {}
@@ -4805,7 +4919,14 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         halves = [_gallatin_half(n, cap) for n, (_, cap) in zip(names, couple)]
         case_ids = [m.group(1) for m in
                     (GALLATIN_PATIENT_RE.search(n) for n in names) if m]
-        if sorted(h or "?" for h in halves) != ["after", "before"] or not case_ids:
+        # One before and one after is not enough to pair on: a stray item makes
+        # the couple straddle two patients, and a couple whose filenames name
+        # two different Patient-N numbers is a fabricated cross-patient pair
+        # that nothing downstream can detect. A couple where only one filename
+        # carries a number is still paired - the bare camera-name uploads take
+        # their case from their partner - but two that disagree are unresolved.
+        if (sorted(h or "?" for h in halves) != ["after", "before"]
+                or not case_ids or len(set(case_ids)) != 1):
             unresolved.append(names[0])
             i += 1
             continue
@@ -4831,35 +4952,8 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
             case.warnings.append(
                 f"pair {key}: filename documents no view; needs annotation")
 
-        # The after caption is the case's spec statement, and every pair of a
-        # case repeats it. Record the first that carries one, and say so when a
-        # later pair of the same case disagrees rather than silently keeping one.
-        if not case.specs.summary:
-            specs = CaseSpecs()
-            specs.summary = f"{before_cap} {after_cap}".strip()
-            specs.left_cc, specs.right_cc = parse_fill_volumes(after_cap)
-            classify_brand_shape_profile(specs, after_cap)
-            if specs.profile is None:
-                specs.profile = captain_profile_term(after_cap)
-            specs.months_post_op = gallatin_months_post_op(after_cap)
-            m = re.search(r"(\d{2})\s*year[- ]old", before_cap, re.I)
-            if m:
-                specs.age = int(m.group(1))
-            # 'partial submuscular pocket' / 'subpectoral pocket' is the
-            # clinic's own statement of this patient's placement, printed in
-            # the before caption rather than on a chart. Incision is never
-            # published here.
-            classify_placement_incision(specs, before_cap)
-            case.specs = specs
-        elif _cc_numbers(after_cap):
-            existing = volume_cc(case.specs)
-            fresh_l, fresh_r = parse_fill_volumes(after_cap)
-            fresh = [v for v in (fresh_l, fresh_r) if v is not None]
-            if existing is not None and fresh and int(round(
-                    sum(fresh) / len(fresh))) != existing:
-                case.warnings.append(
-                    f"pair {key}: caption volume disagrees with the case's "
-                    f"first caption; kept {existing}cc")
+        _gallatin_merge_specs(
+            case, _gallatin_pair_specs(before_cap, after_cap), key)
 
     cases = [by_case[c] for c in order]
     for case in cases:
@@ -7671,6 +7765,8 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             page_cases = page1solutions_parse_listing_page(
                 first, gallery_url, short)
             cases.extend(page_cases)
+            rendered_blocks = page1solutions_listing_case_count(first)
+            collected_cases = len(page_cases)
             pages_walked = 1
             page = 2
             while declared_pages is not None and page <= declared_pages:
@@ -7685,6 +7781,8 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                     print(f"  WARN {cfg.slug}/{tag}: page {page} rendered no cases")
                     break
                 cases.extend(more)
+                rendered_blocks += page1solutions_listing_case_count(html)
+                collected_cases += len(more)
                 pages_walked += 1
                 page += 1
             # The pager enumerates every page, so it is the enumeration check.
@@ -7694,6 +7792,15 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             else:
                 print(f"  {cfg.slug}/{tag}: walked all "
                       f"{declared_pages or 1} listing page(s)")
+            # Pages walked says nothing about cases dropped INSIDE a page, so
+            # the blocks the listing rendered are reconciled separately.
+            if collected_cases != rendered_blocks:
+                print(f"  WARN {cfg.slug}/{tag}: collected {collected_cases} "
+                      f"case(s) from the {rendered_blocks} case block(s) those "
+                      f"page(s) render")
+            else:
+                print(f"  {cfg.slug}/{tag}: collected all {collected_cases} "
+                      f"case block(s) those page(s) render")
         return cases
     if cfg.kind == "gallatin":
         url = cfg.base_url + cfg.gallery_paths[0]
