@@ -42,8 +42,16 @@ from PIL import Image
 import emit_corpus
 from conftest import CORPUS, QUARANTINE, make_torso, needs_corpus, needs_quarantine
 from ingest import MIN_DIMENSION, VALID_VIEWS
+from test_mosaic import pixelate, tattoo
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
+
+# A chest patch on make_torso()'s 768x1024 silhouette, sized so that pixelating
+# it is seen by `mosaic.py` and NOT by `censorship.py`. That separation is the
+# point: the wider chest box `test_mosaic.py` uses trips the detail-suppressed
+# rule as well, so a pair built on it would still be held with the mosaic gate
+# unwired and would prove nothing about this stage.
+MOSAIC_BOX = (int(768 * 0.44), int(1024 * 0.38), int(768 * 0.56), int(1024 * 0.44))
 CALIBRATED = {
     "sanantonio-23999-oblique-right",
     "sanantonio-24007-oblique-right",
@@ -845,6 +853,57 @@ class TestGates:
         make_staged("clinic01-0002-front")
         run(tmp_path)
         assert dispositions(tmp_path)["clinic01-0001-front"] == "censored"
+
+    def test_a_mosaicked_pair_is_held_reported_and_left_in_staging(
+        self, tmp_path, make_staged, capsys
+    ):
+        """The other half of "dropped at ingest AND never emitted".
+
+        Every staging tree on disk was ingested before the mosaic gate landed,
+        so `ingest.py` alone does not carry the 2026-08-14 rule through to the
+        finished corpus. The hold must be visible and reversible rather than a
+        silent drop: half the corpus sweep's flags are drdanielbarrett's
+        burned-in watermark lettering, so what stops here is consented data
+        awaiting a human's eye, and `staging/` has to survive intact.
+        """
+        damaged = pixelate(tattoo(make_torso(seed=32), MOSAIC_BOX), MOSAIC_BOX, 12)
+        staged = make_staged(
+            "clinic01-0001-front", images=(make_torso(seed=31), damaged)
+        )
+        make_staged("clinic01-0002-front", seed=3)
+        quarantine = tmp_path / "quarantine"
+        quarantine.mkdir()
+
+        run(tmp_path, quarantine=quarantine)
+
+        row = {r["pair_id"]: r for r in report_rows(tmp_path)}["clinic01-0001-front"]
+        # its own disposition, never folded into `censored`
+        assert row["disposition"] == "mosaic"
+        # the detail names the half and carries the detector's own evidence, so
+        # the region is findable without re-running anything
+        assert row["detail"].startswith("after: ")
+        assert "mosaic pixelation at x=" in row["detail"]
+        assert "grid alignment" in row["detail"]
+        # visible in the run's stdout, not just the CSV
+        assert "HOLD clinic01-0001-front: mosaic" in capsys.readouterr().out
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
+        # holds and reports: staging untouched, and nothing copied to quarantine
+        assert visible(staged) == {"before.jpg", "after.jpg", "meta.json"}
+        assert visible(quarantine) == set()
+        # and the gate costs the clinic nothing else
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_ink_without_a_mosaic_over_it_still_emits(self, tmp_path, make_staged):
+        """The gate keys on the tiling, not on the mark it hides.
+
+        Same torso and the same ink as the pair above, unpixelated. A gate that
+        held this would be holding every tattooed patient in the corpus.
+        """
+        marked = tattoo(make_torso(seed=32), MOSAIC_BOX)
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), marked))
+        run(tmp_path)
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit"
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
 
     def test_a_pair_below_the_size_floor_is_not_emitted(self, tmp_path, make_staged):
         make_staged("clinic01-0001-front", size=(399, 500))

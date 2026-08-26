@@ -6,9 +6,14 @@ dropped at ingest and never emitted. `censorship.py` was supposed to carry that
 rule through its `detail-suppressed` heuristic and does not: measured 2026-08-25
 on `aips` it flagged **0 of 182** images while `ingest.py` accepted 22 visibly
 mosaicked pairs, and the same false negative had already been recorded on
-`sanantonio` (24 emitted pairs), `marina` (`marina-17784-front`) and
-`drmiroshnik` (`case55-front`). Two reproducible reasons, both in
-`_find_detail_suppressed`: it discards any low-detail component touching the
+`sanantonio` (24 emitted pairs) and `marina` (`marina-17784-front`). That chain
+is three sightings and not the four earlier reports carried: `drmiroshnik`
+(`case55-front`) is struck from it because the live corpus pair is clean and the
+mosaicked abdomen exists only in the quarantined copy under
+`quarantine/deidentify-blur-damage/drmiroshnik/`, where it is `deidentify.py`'s
+own Haar blur rather than anything the clinic published (AGENTS.md records that
+whole quarantine bucket as superseded blur damage). Two reproducible reasons,
+both in `_find_detail_suppressed`: it discards any low-detail component touching the
 frame edge, and a mosaic's own block edges carry high gradient energy, so
 pixelation does not read as texture-free skin at all. This module is the
 separate gate, not a patch to that one - keeping them apart is what lets each be
@@ -43,11 +48,58 @@ Negatives, no false positive at this operating point:
   aips clean halves          0 of 140
   bayside `censorship.py` holds 0 of 152  (the smooth warm-backdrop family)
   harrington-176-front       0 of 2    (the smooth-skin family)
-Corpus sweep, 9,442 images over 4,721 finished pairs: 16 images flagged in 14
-pairs across 3 clinics. Every one was opened: 8 are real clinic mosaic
-(gallatin 6, ciaravino 2, both censored tattoos at the frame edge) and 8 are
-drdanielbarrett watermark lettering, the one false-positive family that
-survives. Precision 50% by hand count; see the report for the per-clinic table.
+Corpus sweep, 9,442 images over 4,721 finished pairs: 16 images flagged in 13
+pairs across 3 clinics - drdanielbarrett 7, gallatin 5, ciaravino 1. (Commit
+1c5f6eb's message and an earlier draft of this docstring both say 14 pairs and
+are wrong; the per-pair records in `corpus-sweep-flagged.json` are what 13 is
+counted from and are authoritative.) Every one of the 16 was opened: 8 are real
+clinic mosaic (gallatin 6, ciaravino 2, both censored tattoos at the frame edge)
+and 8 are drdanielbarrett watermark lettering, the one false-positive family
+that survives. Precision 50% by hand count at image level; see the report for
+the per-clinic table.
+
+LIMITS - read before trusting a clean run
+-----------------------------------------
+WHAT IS CAUGHT, exactly: a tiling of at least `MIN_SPAN_CELLS` (3) cells across
+in BOTH directions and `SMALL_MIN_CELLS` (5) cells in all, of `CELL_MIN` (5px)
+or larger, sitting ON THE BODY (`MIN_ON_BODY`), each cell flat inside
+(`FLAT_MAX`) and stepping `STEP_MIN` (6) levels or more against its neighbours,
+with the cluster's own cell means spread between `SPREAD_MIN` (3) and
+`SPREAD_MAX` (20), and grid-aligned at `SMALL_MIN_ALIGN`/`LARGE_MIN_ALIGN`.
+Anything that fails one of those is invisible to this gate, and four families
+measurably do:
+
+  1. The sanantonio/marina family - a few dozen cells of skin-tone-on-skin-tone
+     mosaic over a tattoo at the clinic's published 450px - is NOT caught, and
+     it is NOT a threshold away. Their neighbour steps measure 2-4 levels
+     against `STEP_MIN` 6, and their best grid-alignment score is 2.9, which is
+     exactly what a CLEAN aips arm scores: the separation is the wrong way
+     round, not merely narrow. Lowering `STEP_MIN` to 4.0 was measured end to
+     end - aips recall barely moves (38 of 44 images), the aips clean halves
+     pick up 8 false positives, and sanantonio still scores 0 of 48.
+  2. Mosaic over a very HIGH-CONTRAST mark - black ink on pale skin - puts the
+     cluster's cell levels tens of levels apart, exceeds `SPREAD_MAX` and reads
+     as two materials meeting rather than one tiling. That ceiling is the price
+     of excluding burned-in watermark lettering (without it the sweep flags 47
+     images and 39 are false), and it is most of the 15 aips images that go
+     unflagged. This is the RECALL half of that trade, on the record here as
+     well as in the report: hardening took aips from 39 to 29 images and from
+     21 to 18 pairs.
+  3. Mosaic on the BACKDROP rather than the body is excluded by construction:
+     `MIN_ON_BODY` requires half the region's area to sit on `censorship.py`'s
+     silhouette. That is what keeps a flat studio backdrop beside a bright body
+     edge from reading as a tiling (112 false images over blaine, drrohrich,
+     swan and charlotte), and it costs any mosaic drawn off the body.
+  4. An 8px mosaic re-encoded OUT OF PHASE with JPEG's own 8x8 DCT grid is
+     smeared past detection: measured 0 regions at quality 95, 37 at quality
+     100, and 394 when the two grids happen to align. aips publishes an 8px
+     mosaic and is still caught 18 of 22 pairs, so this is a degradation rather
+     than a wall - but it is why cell size 8 is deliberately absent from the
+     parametrized positives in `tests/test_mosaic.py`.
+
+So a clean run from this module is NOT evidence that a clinic is uncensored.
+Opening the images is still the only complete screen, exactly as
+`censorship.py`'s docstring says of itself.
 
 WHY THE THRESHOLDS SIT WHERE THEY DO
 ------------------------------------

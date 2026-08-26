@@ -21,6 +21,39 @@ faces appear in what they publish and the captain holds that assurance (ruling
 2026-08-14). See `deidentify.py`'s docstring for what that stage cost when it
 existed.
 
+## The mosaic gate
+
+`mosaic.py` runs here as well as in `ingest.py`, for exactly the reason the EXIF
+check does: a staging tree need not have come from the current `ingest.py`, and
+every one on disk was ingested before the gate landed on 2026-08-26. The standing
+rule (captain, 2026-08-14) is that mosaic is dropped at ingest AND never emitted,
+and this is the second half of it. It keeps its own disposition, `mosaic`, and is
+never folded into `censored`: the two gates carry separate measured tables and
+have to stay separable in a report and in a future re-measure.
+
+It HOLDS AND REPORTS. Nothing is moved, copied or deleted, `staging/` is left
+exactly as it was found, and there is no `QUARANTINE_DIRS` entry - so a hold is
+undone by re-running once a flag has been judged false. That is deliberate: of
+the 16 flags the corpus sweep produced, 8 are real mosaic and 8 are
+drdanielbarrett's burned-in watermark lettering, so a silent drop here would
+destroy consented data through an already-measured false-positive family. The
+detail names the half and carries the detector's own box, cell size, cell count
+and grid alignment, so the region can be found without re-running anything.
+
+Measured over every staging tree on disk before this shipped - 1,053 pairs across
+aips 70, arps 55, drdanielbarrett 298, drkolker 240, sanantonio 207 and swan 183
+(`~/firstmate/data/ba-viz-mosaic-detector-adopt/staging-sweep.jsonl`): the gate
+holds 8 pairs, all drdanielbarrett and all the watermark family. Seven of the
+eight are already in the finished tree, which this stage never overwrites, so the
+real cost on today's staging is one pair, `drdanielbarrett-9122-side-right`, and
+it is a false positive. Every other clinic holds zero - sanantonio's 207 staged
+pairs included, which contain the eight mosaicked cases and corroborate
+`mosaic.py`'s LIMITS from the other direction.
+
+Like every other gate here this governs the staging -> finished carry-through and
+nothing else. It never reads the finished tree looking for pairs to withdraw, so
+it cannot retire, re-admit or alter a pair that is already emitted.
+
 Every pair is admitted or refused for one recorded reason, and `--report` writes
 the full enumeration - one row per staged pair, emitted or not. A row reads
 `emit` only once that pair is complete in the finished tree; one still reading
@@ -110,6 +143,7 @@ from PIL import Image
 
 from censorship import detect_censorship
 from ingest import MIN_DIMENSION, validate_meta
+from mosaic import detect_mosaic
 
 DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
 
@@ -276,6 +310,9 @@ def check_pair(
         marks = detect_censorship(pixels)
         if marks:
             return "censored", f"{stem}: " + "; ".join(marks)
+        blocks = detect_mosaic(pixels)
+        if blocks:
+            return "mosaic", f"{stem}: " + "; ".join(blocks)
         pending[digest] = f"{pair_id}/{stem}"
 
     seen_hashes.update(pending)
