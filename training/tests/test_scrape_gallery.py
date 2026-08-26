@@ -1304,3 +1304,203 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# page1 (Page 1 Solutions): markup contract, spec layouts, purity screen
+# ---------------------------------------------------------------------------
+
+PSIW_GALLERY = "https://www.plasticsurgerynow.com/gallery/breast-procedures/augmentation/"
+
+
+@pytest.fixture(scope="module")
+def psiw_cases():
+    html = load_fixture("page1_psiw_listing.html")
+    return {c.case_id: c for c in sg.page1_parse_listing(html, PSIW_GALLERY)}
+
+
+def test_page1_reads_lazyloaded_relative_images(psiw_cases):
+    """Nothing carries a real `src` until the lazyloader runs, and the paths
+    are relative to the GALLERY page rather than the site root."""
+    case = psiw_cases["01"]
+    assert [p.key for p in case.pairs] == ["pair1", "pair2", "pair3"]
+    assert case.pairs[0].before_url == PSIW_GALLERY + "01/01.jpg"
+    assert case.pairs[0].after_url == PSIW_GALLERY + "01/02.jpg"
+    assert case.pairs[2].before_url == PSIW_GALLERY + "01/05.jpg"
+
+
+def test_page1_odd_image_is_before_and_even_is_after(psiw_cases):
+    for case in psiw_cases.values():
+        for pair in case.pairs:
+            assert pair.before_url.endswith(("01.jpg", "03.jpg", "05.jpg", "07.jpg",
+                                             "09.jpg"))
+            assert pair.after_url.endswith(("02.jpg", "04.jpg", "06.jpg", "08.jpg",
+                                            "10.jpg"))
+
+
+def test_page1_case_key_is_the_folder_not_the_clinics_case_number(psiw_cases):
+    """`Case # NNN` repeats across different patients, so it cannot be the key."""
+    assert psiw_cases["01"].specs.fields["Case #"] == "DF029"
+    assert "Case #" not in psiw_cases["01"].specs.summary
+
+
+def test_page1_no_view_is_derivable_from_the_page(psiw_cases):
+    """Image numbering is positional; nothing on the page documents a view."""
+    for case in psiw_cases.values():
+        for pair in case.pairs:
+            assert pair.view_hint is None
+            assert sg.resolve_view(pair, {}) == (None, None)
+
+
+# -- volumes ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("case_id,left,right,avg", [
+    # Layout C, tab-delimited chart: 'Implant size: Left: 375cc\t\tRight: 350cc'
+    ("22", 375, 350, 362),
+    # Layout B, run-on chart: 'Implant Size (Left): 275 cc Implant Size (Right): 275 cc'
+    ("26", 275, 275, 275),
+    # Chart asymmetry the shared reader used to lose entirely.
+    ("70", 300, 400, 350),
+    ("77", 325, 400, 362),
+    ("94", 400, 440, 420),
+    # Narrative, volume immediately followed by its side.
+    ("11", 405, 360, 382),
+    ("12", 350, 325, 338),
+    ("84", 225, 250, 238),
+    # Narrative, '<side> side <volume>'.
+    ("31", 375, 405, 390),
+    ("45", 340, 320, 330),
+])
+def test_page1_reads_both_sides_of_an_asymmetric_case(psiw_cases, case_id,
+                                                      left, right, avg):
+    """The shared reader's prefix branch consumes the rest of the line as one
+    segment, so a two-sided chart loses its right value and reports the left
+    figure as the average; its narrative branch assigns '405 cc left' to the
+    right. Sixteen of this clinic's 104 cases are asymmetric, so both misreads
+    change the caption's cc."""
+    specs = psiw_cases[case_id].specs
+    assert (specs.left_cc, specs.right_cc) == (left, right)
+    assert sg.volume_cc(specs) == avg
+
+
+@pytest.mark.parametrize("case_id", ["52", "54"])
+def test_page1_bare_number_in_free_prose_is_not_a_volume(psiw_cases, case_id):
+    """'MP gel 200 bilaterally' and 'Breast Augmentation 350 R 300' name no
+    unit and sit in no labelled implant-size field, so they yield nothing."""
+    assert sg.volume_cc(psiw_cases[case_id].specs) is None
+
+
+def test_page1_cup_size_closes_the_sided_block():
+    """A bare 'Left:'/'Right:' is an implant size only inside the sided block
+    an 'Implant size' label opens. Once 'Cup Size' has closed it, a later bare
+    side label is a cup measurement and must not be read back as a volume."""
+    assert sg.page1_parse_volumes(
+        "Implant size: Left: 375cc Right: 350cc "
+        "Cup Size: Left: 340 Right: 300") == (375, 350)
+    # With no implant-size label at all, a bare sided number is not a volume.
+    assert sg.page1_parse_volumes("Cup Size: Left: 340 Right: 300") == (None, None)
+
+
+# -- profiles --------------------------------------------------------------
+
+
+@pytest.mark.parametrize("case_id,profile", [
+    ("22", "moderate-plus"),   # 'Moderate Profile Plus', spelled out
+    ("26", "moderate"),        # 'Moderate Profile'
+    ("55", "moderate-plus"),   # 'MPP gel'
+    ("52", "moderate"),        # 'MP gel'
+    ("70", None),              # chart with no implant line at all
+    ("01", None),              # 'Natrelle Soft Touch SSM' is a model code
+])
+def test_page1_profile(psiw_cases, case_id, profile):
+    assert psiw_cases[case_id].specs.profile == profile
+
+
+@pytest.mark.parametrize("text,profile", [
+    ("Breast Augmentation UHP gel", "extra-high"),
+    ("Breast Augmentation HP gel", "high"),
+    ("Breast Augmentation MPP gel", "moderate-plus"),
+    ("Breast Augmentation MP gel", "moderate"),
+    # Lowercase prose must not trip the abbreviations, and a spelled-out
+    # profile always wins over one.
+    ("she was very happy with the mp result", None),
+    ("Moderate Profile Plus, MP chart shorthand", "moderate-plus"),
+])
+def test_page1_profile_abbreviations(text, profile):
+    specs = sg.CaseSpecs()
+    sg.page1_parse_details(text, specs)
+    assert specs.profile == profile
+
+
+def test_page1_natrelle_model_code_does_not_decode_to_a_profile():
+    """'SSM'/'SRM' encode cc and profile but stay unparseable, per the
+    drkolker 'Mini Motiva' precedent."""
+    specs = sg.CaseSpecs()
+    sg.page1_parse_details("67 year-old 445cc Natrelle SRM", specs)
+    assert specs.profile is None
+    assert specs.brand == "natrelle"
+    assert sg.volume_cc(specs) == 445
+
+
+# -- purity screen ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("case_id,reason", [
+    ("06", "nipple reduction"),
+    ("14", "abdominoplasty"),
+    ("96", "liposuction"),
+    ("97", "mastopexy"),
+    ("104", "congenital deformity"),
+])
+def test_page1_combined_procedure_cases_emit_no_pairs(psiw_cases, case_id, reason):
+    """The gallery is titled 'Augmentation' and still publishes these, so the
+    screen reads the case TEXT rather than the gallery or folder name. They
+    stay in the enumeration with a warning instead of vanishing from it."""
+    case = psiw_cases[case_id]
+    assert case.pairs == []
+    assert any(reason in w for w in case.warnings)
+
+
+def test_page1_pure_augmentation_cases_are_not_screened_out(psiw_cases):
+    for case_id in ("01", "11", "22", "26", "55", "84", "94"):
+        assert psiw_cases[case_id].pairs
+        assert psiw_cases[case_id].warnings == []
+
+
+def test_page1_purity_screen_ignores_the_gallery_slug():
+    """A slug-only screen let 86 combined cases through at the Etna clinics."""
+    assert sg.page1_combined_procedure("breast-augmentation") is None
+    assert sg.page1_combined_procedure(
+        "breast augmentation with 255cc implants and a tummy tuck"
+    ) == "abdominoplasty"
+
+
+def test_page1_augmentation_scar_is_not_a_combined_procedure():
+    """'breast augmentation scar' (case 32) describes the photo, not a second
+    procedure."""
+    assert sg.page1_combined_procedure(
+        "4 months post-op breast augmentation scar with 440cc implants.") is None
+
+
+# -- chart metadata --------------------------------------------------------
+
+
+def test_page1_chart_fields_come_from_labels_only(psiw_cases):
+    specs = psiw_cases["26"].specs
+    assert specs.age == 50
+    assert specs.weight_lbs == 129
+    assert specs.incision == "inframammary"
+    # No clinic in this family publishes a labelled Placement field, and the
+    # narrative's 'subpectoral' is prose, not chart text.
+    assert specs.placement is None
+
+
+def test_page1_narrative_placement_is_not_read_as_chart_metadata():
+    specs = sg.CaseSpecs()
+    sg.page1_parse_details(
+        "35 year old 7 weeks status post subpectoral breast augmentation "
+        "Allerghan 255cc moderate profile plus implants.", specs)
+    assert specs.placement is None
+    assert specs.incision is None
+    assert specs.profile == "moderate-plus"

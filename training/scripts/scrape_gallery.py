@@ -327,6 +327,15 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+    # -- 2026-08-25 batch: prospected clinics, consent executed 2026-08-25 --
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md. Section 2 grants
+    # AI/ML use including model training and derivative works.
+    "psiw": ClinicConfig(
+        slug="psiw", consent_ref="psiw-agreement-2026-08-25",
+        # plasticsurgerynow.com 301s to the www host, which is where the
+        # relative image paths resolve.
+        base_url="https://www.plasticsurgerynow.com",
+        gallery_paths=["/gallery/breast-procedures/augmentation/"], kind="page1"),
 }
 
 
@@ -2458,6 +2467,292 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# page1 parser (Page 1 Solutions; single inline listing, numbered folders)
+# ---------------------------------------------------------------------------
+#
+# Markup contract, one `div.patient-holder` per case:
+#
+#   div.patient-holder
+#     div.patient.gallery-preview        <- listing thumbnail (before, after)
+#     div.gallery-wrap.hide id="<n>"     <- the case, hidden until clicked
+#       div.slides > div.item            <- ONE PAIR each: img[0]=before, img[1]=after
+#       div.details > p ...              <- the clinic's caption/spec block
+#
+# Images are referenced by a **relative** path (`./07/03.jpg`) in
+# `data-lazyload-src`; the folder is the case's own directory under the gallery
+# URL and is the case key. A naive `<img src>` scrape reads zero images here,
+# because nothing carries a real `src` until the lazyloader runs.
+#
+# The image number is positional and documents nothing: within a `.slides
+# .item` the FIRST img is the before and the SECOND is the after, which the
+# page states independently on its first pair via the `data-before` /
+# `data-after` attributes in `.view.s3grid`. It says nothing about the VIEW, so
+# every view label here comes from visual annotation.
+#
+# The clinic's own "Case # NNN" label is NOT unique - plasticsurgerynow
+# publishes `Case # KH006` on two different patients and `Case # 1102` on two
+# more - so the folder number is the case key and the Case # is recorded as a
+# spec field only.
+
+PAGE1_LABELS = [
+    "Patient Age", "Age", "Height", "Ht", "Weight", "Wt",
+    "Implant Size (Left)", "Implant Size (Right)", "Implant size", "Implant Size",
+    "Implant Type", "Implant", "Incision Type", "Incision",
+    "Placement", "Left", "Right", "Cup Size", "Size", "Before", "Post", "After",
+    "Description", "Procedures", "Details", "Time after surgery",
+]
+# Longest label first so 'Implant Size (Left)' is never read as bare 'Implant'.
+PAGE1_LABEL_RE = re.compile(
+    r"\b(" + "|".join(re.escape(lbl) for lbl in
+                      sorted(PAGE1_LABELS, key=len, reverse=True)) + r")\s*:",
+    re.I)
+# Labels whose own text names the value an implant size, so a bare number in
+# them is a volume (the standing units ruling). Bare 'Left'/'Right' qualify
+# only after an 'Implant size' label has opened a sided sub-block - see
+# page1_parse_details.
+PAGE1_SIDED_VOLUME_LABELS = {
+    "implant size (left)": "left", "implant size (right)": "right",
+    "left": "left", "right": "right",
+}
+PAGE1_VOLUME_LABELS = {"implant size", "implant size (left)",
+                       "implant size (right)"}
+PAGE1_NARRATIVE_LABELS = {"description", "procedures", "details",
+                          "time after surgery"}
+PAGE1_BARE_VOLUME_RE = re.compile(r"^(\d{2,4}(?:\.\d+)?)\s*(?:ccs?|ml)?\b", re.I)
+
+# A volume followed straight away by its side, with nothing between them:
+# '405 cc left and 360 cc right', '250cc right, 225cc left'. Kept separate from
+# the shared TRAILING_SIDE_RE, which reads the 'on the right' phrasing and
+# would take '405 cc left' as a bilateral figure.
+PAGE1_POSTFIX_SIDE_RE = re.compile(
+    rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}\s*[,;]?\s+(left|right)\b", re.I)
+# The mirror phrasing: 'right side 405 cc and left side 375 cc'.
+PAGE1_SIDE_PREFIX_RE = re.compile(
+    rf"\b(left|right)\s+side\s+(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", re.I)
+
+# Profile abbreviations, per the captain's 2026-08-19 ruling (UHP -> extra-high,
+# HP -> high, MP -> moderate). MPP is this family's spelling of 'Moderate
+# Profile Plus': plasticsurgerynow publishes both forms for the same product
+# ('275 cc MPP gel' in case 55, '275cc Moderate Profile Plus Gels' in case 83).
+# Matched case-sensitively as whole words so ordinary prose cannot trip them,
+# and only after the spelled-out PROFILE_PATTERNS have had their turn.
+PAGE1_PROFILE_ABBREVIATIONS = [
+    (re.compile(r"\bUHP\b"), "extra-high"),
+    (re.compile(r"\bMPP\b"), "moderate-plus"),
+    (re.compile(r"\bHP\b"), "high"),
+    (re.compile(r"\bMP\b"), "moderate"),
+]
+
+# Procedures that make a case something other than a pure augmentation. The
+# screen reads the case TEXT, never the gallery slug or the folder name: this
+# gallery is titled 'Augmentation' and still publishes a mastopexy, a tummy
+# tuck, a liposuction, a nipple reduction and a congenital-deformity
+# reconstruction inside it.
+PAGE1_COMBINED_PATTERNS = [
+    (re.compile(r"\bmastopex\w*\b", re.I), "mastopexy (augmentation with lift)"),
+    (re.compile(r"\bbreast lift\b", re.I), "breast lift"),
+    (re.compile(r"\btummy tuck\b|\babdominoplast\w*\b", re.I), "abdominoplasty"),
+    (re.compile(r"\bliposuction\b|\blipoaspirate\b", re.I), "liposuction"),
+    (re.compile(r"\bnipple reduction\b", re.I), "nipple reduction"),
+    (re.compile(r"\bbreast reduction\b", re.I), "breast reduction"),
+    (re.compile(r"\b(?:implant )?removal\b|\bexplant\w*\b", re.I), "implant removal"),
+    (re.compile(r"\brevision\b", re.I), "revision"),
+    (re.compile(r"\breconstruct\w*\b", re.I), "reconstruction"),
+    (re.compile(r"\bcongenital\b", re.I), "congenital deformity correction"),
+]
+
+
+def page1_combined_procedure(text: str) -> str | None:
+    """The non-augmentation procedure a case documents, or None if pure."""
+    for pattern, label in PAGE1_COMBINED_PATTERNS:
+        if pattern.search(text):
+            return label
+    return None
+
+
+def _page1_split_fields(text: str) -> list[tuple[str, str]]:
+    """(label, value) for every labelled field in a details block.
+
+    Each known label ends the previous field's value, so the run-on chart
+    'Implant Size (Left): 275 cc Implant Size (Right): 275 cc' yields both
+    sides. Splitting at the first ': ' instead would swallow the second.
+    """
+    matches = list(PAGE1_LABEL_RE.finditer(text))
+    fields = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        fields.append((match.group(1).strip(), text[match.end():end].strip()))
+    return fields
+
+
+def _page1_labelled_volume(value: str) -> float | None:
+    """cc figure from a field whose label already named it an implant size."""
+    sided = _parse_fill_side(value)
+    if sided is not None and 100 <= sided <= 1000:
+        return sided
+    m = PAGE1_BARE_VOLUME_RE.match(value.strip())
+    if m:
+        cc = float(m.group(1))
+        return cc if 100 <= cc <= 1000 else None
+    return None
+
+
+def page1_parse_volumes(text: str) -> tuple[float | None, float | None]:
+    """(left_cc, right_cc) from a details block, labelled chart or narrative.
+
+    Tried in order: the labelled sided chart fields, then this family's two
+    narrative side phrasings, then the shared narrative reader. The first two
+    exist because the shared reader mis-reads both layouts - its prefix branch
+    consumes the rest of the line as one segment, so 'Implant Size (Left): 350
+    cc Implant Size (Right): 325 cc' loses the right side and reports the left
+    figure as the average, and '405 cc left and 360 cc right' assigns 360 to
+    the left. Sixteen of this clinic's 104 cases publish asymmetric volumes, so
+    both misreads change the caption's cc.
+    """
+    left = right = None
+    sided_block_open = False
+    for label, value in _page1_split_fields(text):
+        key = label.lower()
+        if key in PAGE1_VOLUME_LABELS:
+            sided_block_open = True
+        elif key not in PAGE1_SIDED_VOLUME_LABELS:
+            # 'Cup Size: Before: 34 A  Post: 32 D' closes the sided block, so a
+            # later bare 'Left'/'Right' is not read as an implant size.
+            sided_block_open = False
+        side = PAGE1_SIDED_VOLUME_LABELS.get(key)
+        if side is None:
+            continue
+        if key in ("left", "right") and not sided_block_open:
+            continue
+        cc = _page1_labelled_volume(value)
+        if cc is None:
+            continue
+        if side == "left":
+            left = cc
+        else:
+            right = cc
+    if left is not None or right is not None:
+        return left, right
+
+    for m in PAGE1_POSTFIX_SIDE_RE.finditer(text):
+        cc = float(m.group(1))
+        if 100 <= cc <= 1000:
+            if m.group(2).lower() == "left":
+                left = cc
+            else:
+                right = cc
+    for m in PAGE1_SIDE_PREFIX_RE.finditer(text):
+        cc = float(m.group(2))
+        if 100 <= cc <= 1000:
+            if m.group(1).lower() == "left":
+                left = cc
+            else:
+                right = cc
+    if left is not None or right is not None:
+        return left, right
+    return parse_fill_volumes(text)
+
+
+def page1_parse_details(text: str, specs: CaseSpecs) -> None:
+    """Fill specs from one case's details block.
+
+    Three layouts are published on plasticsurgerynow alone and all three are
+    the same block of text with different delimiters:
+
+      A. Narrative  - '6 months post-op breast augmentation with 360cc implants.'
+      B. Run-on chart - 'Patient Age: 50 Height: 5’7 ... Implant Size (Left): 275 cc'
+      C. Tab-delimited chart - "Age: 23\tHt: 5’6”\tWt: 120 Implant: ... Left: 375cc\t\tRight: 350cc"
+
+    Placement and incision are read from the LABELLED chart fields only, never
+    from the narrative, per the standing chart-metadata rule.
+    """
+    specs.summary = re.sub(r"\s+", " ", text).strip()
+    chart_parts = []
+    for label, value in _page1_split_fields(text):
+        value = re.sub(r"\s+", " ", value).strip()
+        if not value or label.lower() in PAGE1_NARRATIVE_LABELS:
+            continue
+        specs.fields.setdefault(label, value)
+        chart_parts.append(f"{label}: {value}")
+        key = label.lower()
+        if key in ("age", "patient age"):
+            m = re.match(r"(\d{1,3})\b", value)
+            if m and 10 <= int(m.group(1)) <= 100:
+                specs.age = int(m.group(1))
+        elif key in ("height", "ht"):
+            specs.height = value
+            specs.height_cm = height_to_cm(value)
+        elif key in ("weight", "wt"):
+            m = re.match(r"(\d{2,3})\b", value)
+            if m:
+                specs.weight_lbs = int(m.group(1))
+                specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+    specs.left_cc, specs.right_cc = page1_parse_volumes(text)
+    classify_brand_shape_profile(specs, text)
+    if specs.profile is None:
+        for pattern, profile in PAGE1_PROFILE_ABBREVIATIONS:
+            if pattern.search(text):
+                specs.profile = profile
+                break
+    classify_placement_incision(specs, "\n".join(chart_parts))
+
+
+def page1_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """Every case inline on one listing page; see the markup contract above."""
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases = []
+    for holder in soup.select("div.patient-holder"):
+        wrap = holder.select_one("div.gallery-wrap")
+        if wrap is None:
+            continue
+        pairs, folder = [], None
+        for item in wrap.select("div.slides div.item"):
+            srcs = [img.get("data-lazyload-src") or img.get("src")
+                    for img in item.select("img")]
+            srcs = [s for s in srcs if s]
+            if len(srcs) < 2:
+                continue
+            if folder is None:
+                m = re.match(r"\.?/?([^/]+)/", srcs[0])
+                if m is None:
+                    continue
+                folder = m.group(1)
+            # './07/03.jpg' is relative to the GALLERY page, not the site root,
+            # so it is resolved here rather than left for the caller to prefix
+            # with base_url (which would build /07/03.jpg off the domain).
+            pairs.append((urljoin(source_url, srcs[0]),
+                          urljoin(source_url, srcs[1])))
+        if not pairs or folder is None:
+            continue
+        case = CaseData(case_id=folder, source_url=source_url)
+        details = wrap.select_one("div.details")
+        text = details.get_text(" ", strip=True) if details is not None else ""
+        # 'Case # NNN' is the clinic's own label and is not unique across
+        # patients; it is kept as a spec field, never as the case key.
+        case_number = None
+        m_case = re.search(r"Case\s*#\s*([\w#]+)", text)
+        if m_case:
+            case_number = m_case.group(1)
+            text = text[:m_case.start()] + text[m_case.end():]
+        page1_parse_details(text, case.specs)
+        if case_number:
+            case.specs.fields.setdefault("Case #", case_number)
+        combined = page1_combined_procedure(text)
+        if combined is not None:
+            # Kept in the list with no pairs so the run log accounts for it
+            # rather than silently dropping it from the enumeration.
+            case.warnings.append(
+                f"excluded from the corpus: not a pure breast augmentation "
+                f"({combined})")
+        else:
+            for idx, (before, after) in enumerate(pairs, 1):
+                case.pairs.append(ImagePair(key=f"pair{idx}", before_url=before,
+                                            after_url=after))
+        cases.append(case)
+    return cases
+
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2863,6 +3158,23 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return mya_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "page1":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = page1_parse_listing(listing, url)
+        # The gallery publishes no case total of its own, so enumeration is
+        # checked against the numbering instead: the case folders are a
+        # contiguous 1..N run, and a gap would be a case the listing withheld.
+        numbers = sorted(int(c.case_id) for c in cases if c.case_id.isdigit())
+        if numbers:
+            missing = sorted(set(range(1, numbers[-1] + 1)) - set(numbers))
+            if missing:
+                print(f"  WARN {cfg.slug}: case folders {missing} missing from "
+                      f"the listing's 1..{numbers[-1]} run")
+            else:
+                print(f"  {cfg.slug}: {len(numbers)} case(s), a contiguous "
+                      f"1..{numbers[-1]} run; the gallery declares no total")
+        return cases
     if cfg.kind == "drgrover":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
