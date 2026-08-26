@@ -84,6 +84,13 @@ clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) adds kind='mwps', an
 Influx Growthstack gallery whose subcategory is 'stitched': every slide is a
 whole before|after composite, and every composite carries a bottom-edge
 watermark that is cropped before the split. See the mwps section below.
+
+The 2026-08-25 prospected batch (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) adds
+one clinic per collection lane. kind='swan' is the first: Etna asset naming on
+a self-hosted WordPress plugin, with a structured attributes chart, a published
+procedures list that screens purity from the case text rather than the filename
+slug, and a public REST route that makes the gallery fully enumerable without an
+endpoint grant. See the swan section below.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -569,6 +576,15 @@ CLINICS: dict[str, ClinicConfig] = {
         # relative image paths resolve.
         base_url="https://www.plasticsurgerynow.com",
         gallery_paths=["/gallery/breast-procedures/augmentation/"], kind="page1"),
+    # -- 2026-08-25 batch: prospected clinics (CONSENT-2026-08-25-PROSPECTED-
+    #    CLINICS.md). One clinic per collection lane; see that file for the
+    #    executed forms and for what the consent does NOT grant (access).
+    "swan": ClinicConfig(
+        slug="swan", consent_ref="swan-agreement-2026-08-25",
+        # swancenteratlanta.com redirects to the www host, which also serves
+        # every gallery image out of its own /wp-content/uploads/.
+        base_url="https://www.swancenteratlanta.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="swan"),
 }
 
 
@@ -3241,6 +3257,312 @@ def etna_parse_case(case_html: str, case_id: str, source_url: str,
 
 
 # ---------------------------------------------------------------------------
+# swan parser (self-hosted WordPress 'swan-gallery' plugin; Etna asset naming)
+# ---------------------------------------------------------------------------
+#
+# The Swan Center runs its own WordPress plugin over Etna Interactive's asset
+# naming and case-page skeleton, so the IMAGES are the etna family
+# (side-by-side before|after composites at
+# '<uploads>/breast-augmentation-<case>-view-<n>-detail.jpg', matched by the
+# shared ETNA_DETAIL_RE) while the PAGE is not: the spec chart is a structured
+# '.attributes-list' of name/value divs rather than etna's free-text
+# '.case-description' chart, and the case's procedures are published as their
+# own linked list. Those two differences are why this is a separate parser
+# rather than another etna config - reusing etna_parse_description here would
+# find no chart at all.
+#
+# Two things this markup gives that the etna clinics do not:
+#
+# 1. A structured PURITY SCREEN. '.eii-gallery-details-procedures-list' names
+#    every procedure the case had. The etna parser has to fall back on the
+#    filename slug, and a slug alone let 86 combined cases through at those
+#    clinics; here the case's own text says so. The narrative is screened too
+#    (SWAN_COMBINED_RE), because a case can be filed under one procedure and
+#    described as another.
+# 2. The gallery is fully ENUMERABLE without an endpoint grant. The listing
+#    renders 12 of its declared total and serves the rest from a public
+#    WordPress REST route, '/wp-json/swan-gallery/v1/cases?term=<t>&page=<n>',
+#    which this site's robots.txt does not disallow (it disallows /wp-admin/
+#    and explicitly Allows admin-ajax.php; Crawl-delay is 10s). Every response
+#    restates the gallery's own 'total', so the walk reconciles itself.
+
+SWAN_REST_PATH = "/wp-json/swan-gallery/v1/cases"
+SWAN_TERM_RE = re.compile(
+    r'id="category-cases-load-more"[^>]*\bdata-term="(\d+)"')
+SWAN_DECLARED_TOTAL_RE = re.compile(
+    r'id="gallery-category-cases-y"[^>]*>\s*(\d+)\s*<')
+SWAN_MAX_PAGES = 200
+
+# The one procedure a case may have published and still count as pure breast
+# augmentation. Anything alongside it - a lift, a reduction, a mommy makeover -
+# means the after photograph shows a change the implants did not cause.
+SWAN_PURE_PROCEDURE = "breast augmentation"
+# Narrative backstop for the structured screen above. Only phrases that report
+# THIS patient's operation are listed: 'lift' on its own is not here, because
+# the clinic's prose uses it for what an implant does to the breast as often as
+# for a mastopexy.
+SWAN_COMBINED_RE = re.compile(
+    r"\b(?:mastopexy|breast\s+lift|lifted\s+and\s+augmented|augmentation[- ]"
+    r"mastopexy|mommy\s+makeover|breast\s+reduction|reduction\s+mammaplasty|"
+    r"implant\s+(?:exchange|removal|replacement)|revision(?:al)?\s+"
+    r"(?:breast\s+)?surgery|explant)", re.I)
+
+# The chart's own field names, verbatim, as published in
+# '.attributes-list .attribute-name'.
+SWAN_AGE_LABEL = "Patient Age"
+SWAN_GENDER_LABEL = "Patient Gender"
+SWAN_HEIGHT_LABEL = "Height"
+SWAN_WEIGHT_LABEL = "Weight Before"
+SWAN_PROFILE_LABEL = "Implant Profile"
+SWAN_PLACEMENT_LABEL = "Implant Placement"
+SWAN_SHAPE_LABEL = "Implant Shape"
+SWAN_VOLUME_LABELS = {"Implant Size Left": "left", "Implant Size Right": "right"}
+# Values that mean 'the clinic left this field blank', not a real value.
+SWAN_PLACEHOLDER_VALUES = {"", "-", "--", "n/a", "na", "n.a.", "none", "unknown"}
+
+# 'Implant Profile' is a LABELLED profile field, so a bare projection word in
+# it decodes without needing the word 'profile' beside it (which is what
+# PROFILE_PATTERNS requires of free prose). Vocabulary per the captain's
+# 2026-08-19 ruling: Ultra High Profile, UHP, Extra-Full, Extra-full
+# projection, Corse, Extra High Range and VHP all mean extra-high; spelled-out
+# 'Moderate Plus' counts. Mentor's 'Xtra' is deliberately absent - it is a
+# product line, not a projection, and manufacturer model codes stay
+# unparseable. An unrecognised value is warned about rather than guessed at.
+SWAN_PROFILE_VALUES = {
+    "moderate": "moderate",
+    "moderate profile": "moderate",
+    "mod": "moderate",
+    "moderate plus": "moderate-plus",
+    "moderate plus profile": "moderate-plus",
+    "moderate+": "moderate-plus",
+    "high": "high",
+    "high profile": "high",
+    "full": "high",
+    "ultra high": "extra-high",
+    "ultra high profile": "extra-high",
+    "uhp": "extra-high",
+    "vhp": "extra-high",
+    "extra high": "extra-high",
+    "extra high profile": "extra-high",
+    "extra high range": "extra-high",
+    "extra full": "extra-high",
+    "extra full projection": "extra-high",
+    "corse": "extra-high",
+    "corsé": "extra-high",
+}
+
+SWAN_BARE_VOLUME_RE = re.compile(r"^(\d{2,4}(?:\.\d+)?)\s*(?:cc|ccs|ml|mls)?\.?$", re.I)
+# The '.case-description' block is not always a description. 21 of the 90 cases
+# publish this call-to-action in it instead, and letting it through would write
+# a marketing sentence into every one of those pairs' notes as though the
+# surgeon had described the case.
+SWAN_BOILERPLATE_DESCRIPTION_RE = re.compile(
+    r"^\s*do you have questions about this patient.{0,3}s procedures or "
+    r"results\??\s*contact us for more details\.?\s*$", re.I)
+# 'shown 6 months post-op' / '1 year post-op' / '6 weeks post-op' - the
+# clinic's own statement of when the after photograph was taken, in the units
+# it published. Converting weeks and years to months is arithmetic over defined
+# durations, not an inference about the case.
+# 'post-op', 'post op' and 'post-operative' are all published, and so is a
+# hyphenated interval ('shown 1-year post-op', case 25639).
+SWAN_POSTOP_RE = re.compile(
+    r"\b(\d+(?:\.\d+)?)[- ]*(month|year|week)s?[- ]*post[- ]?op(?:erative)?\b",
+    re.I)
+SWAN_POSTOP_MONTHS = {"month": 1.0, "year": 12.0, "week": 7 / 30.4375}
+
+
+def swan_declared_total(listing_html: str) -> int | None:
+    """The gallery's own case count from its 'Showing X of Y Cases' counter."""
+    m = SWAN_DECLARED_TOTAL_RE.search(listing_html)
+    return int(m.group(1)) if m else None
+
+
+def swan_rest_term(listing_html: str) -> str | None:
+    """The taxonomy term id the Load-More control pages through."""
+    m = SWAN_TERM_RE.search(listing_html)
+    return m.group(1) if m else None
+
+
+def swan_list_case_ids(html: str, gallery_path: str) -> list[str]:
+    """Case ids linked from a listing page or a REST page's html fragment."""
+    ids = []
+    for m in re.finditer(re.escape(gallery_path) + r"(\d+)/", html):
+        if m.group(1) not in ids:
+            ids.append(m.group(1))
+    return ids
+
+
+def swan_rest_page(payload: bytes | str, gallery_path: str) -> dict:
+    """One REST page: its case ids plus the gallery's own running totals."""
+    data = json.loads(payload)
+    return {
+        "ids": swan_list_case_ids(data.get("html", ""), gallery_path),
+        "loaded": data.get("loaded"),
+        "total": data.get("total"),
+        "more": bool(data.get("more")),
+    }
+
+
+def swan_normalise_view_label(label: str) -> str | None:
+    """A thumbnail's own view caption as a schema view, or a bare hint.
+
+    Every case measured in this gallery leaves the caption empty and publishes
+    positional 'view-N' filenames, so views come from the annotation pass. This
+    reads the caption anyway rather than assuming it stays empty: a populated
+    one is the clinic's own label, which outranks a visual call.
+    """
+    token = re.sub(r"[^a-z]+", "-", label.strip().lower()).strip("-")
+    if not token:
+        return None
+    if token in ETNA_VIEW_TOKENS:
+        return ETNA_VIEW_TOKENS[token]
+    if token in ("oblique", "side", "lateral", "profile"):
+        return "side" if token in ("lateral", "profile") else token
+    return None
+
+
+def swan_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
+    """One Swan case: Etna-named composites plus a structured attributes chart."""
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+
+    # -- images -------------------------------------------------------------
+    # Captions are keyed by detail URL because the focus pane and the thumbnail
+    # strip publish the same photograph twice; the thumbnail is the one that
+    # carries a per-view caption slot.
+    captions: dict[str, str] = {}
+    for a in soup.select("a.case-view[data-detail]"):
+        lower = a.select_one(".case-view-lower")
+        text = lower.get_text(" ", strip=True) if lower else ""
+        if text:
+            captions[a["data-detail"]] = text
+    for p in soup.select(".case-view-images .case-view-type"):
+        img = p.find_previous("img", class_="case-view-image")
+        text = p.get_text(" ", strip=True)
+        if img is not None and text:
+            captions.setdefault(img.get("src", ""), text)
+
+    ext_rank = {"jpg": 0, "jpeg": 1, "png": 2, "webp": 3}
+    best: dict[str, tuple[int, str]] = {}
+    skipped_views: set[str] = set()
+    for m in ETNA_DETAIL_RE.finditer(case_html):
+        if m.group("case") != case_id:
+            continue
+        url = m.group(0)
+        if not url.startswith("http"):
+            url = "https:" + url
+        token = m.group("view").lower()
+        if token in ETNA_NON_SCHEMA_VIEWS:
+            skipped_views.add(token)
+            continue
+        rank = ext_rank.get(m.group("ext").lower(), 9)
+        if token not in best or rank < best[token][0]:
+            best[token] = (rank, url)
+    for token in sorted(skipped_views):
+        case.warnings.append(
+            f"view '{token}': published photograph has no schema view; skipped")
+    for token, (_, url) in sorted(best.items()):
+        hint = ETNA_VIEW_TOKENS.get(token)
+        if hint is None:
+            caption = captions.get(url) or captions.get(
+                url.replace("-detail.", "-thumbnail."), "")
+            if caption:
+                hint = swan_normalise_view_label(caption)
+        case.pairs.append(ImagePair(
+            key=token, before_url=url, after_url=url, split_composite=True,
+            view_hint=hint))
+
+    # -- specs --------------------------------------------------------------
+    specs = CaseSpecs()
+    desc = soup.select_one(".case-description")
+    if desc is not None:
+        text = desc.get_text(" ", strip=True)
+        if not SWAN_BOILERPLATE_DESCRIPTION_RE.match(text):
+            specs.summary = text
+    for attr in soup.select(".attributes-list .attribute"):
+        name_el = attr.select_one(".attribute-name")
+        value_el = attr.select_one(".attribute-value")
+        if name_el is None or value_el is None:
+            continue
+        name = name_el.get_text(" ", strip=True)
+        value = value_el.get_text(" ", strip=True)
+        if not name or value.strip().lower() in SWAN_PLACEHOLDER_VALUES:
+            continue
+        specs.fields[name] = value
+    if not specs.fields and not specs.summary:
+        case.warnings.append("no case text published (no chart, no description)")
+
+    # -- purity -------------------------------------------------------------
+    procedures = [a.get_text(" ", strip=True).lower() for a in soup.select(
+        ".eii-gallery-details-procedures-list a, "
+        ".eii-gallery-details-procedures-list li")]
+    procedures = sorted({p for p in procedures if p})
+    if not procedures:
+        case.warnings.append(
+            "no procedures list published; cannot confirm pure breast "
+            "augmentation from the case text")
+        case.pairs = []
+    elif procedures != [SWAN_PURE_PROCEDURE]:
+        case.warnings.append(
+            "not pure breast augmentation (case published as "
+            + "/".join(procedures) + "); excluded by captain ruling")
+        case.pairs = []
+    else:
+        m = SWAN_COMBINED_RE.search(specs.summary)
+        if m:
+            case.warnings.append(
+                f"case text describes a combined procedure ('{m.group(0)}') "
+                "despite a breast-augmentation-only procedures list; excluded")
+            case.pairs = []
+    if not case.pairs and not case.warnings:
+        case.warnings.append("no usable image pairs")
+
+    # -- chart fields -------------------------------------------------------
+    age = specs.fields.get(SWAN_AGE_LABEL, "")
+    if age.isdigit():
+        specs.age = int(age)
+    specs.gender = specs.fields.get(SWAN_GENDER_LABEL, "")
+    # Height and Weight Before are published as bare numbers with NO documented
+    # unit ('62', '135'). Per the sanantonio precedent they are kept verbatim
+    # in the notes and height_cm/weight_kg stay unset: reading '62' as inches
+    # is an inference, and a wrong frame metric is worse than a missing one.
+    specs.height = specs.fields.get(SWAN_HEIGHT_LABEL, "")
+    for label, side in SWAN_VOLUME_LABELS.items():
+        raw = specs.fields.get(label, "")
+        if not raw:
+            continue
+        m = SWAN_BARE_VOLUME_RE.match(raw)
+        if m is None:
+            case.warnings.append(
+                f"{label} '{raw}' is not a single documented volume; ignored")
+            continue
+        setattr(specs, f"{side}_cc", float(m.group(1)))
+
+    m = SWAN_POSTOP_RE.search(specs.summary)
+    if m:
+        specs.months_post_op = round(
+            float(m.group(1)) * SWAN_POSTOP_MONTHS[m.group(2).lower()], 1)
+
+    haystack = " ".join([specs.summary, *specs.fields.values()])
+    classify_brand_shape_profile(specs, haystack)
+    profile_raw = specs.fields.get(SWAN_PROFILE_LABEL, "")
+    if profile_raw:
+        key = re.sub(r"\s+", " ", profile_raw.strip().lower()).replace("-", " ")
+        key = re.sub(r"\s*\+\s*", "+", key)
+        mapped = SWAN_PROFILE_VALUES.get(key)
+        if mapped is None:
+            case.warnings.append(
+                f"{SWAN_PROFILE_LABEL} '{profile_raw}' is not in the profile "
+                "vocabulary; left undocumented rather than guessed")
+        else:
+            specs.profile = mapped
+    # Chart text only; the narrative is excluded exactly as for etna.
+    classify_placement_incision(
+        specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+    case.specs = specs
+    return case
+
+# ---------------------------------------------------------------------------
 # privateclinic parser (WordPress; category-scoped paginated listing)
 # ---------------------------------------------------------------------------
 
@@ -5295,6 +5617,52 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 if next_id not in visited:
                     to_visit.append(next_id)
         return sorted(cases, key=lambda c: int(c.case_id))
+    if cfg.kind == "swan":
+        gallery_path = cfg.gallery_paths[0]
+        listing_url = cfg.base_url + gallery_path
+        listing = fetcher.get(listing_url, f"{cfg.slug}_listing.html").decode(
+            "utf-8", "replace")
+        declared = swan_declared_total(listing)
+        ids = swan_list_case_ids(listing, gallery_path)
+        term = swan_rest_term(listing)
+        if term is None:
+            print(f"  WARN {cfg.slug}: no Load-More control on the listing; "
+                  f"only the {len(ids)} inline case(s) are reachable")
+        else:
+            page = 1
+            while page < SWAN_MAX_PAGES:
+                page += 1
+                raw = _fetch_seed(
+                    fetcher,
+                    f"{cfg.base_url}{SWAN_REST_PATH}?term={term}&page={page}",
+                    f"{cfg.slug}_cases_p{page}.json")
+                if raw is None:
+                    print(f"  {cfg.slug}: REST page {page} not in cache; "
+                          f"enumeration is cache-bounded")
+                    break
+                result = swan_rest_page(raw, gallery_path)
+                for cid in result["ids"]:
+                    if cid not in ids:
+                        ids.append(cid)
+                if not result["more"]:
+                    break
+        cases = []
+        for cid in sorted(ids, key=int):
+            url = f"{cfg.base_url}{gallery_path}{cid}/"
+            html = fetcher.get(url, f"{cfg.slug}_case_{cid}.html").decode(
+                "utf-8", "replace")
+            cases.append(swan_parse_case(html, cid, url))
+        # The gallery states its own total in the listing footer, so the walk
+        # is reconciled rather than assumed.
+        if declared is None:
+            print(f"  {cfg.slug}: gallery publishes no declared total; "
+                  f"enumerated {len(cases)} case(s)")
+        elif len(cases) != declared:
+            print(f"  WARN {cfg.slug}: enumerated {len(cases)} case(s) but the "
+                  f"gallery declares {declared}")
+        else:
+            print(f"  {cfg.slug}: enumerated all {len(cases)} declared case(s)")
+        return cases
     if cfg.kind == "etna":
         gallery_path = cfg.gallery_paths[0]
         listing_url = cfg.base_url + gallery_path
