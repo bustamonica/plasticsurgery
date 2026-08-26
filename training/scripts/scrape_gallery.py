@@ -61,6 +61,12 @@ specific markup contract.
 served by the single kind='etna' parser - one parser configured twelve times.
 See the etna section below for the platform's markup contract, its five
 published spec-block layouts, and how enumeration and procedure purity work.
+
+The 2026-08-25 batch (19 prospected clinics, consent in
+clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) is being collected one
+clinic at a time; kind='blaine' is the first of them, a bespoke WordPress
+[gallery] shortcode. See its section for why 'Case #N' is not a patient key and
+why the procedure screen reads the whole figure rather than the spec field.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -327,6 +333,13 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+    # -- 2026-08-25 batch: consent executed for 19 prospected clinics; see
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md (Blaine is row 8).
+    "blaine": ClinicConfig(
+        slug="blaine", consent_ref="blaine-agreement-2026-08-25",
+        base_url="https://blaineplasticsurgery.com",
+        gallery_paths=["/before-and-after/breast-procedures/breast-augmentation/"],
+        kind="blaine"),
 }
 
 
@@ -2458,6 +2471,283 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# blaine parser (bespoke WordPress [gallery] shortcode + colorbox lightbox)
+# ---------------------------------------------------------------------------
+#
+# Markup contract (blaineplasticsurgery.com/before-and-after/breast-procedures/
+# breast-augmentation/). Every case is inline on ONE page - no pagination, no
+# AJAX, and the gallery publishes no total of its own, so the enumerated figure
+# count IS the gallery and there is nothing to reconcile it against:
+#
+#     <figure class="gallery-item">
+#       <div class="gallery-icon landscape">
+#         <a title="Case: #2132 Age: 20 Procedure: ..." href="<FULL ORIGINAL>">
+#           <img src="<540px thumbnail>" alt="front view of a female patient
+#                before and after Breast augmentation">
+#       <figcaption class="wp-caption-text gallery-caption">
+#         <p class="h3">Case #2132</p>
+#         <ul><li><strong>Age:</strong> 20</li>
+#             <li><strong>Procedure:</strong> Breast Augmentation with 300cc
+#                 Sientra High Profile, Submuscular</li></ul>
+#
+# The <a href> is the full-resolution original; the <img src> is a 540px-wide
+# WordPress thumbnail that would fail the ingest floor on every case, so only
+# the href is ever used.
+#
+# Four things here are not guessable and each costs real pairs if assumed:
+#
+# 1. **'Case #N' is not a patient key.** The practice reused three numbers
+#    across two generations of the gallery, so #36, #114 and #115 each carry
+#    two DIFFERENT patients (e.g. #115 is both a 36-yo with 'Sientra 415 HP'
+#    and the older '<surname>_115_view*' patient with '325 CC'). The patient key
+#    is (case number, Procedure text) - the Procedure line is the clinic's own
+#    per-patient chart line and differs between them - and the later group
+#    takes a 'b'/'c' suffix, emitting as case '115b'. build_dataset.py splits
+#    train/val BY PATIENT, so collapsing these would put one person in both
+#    halves of the split.
+#
+# 2. **The Procedure field is not the whole disclosure.** Case #111 publishes
+#    'Breast Augmentation with moderate plus profile 450cc silicone implants'
+#    in Procedure while every one of its five images carries alt='Case #111
+#    Mommy Makeover'. Screening the Procedure text alone admits it. The screen
+#    therefore reads the whole figure - anchor title, image alt and caption -
+#    per BLAINE_COMBINED_RE.
+#
+# 3. **Not every linked original is a two-panel before|after composite.** Two
+#    cases publish a multi-timepoint STRIP - '#25 ... Patient at pre op, 1
+#    month post op, 3 months post op, and 6 months post op' is four panels in
+#    one file - and a midpoint split glues two timepoints into each half. The
+#    clinic documents this in its own Procedure text, which is what
+#    BLAINE_TIMEPOINT_STRIP_RE reads. (Measured backstop: no genuine 2-panel
+#    composite in this gallery exceeds an aspect ratio of 3.6 and the two
+#    strips are 4.3 and 5.5, so the two signals agree.)
+#
+# 4. **Most of the gallery states an implant size with no unit.** 229 of 287
+#    figures carry an explicit 'cc'; the rest read '335 Sientra Moderate Plus'
+#    or 'Sientra 330HP'. A bare number in free prose is not a documented volume
+#    and 'Procedure' is not a labelled implant-size field, so those cases carry
+#    no volume_cc and ingest.py rejects them on its required-field check.
+#    Nothing is inferred to fill it.
+#
+# Views: the image alt names 'front' or 'side', and 'front' is taken as the
+# clinic's own view label. 'side' is NOT - this gallery uses it for every
+# non-front view, so a 5-view case reads front + 4x'side' covering both
+# obliques and both sides, and it never states laterality. Every non-front view
+# therefore comes from the visual-annotation pass, keyed by the image filename
+# stem (the per-patient filenames are positional - '<surname>_115_viewA'..'viewE',
+# '...-1'..'-5', 'blaine_beforeafter36a'..'e' - and a positional token
+# documents nothing).
+
+BLAINE_CASE_RE = re.compile(r"Case\s*#?\s*(\d+)", re.I)
+
+# Combined procedures, excluded by the standing captain ruling. Matched against
+# the whole figure text, not just Procedure - see note 2 above.
+BLAINE_COMBINED_RE = re.compile(
+    r"\b(?:lift|mastopex\w*|reduction|revision|explant\w*|capsulectomy|"
+    r"lipo\w*|abdominoplasty|tummy\s+tuck|makeover|mastectomy|reconstruction|"
+    r"fat\s+(?:transfer|graft\w*)|implant\s+(?:removal|exchange|replacement))\b",
+    re.I)
+
+# The clinic's own text for a multi-timepoint strip: a Procedure line that
+# enumerates a pre-op plus two or more post-op timepoints in one figure.
+BLAINE_TIMEPOINT_STRIP_RE = re.compile(
+    r"\bpre[\s-]?op\b.*?\bpost[\s-]?op\b.*?\bpost[\s-]?op\b", re.I | re.S)
+
+# The image alt's view word. Only 'front' maps to a schema view; see the note
+# above for why 'side' cannot.
+BLAINE_ALT_FRONT_RE = re.compile(r"\bfront\b", re.I)
+
+# Two-letter projection abbreviations, decoded per the captain's 2026-08-19
+# ruling (MP -> moderate, HP -> high). Matched CASE-SENSITIVELY and either as a
+# standalone token or glued to the size ('Sientra 330HP', '455 MP+'), so no
+# lowercase word can trip them. 'MP+' is tried first: this gallery writes both
+# '450cc MP' and '455 MP+', and reading the second as plain moderate would lose
+# the distinction the clinic drew. Mentor's 'Xtra' is deliberately absent - it
+# is a product line, not a projection, and case #158 ('Moderate Plus Profile
+# Xtra') takes moderate-plus from the spelled-out words instead.
+BLAINE_PROFILE_ABBREVS = [
+    (re.compile(r"(?:\b|(?<=\d))MP\s*\+"), "moderate-plus"),
+    (re.compile(r"(?:\b|(?<=\d))MP\b"), "moderate"),
+    (re.compile(r"(?:\b|(?<=\d))HP\b"), "high"),
+]
+
+# 'one month post-op' as well as '6 months post'. Only the spellings this
+# gallery publishes; a week figure ('Time post op 1 week') is left unconverted
+# rather than turned into a fraction of a month the clinic never stated.
+BLAINE_WORD_NUMBERS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+_BLAINE_NUM = r"(\d+|" + "|".join(BLAINE_WORD_NUMBERS) + r")"
+BLAINE_POST_OP_RE = re.compile(
+    r"\b" + _BLAINE_NUM + r"\s*(month|year)s?\b(?=[\s,]*post)", re.I)
+BLAINE_POST_OP_TRAILING_RE = re.compile(
+    r"\btime\s+post\s*-?\s*op\s*:?\s*" + _BLAINE_NUM + r"\s*(month|year)s?\b", re.I)
+
+# Side markers as this gallery writes them, including the 'Rt'/'Lt' spelling
+# ('(L) 415cc HP, (Rt) 440cc HP') the shared side alternation does not carry.
+BLAINE_SIDE_RE = re.compile(r"\b(left|right|lt|rt|l|r)\b", re.I)
+BLAINE_CLAUSE_SPLIT_RE = re.compile(r"[,;.]|\band\b", re.I)
+
+
+def blaine_volumes(text: str) -> tuple[float | None, float | None]:
+    """(left_cc, right_cc) from a Blaine Procedure line.
+
+    The shared parse_fill_volumes() reads the phrasings other clinics publish;
+    Blaine attaches the side AFTER the volume, inside the same clause -
+    '400 CC silicone implant (right) and 450 CC silicone implant (left)',
+    '475 CC left, 450 CC right round silicone gel implants', 'left breast
+    saline implant filled to 400 CC, and right breast saline implant filled to
+    500 CC' - which that helper reads as a prefix marker and pairs with the
+    wrong number (case #117 comes out 450/None instead of 450/400). Clause
+    scoping is what this gallery's own punctuation supports, so it is done here
+    rather than by widening a helper five other clinics depend on.
+
+    The UNIT rule is unchanged and still shared: only a figure carrying an
+    explicit cc/ml (or gram) unit counts, via _parse_fill_side's VOLUME_UNIT.
+    'Sientra 330HP' states no unit and yields nothing.
+    """
+    left = right = None
+    loose: list[float] = []
+    for clause in BLAINE_CLAUSE_SPLIT_RE.split(text):
+        cc = _parse_fill_side(clause)
+        if cc is None or not (100 <= cc <= 1000):
+            continue
+        sides = {m.group(1)[0].lower() for m in BLAINE_SIDE_RE.finditer(clause)}
+        if sides == {"l"}:
+            left = cc
+        elif sides == {"r"}:
+            right = cc
+        else:
+            # No side named, or both named in one clause: not attributable.
+            loose.append(cc)
+    if left is not None or right is not None:
+        return left, right
+    if len(loose) == 1:
+        return loose[0], loose[0]
+    if len(loose) >= 2:
+        # Two volumes and no sides ('350cc and 280cc Sientra implants'):
+        # recorded unattributed, exactly as the shared helper does.
+        return loose[0], loose[1]
+    return None, None
+
+
+def blaine_months_post_op(text: str) -> float | None:
+    """Months since surgery from the Procedure line, or None."""
+    m = BLAINE_POST_OP_RE.search(text) or BLAINE_POST_OP_TRAILING_RE.search(text)
+    if m is None:
+        return None
+    raw = m.group(1).lower()
+    value = float(BLAINE_WORD_NUMBERS[raw]) if raw in BLAINE_WORD_NUMBERS else float(raw)
+    return value * 12 if m.group(2).lower().startswith("year") else value
+
+
+# The practice's own misspellings of values it DID document: 'inframmary' for
+# the incision in cases #91/#92/#93, 'High Profle' for the projection in case
+# #15. Repairing these for the matchers reads what the clinic wrote; it is not
+# the same as inferring a value it never stated, and specs.summary still keeps
+# the line verbatim so notes.md-style provenance survives into meta.json.
+BLAINE_SPELLINGS = [
+    (re.compile(r"\binframmary\b", re.I), "inframammary"),
+    (re.compile(r"\bprofle\b", re.I), "profile"),
+]
+
+
+def blaine_normalise(text: str) -> str:
+    for pattern, replacement in BLAINE_SPELLINGS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def blaine_parse_procedure(text: str) -> CaseSpecs:
+    specs = CaseSpecs()
+    specs.summary = text
+    normalised = blaine_normalise(text)
+    specs.left_cc, specs.right_cc = blaine_volumes(normalised)
+    classify_brand_shape_profile(specs, normalised)
+    if specs.profile is None:
+        for pattern, profile in BLAINE_PROFILE_ABBREVS:
+            if pattern.search(normalised):
+                specs.profile = profile
+                break
+    # The Procedure line is a terse chart line naming THIS patient's placement
+    # and incision ('submuscular inframammary Breast Augmentation with ...'),
+    # not a narrative walking through the options, so it counts as chart text
+    # for classify_placement_incision.
+    classify_placement_incision(specs, normalised)
+    specs.months_post_op = blaine_months_post_op(normalised)
+    return specs
+
+
+def blaine_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """One CaseData per (case number, Procedure text) group - see note 1."""
+    soup = BeautifulSoup(listing_html, "html.parser")
+    groups: dict[tuple[str, str], CaseData] = {}
+    numbers_seen: dict[str, int] = {}
+    for figure in soup.select("figure.gallery-item"):
+        anchor = figure.select_one("div.gallery-icon a[href]")
+        caption = figure.select_one("figcaption")
+        if anchor is None or caption is None:
+            continue
+        heading = caption.find("p")
+        m = BLAINE_CASE_RE.search(heading.get_text(" ", strip=True) if heading else "")
+        if m is None:
+            continue
+        number = m.group(1)
+        fields: dict[str, str] = {}
+        for item in caption.select("li"):
+            label = item.find("strong")
+            if label is None:
+                continue
+            name = label.get_text(" ", strip=True)
+            fields[name.rstrip(":").strip()] = item.get_text(
+                " ", strip=True)[len(name):].strip()
+        procedure = fields.get("Procedure", "").strip()
+        img = figure.find("img")
+        alt = (img.get("alt", "") if img is not None else "") or ""
+        haystack = " ".join(
+            (anchor.get("title", "") or "", alt, caption.get_text(" ", strip=True)))
+        filename = unquote(anchor["href"]).rsplit("/", 1)[-1]
+
+        key = (number, procedure)
+        if key not in groups:
+            seen = numbers_seen.get(number, 0)
+            # 'b' for the second patient published under one case number, 'c'
+            # for a third; the first keeps the bare number.
+            case_id = number if not seen else number + chr(ord("a") + seen)
+            numbers_seen[number] = seen + 1
+            case = CaseData(case_id=case_id, source_url=source_url)
+            case.specs = blaine_parse_procedure(procedure)
+            if fields.get("Age", "").isdigit():
+                case.specs.age = int(fields["Age"])
+            for label, value in fields.items():
+                if label not in ("Age", "Procedure") and value:
+                    case.specs.fields[label] = value
+            groups[key] = case
+        case = groups[key]
+
+        combined = BLAINE_COMBINED_RE.search(haystack)
+        if combined is not None:
+            case.warnings.append(
+                f"{filename}: combined procedure ('{combined.group(0)}' in the "
+                "figure text); excluded by the captain ruling on combined "
+                "procedures")
+            continue
+        if BLAINE_TIMEPOINT_STRIP_RE.search(procedure):
+            case.warnings.append(
+                f"{filename}: Procedure text enumerates a pre-op plus multiple "
+                "post-op timepoints, so this figure is a multi-panel strip and "
+                "not a before|after composite; not split")
+            continue
+        stem = re.sub(r"[^\w-]+", "_", filename.rsplit(".", 1)[0])
+        case.pairs.append(ImagePair(
+            key=stem, before_url=anchor["href"], after_url=anchor["href"],
+            split_composite=True,
+            view_hint="front" if BLAINE_ALT_FRONT_RE.search(alt) else None))
+    return list(groups.values())
+
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2863,6 +3153,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return mya_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "blaine":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        return blaine_parse_listing(listing, url)
     if cfg.kind == "drgrover":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")

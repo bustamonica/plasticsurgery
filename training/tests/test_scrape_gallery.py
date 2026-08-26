@@ -1304,3 +1304,174 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# blaine: bespoke WordPress [gallery] shortcode
+#
+# The fixture is a trimmed real snapshot of
+# blaineplasticsurgery.com/before-and-after/breast-procedures/breast-augmentation/
+# holding one figure per behaviour pinned below (plus both patients published
+# under case #115).
+#
+# One deliberate edit to that snapshot: the practice names several assets after
+# what look like patient surnames ('EArnold_115_viewA'). Those stems are
+# replaced with neutral placeholders ('CaseM_115_viewA') here and nowhere else -
+# no other fixture in this directory carries a name-like stem, and a committed
+# test file is not the place to introduce one. The markup, the case numbers and
+# every caption are otherwise verbatim, so what the parser is exercised against
+# is unchanged.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def blaine_cases():
+    cases = sg.blaine_parse_listing(load_fixture("blaine_listing.html"), "x")
+    return {c.case_id: c for c in cases}
+
+
+def test_blaine_case_number_is_not_a_patient_key(blaine_cases):
+    """#115 is TWO patients: a 36-yo with 'Sientra 415 HP' and the older
+    'CaseM_115' patient with '325 CC'. Collapsing them would put one person
+    in both halves of build_dataset.py's by-patient train/val split."""
+    assert set(blaine_cases) >= {"115", "115b"}
+    assert blaine_cases["115"].specs.age == 36
+    assert blaine_cases["115b"].specs.age == 51
+    assert sg.volume_cc(blaine_cases["115"].specs) is None   # '415 HP', no unit
+    assert sg.volume_cc(blaine_cases["115b"].specs) == 325
+    assert [p.key for p in blaine_cases["115b"].pairs] == [
+        "CaseM_115_viewA", "CaseM_115_viewB"]
+
+
+def test_blaine_combined_procedure_named_in_the_spec_field_is_excluded(blaine_cases):
+    case = blaine_cases["169"]
+    assert case.pairs == []
+    assert any("liposuction" in w for w in case.warnings)
+
+
+def test_blaine_combined_procedure_disclosed_only_in_the_image_alt(blaine_cases):
+    """Case #111's Procedure reads 'Breast Augmentation with moderate plus
+    profile 450cc silicone implants' - clean - while every one of its images
+    carries alt='Case #111 Mommy Makeover'. Screening the spec field alone
+    admits it, which is why the screen reads the whole figure."""
+    case = blaine_cases["111"]
+    assert "Makeover" not in case.specs.summary
+    assert case.pairs == []
+    assert any("Makeover" in w for w in case.warnings)
+
+
+def test_blaine_multi_timepoint_strip_is_not_split(blaine_cases):
+    """'Patient at pre op, 1 month post op, 3 months post op, and 6 months post
+    op' is four panels in one file; a midpoint split would glue two timepoints
+    into each half."""
+    case = blaine_cases["23"]
+    assert case.pairs == []
+    assert any("multi-panel strip" in w for w in case.warnings)
+
+
+def test_blaine_front_alt_is_a_view_hint_and_side_alt_is_not(blaine_cases):
+    """The alt names 'front' or 'side'. Only 'front' is a schema view: this
+    gallery uses 'side' for every non-front view, so a 5-view case reads
+    front + 4x'side' spanning both obliques and both sides, and it never
+    states laterality."""
+    front = blaine_cases["91"].pairs[0]
+    assert front.view_hint == "front"
+    assert sg.resolve_view(front, {}) == ("front", None)
+    side = blaine_cases["115"].pairs[0]
+    assert side.view_hint is None
+    assert sg.resolve_view(side, {}) == (None, None)
+
+
+@pytest.mark.parametrize("case_id,left,right,average", [
+    # '((L) 415cc HP, (Rt) 440cc HP ...)' - 'Rt' is not in the shared side
+    # alternation, and the marker precedes its volume.
+    ("33", 415, 440, 428),
+    # '400 CC silicone implant (right) and 450 CC silicone implant (left)' -
+    # the side follows the volume, several words later.
+    ("117", 450, 400, 425),
+    # 'left breast ... filled to 400 CC, and right breast ... filled to 500 CC'
+    ("24", 400, 500, 450),
+])
+def test_blaine_reads_side_scoped_volumes(blaine_cases, case_id, left, right, average):
+    specs = blaine_cases[case_id].specs
+    assert (specs.left_cc, specs.right_cc) == (left, right)
+    assert sg.volume_cc(specs) == average
+
+
+def test_blaine_unitless_size_is_not_a_volume(blaine_cases):
+    """'6 months post Breast Augmentation 455 MP+ Sientra subglandular' states
+    a size with no unit, in a field labelled Procedure rather than implant
+    size. A bare number in prose is not a documented volume."""
+    assert sg.volume_cc(blaine_cases["38"].specs) is None
+    assert blaine_cases["38"].specs.summary.count("455") == 1
+
+
+@pytest.mark.parametrize("text,profile", [
+    ("6 months post Breast Augmentation 455 MP+ Sientra subglandular", "moderate-plus"),
+    ("1 month post Breast Augmentation 450cc MP Sientra subglandular", "moderate"),
+    ("1 month post Breast Augmentation with Sientra 330HP submuscular", "high"),
+    ("6 months post Breast Augmentation 450 HP mentor submuscular", "high"),
+    # Spelled-out words win over any abbreviation in the same line.
+    ("Breast Augmentation with moderate plus profile 350 CC silicone gel implants",
+     "moderate-plus"),
+    ("Breast Augmentation. Mentor 350 cc Moderate Profile implants", "moderate"),
+    # Mentor's 'Xtra' is a product line, not a projection: case #158 takes
+    # moderate-plus from the words beside it and never extra-high from 'Xtra'.
+    ("Breast Augmentation with 440 CC silicone gel implants, Moderate Plus Profile Xtra",
+     "moderate-plus"),
+    # Nothing published: never defaulted.
+    ("before and one month post-op, Motiva 245, Subglandular", None),
+    ("Breast Augmentation with 450 CC saline implants", None),
+])
+def test_blaine_profile_decoding(text, profile):
+    assert sg.blaine_parse_procedure(text).profile == profile
+
+
+def test_blaine_xtra_never_reads_as_extra_high():
+    specs = sg.blaine_parse_procedure(
+        "Breast Augmentation with 440 CC silicone gel implants, Moderate Plus Profile Xtra")
+    assert specs.profile != "extra-high"
+
+
+def test_blaine_reads_the_clinics_own_misspellings_of_documented_values():
+    """'inframmary' (cases #91/#92/#93) and 'High Profle' (#15) are the
+    practice's spellings of values it did document; the raw line is kept."""
+    specs = sg.blaine_parse_procedure(
+        "submuscular inframmary Breast Augmentation with 400 CC silicone implants")
+    assert specs.incision == "inframammary"
+    assert "inframmary" in specs.summary
+    specs = sg.blaine_parse_procedure(
+        "Breast Augmentation. Mentor 450cc High Profle implants. Time post op 1 month.")
+    assert specs.profile == "high"
+    assert specs.months_post_op == 1
+
+
+@pytest.mark.parametrize("text,months", [
+    ("12 months post Breast Augmentation (350 cc HP Sientra submuscular)", 12),
+    ("1 year post Breast Augmentation; 350cc HP Sientra subglandular", 12),
+    ("before and one month post-op, 335 Sientra Moderate Plus, Subglandular", 1),
+    ("Breast Augmentation. Ideal 350cc (L), 360cc (R) implants. Time post op 1 month.", 1),
+    # A week figure is left unconverted rather than turned into a fraction of a
+    # month the clinic never stated.
+    ("Breast Augmentation. Sientra (gummy bear) 415cc implants. Time post op 1 week.", None),
+    ("Breast Augmentation with 450 CC implants; High Profile", None),
+])
+def test_blaine_months_post_op(text, months):
+    assert sg.blaine_parse_procedure(text).months_post_op == months
+
+
+def test_blaine_placement_and_incision_come_from_the_chart_line(blaine_cases):
+    specs = blaine_cases["91"].specs
+    assert (specs.placement, specs.incision) == ("submuscular", "inframammary")
+    # Nothing stated: omitted rather than guessed.
+    assert blaine_cases["117"].specs.placement is None
+
+
+def test_blaine_pairs_are_split_composites_of_the_full_size_original(blaine_cases):
+    for case in blaine_cases.values():
+        for pair in case.pairs:
+            assert pair.split_composite is True
+            assert pair.before_url == pair.after_url
+            # The <a href> original, never the 540px <img> thumbnail.
+            assert "-540x" not in pair.before_url
+            assert pair.before_url.startswith("https://blaineplasticsurgery.com/")
