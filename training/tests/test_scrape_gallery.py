@@ -5325,6 +5325,54 @@ def test_page1solutions_rejects_a_reversed_slide_the_grid_never_marks():
     assert any("below its before" in w for w in case.warnings)
 
 
+def _p1s_marked_block(before_asset: str, after_asset: str) -> str:
+    """One case whose s3grid marks its first slide pair data-before/data-after."""
+    return (
+        '<html><body><div class="patient"><div class="patient-info">'
+        '<a>Breast Augmentation (Silicone Implants)</a>'
+        '<div class="patient-meta-info">'
+        '<strong>Implant Size:</strong> 350 High Profile</div></div>'
+        '<div class="view s3grid"><div class="item">'
+        f'<img class="feat2" data-before="{before_asset}" src="{before_asset}"/>'
+        f'<img class="feat2" data-after="{after_asset}" src="{after_asset}"/>'
+        "</div></div>"
+        f'<div class="slides"><div class="item">'
+        f'<img class="feat2" src="{before_asset}"/>'
+        f'<img class="feat2" src="{after_asset}"/>'
+        "</div></div></div></body></html>")
+
+
+def test_page1solutions_asset_numbering_never_overrules_the_pages_own_marks():
+    """A practice may number its after file first; the page still says which.
+
+    The markers are the clinic's statement of which image is which and the
+    numbering is a platform habit. Letting the habit veto the statement would
+    drop the first pair of every case at such an install.
+    """
+    html = _p1s_marked_block("./44/02.jpg", "./44/01.jpg")
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert [(p.before_url, p.after_url) for p in case.pairs] == [
+        (P1S_SILICONE + "44/02.jpg", P1S_SILICONE + "44/01.jpg")]
+    assert any("departs from the platform's" in w and "kept" in w
+               for w in case.warnings)
+
+
+def test_page1solutions_rejects_a_slide_pairing_two_asset_folders():
+    """Numbers restart per folder, so a cross-folder couple is not comparable.
+
+    It is also two cases' images in one pair, which is the shape of a
+    fabricated before/after and never something to keep on DOM order alone.
+    """
+    html = _p1s_marked_block("./44/01.jpg", "./44/02.jpg").replace(
+        '<div class="slides"><div class="item">'
+        '<img class="feat2" src="./44/01.jpg"/>',
+        '<div class="slides"><div class="item">'
+        '<img class="feat2" src="./45/03.jpg"/>')
+    case = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")[0]
+    assert case.pairs == []
+    assert any("all live in one folder" in w for w in case.warnings)
+
+
 def test_page1solutions_reports_a_block_it_could_not_key(capsys):
     """A block with no numbered asset path cannot be keyed - but it is a case.
 
@@ -5534,6 +5582,18 @@ def test_gallatin_accounting_separates_a_ruling_from_a_parse_failure(capsys):
     assert "across 4 case(s)" in line
     assert "1 pair(s) excluded as combined procedures" in line
     assert "0 item(s) unresolved" in line
+
+
+def test_gallatin_reports_a_listing_that_rendered_nothing_as_a_failure(capsys):
+    """Zero items is an error page served as 200, not a clean empty gallery.
+
+    The gallery publishes no case total to reconcile against, so an all-zero
+    accounting line is the only trace a total collection failure leaves.
+    """
+    assert sg.gallatin_parse_listing(
+        '<html><body><ul class="gps-gallery-list"></ul></body></html>',
+        GALLATIN_URL) == []
+    assert "WARN" in capsys.readouterr().out
 
 
 def test_gallatin_accounting_sums_every_item_when_one_will_not_pair(capsys):

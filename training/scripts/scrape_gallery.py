@@ -4553,6 +4553,23 @@ def _p1s_asset_number(src: str) -> int | None:
     return int(m.group(2)) if m else None
 
 
+def _p1s_numbering_note(before_src: str, after_src: str) -> str | None:
+    """How this couple departs from odd-before/even-after, or None if it holds.
+
+    Two assets are only comparable within one case's own numbered folder: the
+    numbers restart per folder, so a number from another folder says nothing.
+    """
+    before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
+    if before_n is None or after_n is None:
+        return None
+    if _p1s_asset_folder(before_src) != _p1s_asset_folder(after_src):
+        return None
+    if before_n % 2 == 1 and after_n % 2 == 0 and after_n > before_n:
+        return None
+    return (f"asset numbering {before_n}/{after_n} departs from the platform's "
+            f"odd-before/even-after convention")
+
+
 def _p1s_pair_problem(before_src: str, after_src: str,
                       documented: dict[str, str], documented_afters: set,
                       ) -> tuple[str | None, str | None]:
@@ -4560,16 +4577,20 @@ def _p1s_pair_problem(before_src: str, after_src: str,
 
     DOM order alone is too weak to carry a label this consequential: a reversed
     pair teaches the edit model to SHRINK breasts and passes every downstream
-    gate silently. Two independent sources on the page can contradict it - the
-    data-before/data-after markers the s3grid puts on the first pair, and the
-    platform's odd-first/even-second asset numbering - and each is checked in
-    both directions, because an image the page names as a before turning up in
-    the after slot is the same evidence as the pairing itself disagreeing.
+    gate silently. Two sources on the page can speak to it - the data-before/
+    data-after markers the s3grid puts on the first pair, and the platform's
+    odd-first/even-second asset numbering - and they do not rank equally. The
+    markers are the page's own statement of which image is which, checked in
+    both directions because an image the page names as a before turning up in
+    the after slot is the same evidence as the pairing itself disagreeing. The
+    numbering is a platform habit: it can raise a suspicion where nothing else
+    speaks, but it never overrules a marker, or a practice that numbers its
+    after file first would lose the first pair of every case.
 
-    A contradiction skips the pair. A numbering that merely departs from the
-    convention without reversing it is reported and kept: the numbering is a
-    platform habit rather than a statement, and a family parser reused on
-    further practices must not drop pairs over one.
+    So a marker contradiction skips the pair; a marker AFFIRMATION keeps it
+    whatever the numbering does; and with no marker either way, only a
+    descending pair - the shape of an actual reversal - skips. Anything else
+    unconventional is reported and kept.
     """
     if before_src in documented and documented[before_src] != after_src:
         return "contradicts the page's own data-before/data-after pairing", None
@@ -4577,17 +4598,21 @@ def _p1s_pair_problem(before_src: str, after_src: str,
         return "puts an image the page marks data-before in the after slot", None
     if before_src in documented_afters:
         return "puts an image the page marks data-after in the before slot", None
+    note = _p1s_numbering_note(before_src, after_src)
+    if documented.get(before_src) == after_src:
+        return None, (f"{note}; kept, the page marks this pairing itself"
+                      if note else None)
+    before_folder = _p1s_asset_folder(before_src)
+    after_folder = _p1s_asset_folder(after_src)
+    if (before_folder is not None and after_folder is not None
+            and before_folder != after_folder):
+        return (f"pairs asset folder {before_folder} against {after_folder}, "
+                f"but a case's images all live in one folder"), None
     before_n, after_n = _p1s_asset_number(before_src), _p1s_asset_number(after_src)
-    if before_n is None or after_n is None:
-        return None, None
-    if after_n < before_n:
+    if note is not None and after_n < before_n:
         return (f"numbers its after asset ({after_n}) below its before "
                 f"({before_n})"), None
-    if before_n % 2 != 1 or after_n % 2 != 0:
-        return None, (f"asset numbering {before_n}/{after_n} departs from the "
-                      f"platform's odd-before/even-after convention; kept in "
-                      f"DOM order")
-    return None, None
+    return None, f"{note}; kept in DOM order" if note else None
 
 
 def page1solutions_parse_meta(meta_block, specs: CaseSpecs) -> None:
@@ -4984,6 +5009,11 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
           f"them paired into {paired} pair(s) across {len(cases)} case(s); "
           f"{excluded_pairs} pair(s) excluded as combined procedures; "
           f"{len(unresolved)} item(s) unresolved")
+    if not items:
+        # A gallery that renders nothing is a failed collection - an error page
+        # served as 200, a markup change, a truncated cached listing - and must
+        # not read as a clean empty run.
+        print("  WARN gallatin: the listing renders no gallery item(s) at all")
     if unresolved:
         print(f"  WARN gallatin: {len(unresolved)} gallery item(s) did not "
               f"resolve into a before/after couple: {', '.join(unresolved[:8])}"
