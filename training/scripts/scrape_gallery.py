@@ -114,10 +114,15 @@ parser, all in this module: kind='rmgallery2' (Rosemont Media "RM Gallery 2",
 which stores separate before and after FILES and publishes no case total),
 kind='page1solutions_paged' (the paginated inline Page 1 Solutions listing -
 a distinct kind from the three Page 1 Solutions parsers above, on purpose) and
-kind='gallatin' (one bespoke WordPress list paired by document order). None of
-the three documents laterality anywhere, so they emit front views only and
-their lateral pairs are held by view type pending the captain's laterality
-ruling (key=laterality-rule-2026-08-25).
+kind='gallatin' (one bespoke WordPress list paired by document order). Both
+families serve many more practices on the prospecting lists, so each is written
+to be configured per clinic the way 'etna' is; see their sections below for the
+markup contracts, and the pure-procedure screen preceding them for the
+combined-procedure exclusion all three read off the case's own text - no
+platform in this group publishes a procedure slug to screen on. None of the
+three documents laterality anywhere, so they emit front views only and their
+lateral pairs are held by view type pending the captain's laterality ruling
+(key=laterality-rule-2026-08-25).
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.

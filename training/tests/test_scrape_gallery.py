@@ -4,6 +4,7 @@ Fixtures under fixtures/gallery/ are text/HTML excerpts of real case pages
 (gallery image tags + spec blocks). No patient images are stored.
 """
 
+import dataclasses
 import json
 import re
 import sys
@@ -6226,6 +6227,44 @@ def test_2026_08_25_batch_is_registered_with_a_traceable_consent_ref(slug, kind)
     assert cfg.kind == kind
     assert cfg.consent_ref == f"{slug}-agreement-2026-08-25"
     assert all(p.startswith("/") and p.endswith("/") for p in cfg.gallery_paths)
+
+
+def test_page1_dispatch_routes_ciaravino_through_the_paginated_inline_parser(
+        tmp_path, monkeypatch):
+    """Four Page 1 Solutions parsers must not share a `kind`.
+
+    ciaravino was collected as `kind="page1solutions"`, which bandy already
+    claims for the per-case-page parser in page1solutions.py. `collect_cases`
+    returns from the FIRST matching branch, so that kind sends ciaravino's
+    paginated inline listing to a parser that looks for case pages, finds no
+    `div.patient-item` anchors and returns zero cases - a silent-zero run that
+    reads exactly like a finished collection (the ncps/psiw precedent above).
+    """
+    class _OnePageSession:
+        headers: dict = {}
+
+        def get(self, url, timeout=None):
+            body = _p1s_listing_page("77", pages=1).encode()
+
+            class R:
+                status_code = 200
+                content = body
+
+                def raise_for_status(self):
+                    return None
+
+            return R()
+
+    cfg = dataclasses.replace(
+        sg.CLINICS["ciaravino"],
+        gallery_paths=sg.CLINICS["ciaravino"].gallery_paths[:1])
+    cases = sg.collect_cases(cfg, _fetcher(tmp_path, monkeypatch,
+                                           _OnePageSession()))
+
+    # The asset folder keys the case, namespaced by its gallery - which only
+    # this module's paginated inline parser produces.
+    assert [c.case_id for c in cases] == ["silicone-770"]
+    assert cases[0].pairs[0].before_url.endswith("/770/01.jpg")
 
 
 def test_gryskiewicz_collects_only_the_three_augmentation_galleries():
