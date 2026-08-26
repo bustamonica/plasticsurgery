@@ -5249,6 +5249,27 @@ def test_page1solutions_excludes_a_combined_case_and_says_which_term():
     assert cases[1].pairs                       # its neighbours are untouched
 
 
+@pytest.mark.parametrize("chart_line", [
+    "<strong>Procedure:</strong> Breast Augmentation with Lift<br/>",
+    "<strong>Procedure Performed:</strong> Breast Augmentation with Lift<br/>",
+])
+def test_page1solutions_screens_the_case_chart_not_just_the_gallery_heading(
+        chart_line):
+    """The anchor is the gallery's heading, identical on every block.
+
+    A 'Procedure:' chart line is narrative, so it reaches specs.summary and
+    never specs.fields; an unknown label lands there too. Screening a heading
+    instead of the case's own text is what let 86 combined cases through at
+    the Etna clinics.
+    """
+    html = load_fixture("page1solutions_ciaravino_silicone.html").replace(
+        "<strong>Height:</strong>", chart_line + "<strong>Height:</strong>", 1)
+    cases = sg.page1solutions_parse_listing_page(html, P1S_SILICONE, "silicone")
+    assert cases[0].pairs == []
+    assert any("augmentation with lift" in w for w in cases[0].warnings)
+    assert cases[1].pairs                       # its neighbours are untouched
+
+
 def test_page1solutions_reports_a_case_with_no_chart():
     html = re.sub(r'<div class="patient-meta-info">.*?</div>', "",
                   load_fixture("page1solutions_ciaravino_silicone.html"),
@@ -5319,6 +5340,78 @@ def test_page1solutions_reports_a_block_it_could_not_key(capsys):
     assert "no numbered asset path" in out
     # The block is named by whatever it does publish, so the drop is evidenced.
     assert "https://cdn.example.com/376/01.jpg" in out
+
+
+P1S_TEST_CFG = sg.ClinicConfig(
+    slug="p1sfamily", consent_ref="p1sfamily-agreement",
+    base_url="https://p1s.example.com",
+    gallery_paths=["/gallery/breast-augmentation-silicone-implants/"],
+    kind="page1solutions")
+
+
+def _p1s_listing_page(folder: str, *, cdn: bool = False,
+                      blocks: int = 1, pages: int = 3) -> str:
+    """One Page 1 Solutions listing page, `blocks` cases and a pager."""
+    body = ""
+    for n in range(blocks):
+        root = (f"https://cdn.example.com/{folder}{n}/" if cdn
+                else f"./{folder}{n}/")
+        body += (
+            '<div class="patient"><div class="patient-info">'
+            '<a>Breast Augmentation (Silicone Implants)</a>'
+            '<div class="patient-meta-info">'
+            '<strong>Implant Size:</strong> 350 High Profile</div></div>'
+            f'<div class="slides"><div class="item">'
+            f'<img src="{root}01.jpg"/><img src="{root}02.jpg"/>'
+            "</div></div></div>")
+    pager = "".join(f'<li><a href="?page={n}">{n}</a></li>'
+                    for n in range(2, pages + 1))
+    return f'<html><body>{body}<ul class="pager">{pager}</ul></body></html>'
+
+
+class _P1SPagerSession:
+    """Serves three listing pages; page 2's assets are absolute CDN URLs."""
+
+    headers: dict = {}
+
+    def __init__(self):
+        self.gets: list[str] = []
+
+    def get(self, url, timeout=None):
+        self.gets.append(url)
+        if "?page=2" in url:
+            body = _p1s_listing_page("20", cdn=True)
+        elif "?page=3" in url:
+            body = _p1s_listing_page("30")
+        else:
+            body = _p1s_listing_page("10")
+
+        class R:
+            status_code = 200
+            content = body.encode()
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def test_page1solutions_walks_past_a_page_whose_blocks_were_all_dropped(
+        tmp_path, monkeypatch, capsys):
+    """A page that renders cases is not the end of the set, whatever we keep.
+
+    Every block of page 2 publishes an absolute CDN path, so all of them are
+    dropped - reading that as 'no more cases' abandons page 3 and every page
+    after it, and the shortfall never reaches the block reconciliation.
+    """
+    session = _P1SPagerSession()
+    cases = sg.collect_cases(
+        P1S_TEST_CFG, _fetcher(tmp_path, monkeypatch, session))
+    assert any("?page=3" in url for url in session.gets)
+    assert [c.case_id for c in cases] == ["silicone-100", "silicone-300"]
+    out = capsys.readouterr().out
+    assert "walked all 3 listing page(s)" in out
+    assert "collected 2 case(s) from the 3 case block(s)" in out
 
 
 # ---------------------------------------------------------------------------

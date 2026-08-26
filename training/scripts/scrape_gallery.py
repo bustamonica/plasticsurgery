@@ -4722,8 +4722,15 @@ def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
             specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
         case.specs = specs
 
+        # specs.summary is not optional here: the chart's own 'Procedure:' line
+        # is narrative, so page1solutions_parse_meta routes it to the summary
+        # and never to specs.fields, and so does any line whose label this
+        # parser does not know. The anchor is the gallery's heading, identical
+        # on every block of the page - screening on that alone is the mistake
+        # that let 86 combined cases through at the Etna clinics.
         term = combined_procedure_term(
-            procedure, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+            procedure, " ".join(f"{k}: {v}" for k, v in specs.fields.items()),
+            specs.summary)
         if term is not None:
             case.warnings.append(
                 f"not pure breast augmentation (case text names '{term}'); "
@@ -7800,6 +7807,9 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             cases.extend(page_cases)
             rendered_blocks = page1solutions_listing_case_count(first)
             collected_cases = len(page_cases)
+            if rendered_blocks == 0:
+                print(f"  WARN {cfg.slug}/{tag}: listing page 1 renders no "
+                      f"case block(s)")
             pages_walked = 1
             page = 2
             while declared_pages is not None and page <= declared_pages:
@@ -7809,12 +7819,18 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 if html is None:
                     print(f"  WARN {cfg.slug}/{tag}: page {page} unavailable")
                     break
-                more = page1solutions_parse_listing_page(html, gallery_url, short)
-                if not more:
-                    print(f"  WARN {cfg.slug}/{tag}: page {page} rendered no cases")
+                # The end of the set is a page that RENDERS nothing. A page
+                # whose blocks were all dropped renders plenty, and reading it
+                # as the end abandons every page after it - so it is walked,
+                # and the block reconciliation below is what reports the drop.
+                rendered = page1solutions_listing_case_count(html)
+                if rendered == 0:
+                    print(f"  WARN {cfg.slug}/{tag}: page {page} renders no "
+                          f"case block(s)")
                     break
+                more = page1solutions_parse_listing_page(html, gallery_url, short)
                 cases.extend(more)
-                rendered_blocks += page1solutions_listing_case_count(html)
+                rendered_blocks += rendered
                 collected_cases += len(more)
                 pages_walked += 1
                 page += 1
