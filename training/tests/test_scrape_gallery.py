@@ -5402,3 +5402,66 @@ def test_gryskiewicz_collects_only_the_three_augmentation_galleries():
         "/gallery/breast/dual-plane-breast-augmentation/",
     ]
     assert not any("lift" in p for p in paths)
+
+
+# ---------------------------------------------------------------------------
+# View-typed pairs: recording what a photograph is without guessing its side
+# ---------------------------------------------------------------------------
+
+
+def _lateral_pair():
+    return sg.ImagePair(key="pair2", before_url="b.jpg", after_url="a.jpg")
+
+
+def test_view_type_without_laterality_holds_the_pair():
+    """'side' with no left/right records the photograph and emits nothing.
+
+    CLAUDE.md allows a laterality label only from a landmark visible in both a
+    case's front and its lateral. Recording the TYPE keeps the reliable half of
+    the call without guessing the half that needs the landmark.
+    """
+    ann = {"pairs": {"pair2": {"view": "side"}}}
+    assert sg.resolve_view(_lateral_pair(), ann) == (None, None)
+    assert "held pending a left/right label" in sg.view_skip_reason(
+        _lateral_pair(), ann)
+
+
+def test_adding_a_laterality_releases_a_view_typed_pair():
+    """One field is all that stands between a held pair and an emitted one."""
+    ann = {"pairs": {"pair2": {"view": "side", "laterality": "right"}}}
+    view, source = sg.resolve_view(_lateral_pair(), ann)
+    assert view == "side-right"
+    assert "view type from visual inspection" in source
+    assert "laterality from visual inspection" in source
+
+
+def test_case_level_laterality_also_releases_a_view_typed_pair():
+    ann = {"laterality": "left", "pairs": {"pair2": {"view": "oblique"}}}
+    assert sg.resolve_view(_lateral_pair(), ann)[0] == "oblique-left"
+
+
+def test_pair_laterality_wins_over_the_case_default():
+    ann = {"laterality": "left",
+           "pairs": {"pair2": {"view": "side", "laterality": "right"}}}
+    assert sg.resolve_view(_lateral_pair(), ann)[0] == "side-right"
+
+
+def test_an_unannotated_pair_is_reported_differently_from_a_held_one():
+    """Held and never-looked-at are separate dispositions in the accounting."""
+    assert sg.view_skip_reason(_lateral_pair(), {}) == "no view annotation"
+
+
+def test_a_page_documented_view_type_still_needs_its_laterality():
+    """gallatin's filename says 'Side' and never which side."""
+    pair = sg.ImagePair(key="side2", before_url="b.jpg", after_url="a.jpg",
+                        view_hint="side")
+    assert sg.resolve_view(pair, {}) == (None, None)
+    assert "held pending" in sg.view_skip_reason(pair, {})
+    assert sg.resolve_view(pair, {"laterality": "right"})[0] == "side-right"
+
+
+def test_a_full_schema_view_annotation_still_wins_outright():
+    pair = sg.ImagePair(key="pair1", before_url="b.jpg", after_url="a.jpg")
+    ann = {"pairs": {"pair1": {"view": "front"}}}
+    assert sg.resolve_view(pair, ann) == (
+        "front", "visual inspection of downloaded images")

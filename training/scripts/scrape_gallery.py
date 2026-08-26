@@ -52,7 +52,15 @@ produced by visually inspecting the downloaded images:
         "laterality": "left" | "right",       # kolker shorthand (oblique+side)
         "clothing": "nude" | "bra" | "top",
         "pairs": {"<pair_key>": {"view": "<schema view>",
+                                 "laterality": "left" | "right",
                                  "clothing": "nude" | "bra" | "top"}}}}
+
+A pair's "view" may also be the bare type "oblique" or "side". That records
+what the photograph is - the call CLAUDE.md says is reliable at contact-sheet
+scale - while withholding the laterality it says needs a landmark visible in
+both the case's front and its lateral. Such a pair is HELD rather than emitted,
+and adding "laterality" beside it (or once for the case) releases it with no
+re-crawl and no second look at the images.
 
 Case spec fields that the gallery does not document are omitted (or use the
 schema's "unknown" enum value); values are never guessed.
@@ -6891,6 +6899,26 @@ def build_notes(specs: CaseSpecs, laterality_source: str | None) -> str:
     return "\n".join(parts)
 
 
+# View types the schema splits by laterality. A pair may be annotated with one
+# of these INSTEAD of a full schema view: that records what the photograph is -
+# the reliable call - while deliberately withholding the left/right, which
+# CLAUDE.md only allows from a landmark visible in both a case's front and its
+# lateral. A pair annotated this way does not emit; adding the laterality (per
+# pair, or once for the case) is all that releases it, with no re-crawl and no
+# second look at the images.
+LATERAL_VIEW_TYPES = ("oblique", "side")
+
+
+def _pair_view_type(pair: ImagePair, pair_ann: dict) -> tuple[str | None, str | None]:
+    """(lateral view type, its source) from the annotation or the page."""
+    if pair_ann.get("view") in LATERAL_VIEW_TYPES:
+        return (pair_ann["view"],
+                "view type from visual inspection of downloaded images")
+    if pair.view_hint in LATERAL_VIEW_TYPES:
+        return pair.view_hint, None
+    return None, None
+
+
 def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | None]:
     """(schema view, annotation source) for a pair, or (None, ...) to skip."""
     pair_ann = annotations.get("pairs", {}).get(pair.key, {})
@@ -6901,12 +6929,30 @@ def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | 
     # is already a full schema view needs no annotation.
     if pair.view_hint in SCHEMA_VIEWS:
         return pair.view_hint, None
-    if pair.view_hint in ("oblique", "side"):
-        laterality = annotations.get("laterality")
-        if laterality in ("left", "right"):
-            return (f"{pair.view_hint}-{laterality}",
-                    "laterality from visual inspection of downloaded images")
-    return None, None
+    view_type, type_source = _pair_view_type(pair, pair_ann)
+    if view_type is None:
+        return None, None
+    laterality = pair_ann.get("laterality") or annotations.get("laterality")
+    if laterality not in ("left", "right"):
+        return None, None
+    lat_source = "laterality from visual inspection of downloaded images"
+    return (f"{view_type}-{laterality}",
+            f"{type_source}; {lat_source}" if type_source else lat_source)
+
+
+def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
+    """Why a pair produced no schema view - the per-clinic accounting needs it.
+
+    'Held' and 'unannotated' are different dispositions and must not be
+    reported as one: a held pair is fully view-typed and waiting on a single
+    laterality field, an unannotated one has never been looked at.
+    """
+    pair_ann = annotations.get("pairs", {}).get(pair.key, {})
+    view_type, _ = _pair_view_type(pair, pair_ann)
+    if view_type is not None:
+        return (f"view type '{view_type}' recorded but no laterality; held "
+                "pending a left/right label")
+    return "no view annotation"
 
 
 def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
@@ -7760,7 +7806,8 @@ def main() -> int:
         for pair in case.pairs:
             view, view_source = resolve_view(pair, annotations)
             if view is None:
-                print(f"    SKIP {pair.key}: no view annotation")
+                print(f"    SKIP {pair.key}: "
+                      f"{view_skip_reason(pair, annotations)}")
                 skipped += 1
                 continue
             pair_id = f"{cfg.slug}-{case.case_id}-{view}"

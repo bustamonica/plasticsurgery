@@ -196,11 +196,17 @@ def render_case_sheets(grouped: list[tuple[str, list[tuple[str, list[bytes]]]]],
     for start in range(0, len(grouped), cases_per_sheet):
         batch = grouped[start : start + cases_per_sheet]
         cols = max(len(pairs) for _, pairs in batch)
-        sheet = Image.new("RGB", (cols * cell_w, len(batch) * (tile + LABEL_H)),
+        # Two label lines, not one: a long case id ('silicone-breast-
+        # augmentation-patient-1') overruns the next column's pair key and the
+        # two become unreadable - and the pair key is exactly what the
+        # annotations file is keyed on, so it has to stay legible per tile.
+        band = LABEL_H * 2
+        sheet = Image.new("RGB", (cols * cell_w, len(batch) * (tile + band)),
                           TILE_BG)
         draw = ImageDraw.Draw(sheet)
         for row, (case_id, pairs) in enumerate(batch):
-            y = row * (tile + LABEL_H)
+            y = row * (tile + band)
+            draw.text((4, y + tile + 3), case_id, fill=(255, 220, 0))
             for col, (pair_key, images) in enumerate(pairs):
                 x = col * cell_w
                 for j, data in enumerate(images):
@@ -210,11 +216,10 @@ def render_case_sheets(grouped: list[tuple[str, list[tuple[str, list[bytes]]]]],
                         print(f"WARN cannot render {case_id}:{pair_key}[{j}]: {e}")
                 if len(images) > 1:
                     draw.line([(x + tile, y), (x + tile, y + tile)], fill=DIVIDER)
-                draw.text((x + 4, y + tile + 3),
-                          f"{case_id}:{pair_key}" if col == 0 else pair_key,
-                          fill=(255, 220, 0))
-            draw.line([(0, y + tile + LABEL_H - 1),
-                       (cols * cell_w, y + tile + LABEL_H - 1)], fill=(70, 70, 70))
+                draw.text((x + 4, y + tile + LABEL_H + 1), pair_key,
+                          fill=(180, 220, 255))
+            draw.line([(0, y + tile + band - 1),
+                       (cols * cell_w, y + tile + band - 1)], fill=(70, 70, 70))
         count += 1
         out = out_dir / f"case_sheet_{count:03d}.jpg"
         sheet.save(out, "JPEG", quality=90)
