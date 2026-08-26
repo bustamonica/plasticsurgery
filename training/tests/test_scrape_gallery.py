@@ -2502,6 +2502,100 @@ class _DuplicatePatientSession:
         return R()
 
 
+class _RmgDuplicateSession:
+    """Two gryskiewicz categories publishing ONE patient's case twice."""
+
+    headers: dict = {}
+    IMAGE = b"\xff\xd8\xff\xe0 one patient's photograph \xff\xd9"
+    SHARED = "/wp-content/uploads/rmgallery2/RMG2862851087-8212"
+    DUAL = "/gallery/breast/dual-plane-breast-augmentation/"
+    SALINE = "/gallery/breast/saline-breast-augmentation/"
+
+    def _case(self) -> bytes:
+        return (
+            '<html><body><section class="case-wrap"><div class="img-wrap">'
+            f'<div class="before-img img-frame">'
+            f'<img src="{self.SHARED}-b/original.jpeg"></div>'
+            f'<div class="after-img img-frame">'
+            f'<img src="{self.SHARED}-a/original.jpeg"></div>'
+            '</div></section><div class="patient-details">'
+            "<p>Implant Size: 350cc</p></div></body></html>").encode()
+
+    def _listing(self, path: str, number: int) -> bytes:
+        return (
+            '<html><body><h1>Breast Augmentation</h1>'
+            f'<div class="bna-group"><a href="{path}patient-{number}">'
+            f'<img class="before-img" data-src="{self.SHARED}-b/small.jpeg">'
+            "</a></div></body></html>").encode()
+
+    def get(self, url, timeout=None):
+        if url.endswith(".jpeg"):
+            body = self.IMAGE
+        elif url.rstrip("/").endswith(("patient-88", "patient-293")):
+            body = self._case()
+        elif self.DUAL in url:
+            body = self._listing(self.DUAL, 88)
+        else:
+            body = self._listing(self.SALINE, 293)
+
+        class R:
+            status_code = 200
+            content = body
+
+            def raise_for_status(self):
+                return None
+
+        return R()
+
+
+def test_one_patient_is_reported_even_when_only_one_copy_emits(
+        tmp_path, monkeypatch, capsys):
+    """The duplicate must not depend on both copies reaching the corpus.
+
+    gryskiewicz publishes one patient in both its dual-plane and its saline
+    category, citing the same five image URLs; under a fronts-only pass only
+    one copy emits, so a check that compares emitted bytes sees one digest and
+    reports nothing. The source URLs the collection already holds say it
+    outright, whatever anybody annotates.
+    """
+    cfg = sg.ClinicConfig(
+        slug="rmgdup", consent_ref="rmgdup-agreement",
+        base_url="https://rmg.example.com",
+        gallery_paths=[_RmgDuplicateSession.DUAL, _RmgDuplicateSession.SALINE],
+        kind="rmgallery2")
+    monkeypatch.setitem(sg.CLINICS, "rmgdup", cfg)
+    annotations = tmp_path / "ann.json"
+    annotations.write_text(json.dumps({
+        "rmgdup:dual-plane-breast-augmentation-patient-88": {
+            "pairs": {"pair1": {"view": "front"}}},
+    }))
+
+    session = _RmgDuplicateSession()
+    real = sg.PoliteFetcher
+
+    def build(*a, **kw):
+        f = real(*a, **kw)
+        f.session = session
+        return f
+
+    monkeypatch.setattr(sg, "PoliteFetcher", build)
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sg.sys, "argv",
+                        ["scrape_gallery.py", "--clinic", "rmgdup",
+                         "--out", str(tmp_path / "out"), "--delay", "0",
+                         "--annotations", str(annotations)])
+    assert sg.main() == 0
+
+    out = capsys.readouterr().out
+    emitted = sorted(p.parent.name
+                     for p in (tmp_path / "out" / "rmgdup").glob("*/meta.json"))
+    assert emitted == ["rmgdup-dual-plane-breast-augmentation-patient-88-front"]
+    assert "patient(s) collected under more than one case key" in out
+    assert ("dual-plane-breast-augmentation-patient-88 == "
+            "saline-breast-augmentation-patient-293") in out
+    assert _RmgDuplicateSession.SHARED + "-b/original.jpeg" in out
+
+
 def test_one_patient_published_in_two_categories_is_reported(
         tmp_path, monkeypatch, capsys):
     """A clinic's categories are not always disjoint.
@@ -5635,6 +5729,38 @@ class _P1SPagerSession:
         return R()
 
 
+def test_page1solutions_says_when_a_listing_published_no_pager_at_all(
+        tmp_path, monkeypatch, capsys):
+    """One page and no pager found are different claims about the same gallery.
+
+    The pager is this family's only enumeration signal, so a sweep that stops
+    after page 1 because nothing said otherwise must not read as the gallery
+    stating it has one page.
+    """
+    class _NoPagerSession:
+        headers: dict = {}
+
+        def get(self, url, timeout=None):
+            body = _p1s_listing_page("10", pages=1).replace(
+                '<ul class="pager"></ul>', "").encode()
+
+            class R:
+                status_code = 200
+                content = body
+
+                def raise_for_status(self):
+                    return None
+
+            return R()
+
+    cases = sg.collect_cases(
+        P1S_TEST_CFG, _fetcher(tmp_path, monkeypatch, _NoPagerSession()))
+    assert [c.case_id for c in cases] == ["silicone-100"]
+    out = capsys.readouterr().out
+    assert "publishes no ul.pager markup" in out
+    assert "collected all 1 case block(s)" in out
+
+
 def test_page1solutions_walks_past_a_page_whose_blocks_were_all_dropped(
         tmp_path, monkeypatch, capsys):
     """A page that renders cases is not the end of the set, whatever we keep.
@@ -5717,6 +5843,24 @@ def test_gallatin_reads_the_case_specs_off_its_captions():
     assert case.specs.profile == "high"
     assert case.specs.months_post_op == 6.0
     assert case.specs.age == 29
+
+
+def test_gallatin_does_not_decode_a_bare_abbreviation_from_its_caption():
+    """The captain's profile vocabulary reads a LABELLED implant field only.
+
+    gallatin publishes no chart, so its captions are prose and a bare 'UHP'
+    there is not the clinic stating a profile - the same chart-not-narrative
+    rule that keeps placement unrecorded. Profile does reach a training
+    caption, so a missing one beats a wrong one.
+    """
+    html = load_fixture("gallatin_listing.html").replace(
+        "410 cc high profile", "410cc UHP")
+    case = {c.case_id: c
+            for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}["117"]
+    assert sg.volume_cc(case.specs) == 410      # the volume still counts
+    assert case.specs.profile is None
+    # The clinic's own spelled-out profile is still read, as it always was.
+    assert _gallatin()["117"].specs.profile == "high"
 
 
 def test_gallatin_records_no_placement_from_its_caption_prose():

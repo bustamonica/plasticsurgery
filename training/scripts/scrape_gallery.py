@@ -4560,6 +4560,19 @@ def page1solutions_page_count(listing_html: str) -> int | None:
     return highest
 
 
+def page1solutions_has_pager(listing_html: str) -> bool:
+    """Whether the listing published pager markup at all.
+
+    page_count is None for a one-page gallery AND for a listing whose pager
+    this parser could not find, and those are not the same claim: the pager is
+    the family's only enumeration signal, so 'one page' with no pager markup is
+    this parser's result rather than the gallery's own statement, and reading it
+    as the end of the set is how 582 declared Etna cases became a confident 450.
+    """
+    return BeautifulSoup(
+        listing_html, "html.parser").select_one("ul.pager") is not None
+
+
 def page1solutions_listing_case_count(listing_html: str) -> int:
     """div.patient blocks one listing page renders, parsed or not.
 
@@ -4994,8 +5007,11 @@ def _gallatin_pair_specs(before_cap: str, after_cap: str) -> CaseSpecs:
     specs.summary = f"{before_cap} {after_cap}".strip()
     specs.left_cc, specs.right_cc = parse_fill_volumes(after_cap)
     classify_brand_shape_profile(specs, after_cap)
-    if specs.profile is None:
-        specs.profile = captain_profile_term(after_cap)
+    # No captain_profile_term() here. That vocabulary decodes bare
+    # abbreviations ('430UHP', 'MP') and the 2026-08-19 ruling applies it ONLY
+    # to a field the clinic labelled as an implant size or profile - gallatin
+    # publishes no chart, so its captions are prose and a bare 'HP' in prose is
+    # not a profile. Unlike placement, profile reaches a training caption.
     specs.months_post_op = gallatin_months_post_op(after_cap)
     m = re.search(r"(\d{2})\s*year[- ]old", before_cap, re.I)
     if m:
@@ -7253,7 +7269,7 @@ def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
 
 
 class DuplicatePatientLog:
-    """Cases whose emitted images are byte-identical - one patient, two keys.
+    """Cases that are one patient under two keys - the same images, twice.
 
     A clinic's gallery categories are not always disjoint: ciaravino publishes
     an ultra-high-profile category that is a name-subset of its silicone one,
@@ -7263,35 +7279,59 @@ class DuplicatePatientLog:
     build_dataset.py splits train/val by patient precisely so that one person
     cannot sit on both sides of the split.
 
-    Identical image bytes under two case keys is the one signal that survives
-    that: the asset folder numbering and the printed Case # are both
-    per-gallery. This RECORDS the collision and nothing more - choosing a
-    canonical case and rewriting keys is deliberately out of scope, and no
-    pair is dropped or renamed here.
+    Neither the asset folder numbering nor the printed Case # survives across
+    galleries, so the images themselves are the evidence, and it is read at two
+    points. The SOURCE URLS the collection already holds are the primary one:
+    two cases citing one image are one patient whatever anybody annotates,
+    whether the pair clears the 400px floor, and whether it emits at all -
+    which matters because a fronts-only pass routinely emits one copy and not
+    the other. Identical emitted BYTES are the backstop, for a patient the
+    practice republished under a second set of URLs.
+
+    This RECORDS the collision and nothing more - choosing a canonical case and
+    rewriting keys is deliberately out of scope, and no pair is dropped or
+    renamed here.
     """
 
     def __init__(self):
         self._first: dict[str, tuple[str, str]] = {}
         self.groups: dict[tuple[str, str], list[str]] = {}
 
+    def _add(self, first_case: str, second_case: str, evidence: str) -> None:
+        group = self.groups.setdefault(
+            tuple(sorted((first_case, second_case))), [])
+        if evidence not in group:
+            group.append(evidence)
+
+    def record_shared_sources(self, cases: list[CaseData]) -> None:
+        """Group cases whose pairs cite the same published image URL."""
+        by_url: dict[str, str] = {}
+        for case in cases:
+            for pair in case.pairs:
+                for url in (pair.before_url, pair.after_url):
+                    if not url:
+                        continue
+                    first_case = by_url.setdefault(url, case.case_id)
+                    if first_case != case.case_id:
+                        self._add(first_case, case.case_id, url)
+
     def record(self, case_id: str, pair_id: str, digest: str) -> str | None:
         """The earlier pair id this one duplicates, or None if it is the first."""
         first_case, first_pair = self._first.setdefault(digest, (case_id, pair_id))
         if first_case == case_id:
             return None
-        self.groups.setdefault(
-            tuple(sorted((first_case, case_id))), []).append(pair_id)
+        self._add(first_case, case_id, pair_id)
         return first_pair
 
     def report_lines(self) -> list[str]:
         if not self.groups:
             return []
         lines = [f"WARN {len(self.groups)} patient(s) collected under more than "
-                 f"one case key (byte-identical images):"]
-        for (first, second), pair_ids in sorted(self.groups.items()):
-            shown = ", ".join(pair_ids[:4]) + (" ..." if len(pair_ids) > 4 else "")
+                 f"one case key (the same images published twice):"]
+        for (first, second), evidence in sorted(self.groups.items()):
+            shown = ", ".join(evidence[:2]) + (" ..." if len(evidence) > 2 else "")
             lines.append(
-                f"  {first} == {second} ({len(pair_ids)} pair(s): {shown})")
+                f"  {first} == {second} ({len(evidence)} shared: {shown})")
         lines.append("  A by-patient train/val split must treat each group as ONE "
                      "patient; nothing was merged or renamed here.")
         return lines
@@ -8019,6 +8059,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 gallery_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
                     "utf-8", "replace")
             declared_pages = page1solutions_page_count(first)
+            if not page1solutions_has_pager(first):
+                print(f"  WARN {cfg.slug}/{tag}: the listing publishes no "
+                      f"ul.pager markup, so a one-page sweep is this parser's "
+                      f"result rather than the gallery's own statement")
             page_cases = page1solutions_parse_listing_page(
                 first, gallery_url, short)
             cases.extend(page_cases)
@@ -8134,13 +8178,14 @@ def main() -> int:
                          f"clinic")
     cases = collect_cases(cfg, enumerator, gallery_endpoint=args.gallery_endpoint,
                           grant_root=args.grant_root)
+    duplicates = DuplicatePatientLog()
+    duplicates.record_shared_sources(cases)
     if args.cases:
         wanted = set(args.cases.split(","))
         cases = [c for c in cases if c.case_id in wanted]
     print(f"Collected {len(cases)} case(s) for clinic {cfg.slug}")
 
     out_clinic = args.out / cfg.slug
-    duplicates = DuplicatePatientLog()
     emitted = skipped = 0
     stats = {"cc": 0, "shape": 0, "brand": 0, "profile": 0, "specs": 0, "pairs": 0}
     for i, case in enumerate(cases, 1):
@@ -8275,8 +8320,8 @@ def main() -> int:
     if not args.parse_only:
         print(f"Emitted {emitted} pair(s), skipped {skipped} pair(s); "
               f"{fetcher.requests_made} network request(s)")
-        for line in duplicates.report_lines():
-            print(line)
+    for line in duplicates.report_lines():
+        print(line)
     return 0
 
 
