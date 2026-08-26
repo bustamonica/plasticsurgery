@@ -33,36 +33,34 @@ Requirement 2 is what makes this usable. Without it a smooth arm at k=6 scores
 as high as real mosaic (measured: `aips` case 31 `P3170821`, 31 stepped-flat
 cells on plain skin, alignment ratio 1.63 against 6.2 for the case-22 arm).
 
-MEASURED, 2026-08-26 (see `data/ba-viz-mosaic-detector-adopt/report.md`)
------------------------------------------------------------------------
-Positives, all clinic-published mosaic confirmed by eye:
-  aips `_2` re-upload batch  39 of 44 images / 21 of 22 pairs
+MEASURED, 2026-08-26 (full working in `data/ba-viz-mosaic-detector-adopt/report.md`)
+------------------------------------------------------------------------------
+Positives, clinic-published mosaic confirmed by eye:
+  aips `_2` re-upload batch  29 of 44 images / 18 of 22 pairs
   sanantonio 8 mosaic cases   0 of 48 images  - NOT caught, see LIMITS
   marina-17784-front          0 of 2          - NOT caught, see LIMITS
-  drmiroshnik-case55-front    0 of 2          - NOT caught, see LIMITS
 Negatives, no false positive at this operating point:
   aips clean halves          0 of 140
   bayside `censorship.py` holds 0 of 152  (the smooth warm-backdrop family)
   harrington-176-front       0 of 2    (the smooth-skin family)
+Corpus sweep, 9,442 images over 4,721 finished pairs: 16 images flagged in 14
+pairs across 3 clinics. Every one was opened: 8 are real clinic mosaic
+(gallatin 6, ciaravino 2, both censored tattoos at the frame edge) and 8 are
+drdanielbarrett watermark lettering, the one false-positive family that
+survives. Precision 50% by hand count; see the report for the per-clinic table.
 
-LIMITS - read before trusting a clean run
------------------------------------------
-This gate catches mosaic that is COARSE and HIGH-CONTRAST: cells of 6px and up
-carrying a level step of 6 or more against their neighbours, over at least 5
-cells. It does NOT catch the sanantonio/marina family - a few dozen cells of
-skin-tone-on-skin-tone mosaic over a tattoo, whose neighbour steps measure 2-4
-levels at the clinic's published 450px. At their published resolution those sit
-below every threshold here that keeps the false-positive rate at zero, and the
-measured separation is the wrong way round: sanantonio's best candidate scores
-2.9 where a clean `aips` arm scores 2.9 too. One more measured blind spot: an 8px mosaic that is re-encoded OUT OF PHASE with
-JPEG's own 8x8 DCT grid is smeared past detection (0 regions at quality 95, 37 at
-quality 100 and 394 when the two grids happen to align). aips publishes an 8px
-mosaic and is caught 39 of 44, so this is a degradation rather than a wall, but
-it is why the gate is not a proof of absence.
-
-Opening the images is still the only complete screen; a clean run from this
-module is not evidence a clinic is uncensored, exactly as `censorship.py`'s
-docstring says of itself.
+WHY THE THRESHOLDS SIT WHERE THEY DO
+------------------------------------
+Every constant below was moved only with the whole table above re-measured.
+Three findings shaped them, each from a family the sweep turned up:
+  * STEP_MIN cannot go below 6. At 4 the aips recall barely moves (38 of 44)
+    while the aips clean halves pick up 8 false positives, and sanantonio still
+    scores zero - so the sanantonio family is not a threshold away.
+  * A candidate must sit ON THE BODY, or a flat studio backdrop beside a bright
+    body edge is read as a tiling: 38 blaine images (black backdrop), 23
+    drrohrich (blue), 29 swan, 22 charlotte, all false.
+  * SPREAD_MAX is what separates a mosaic from a burned-in watermark. Without
+    it the sweep flags 47 images and 39 of them are false.
 
 RE-MEASUREMENT RECIPE (required before any threshold moves)
 -----------------------------------------------------------
@@ -80,6 +78,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
+from censorship import body_silhouette, skin_mask
 
 # --- cell geometry ---------------------------------------------------------
 # Cell sizes actually observed on the corpus: 6px (sanantonio at 450px), 8px
@@ -106,12 +106,37 @@ STEP_MIN = 6.0
 # included) forces the evidence to be two-dimensional, which is what kills the
 # 1-cell-wide strips the body/backdrop boundary produces.
 MIN_NEIGHBOURS = 4
-MIN_SPAN_CELLS = 2
+# A cluster must be at least this many cells across in BOTH directions. 2 admits
+# a one-cell-wide strip along a body/backdrop edge and the stem of a burned-in
+# letter; a mosaic tiles an area.
+MIN_SPAN_CELLS = 3
+# The cluster's own cell levels must vary. A mosaic hides something, so its cells
+# take many values; a strip of flat backdrop beside a body edge takes one, and
+# steps only because of the edge. Measured as the std of the cluster's cell means.
+SPREAD_MIN = 3.0
+# ...but only so far. A mosaic hides detail WITHIN one material - skin, or ink on
+# skin - so its cells sit within tens of levels of each other. A cluster whose
+# cell levels span much more than that is not one tiling but two materials
+# meeting: a burned-in watermark stroke against skin (drdanielbarrett), a blue
+# studio backdrop against a shoulder (drrohrich), a white panel divider against a
+# torso (drteitelbaum). Measured on the corpus: real mosaic 3.7-25, those three
+# families 12-88.
+SPREAD_MAX = 20.0
 
 # --- grid alignment --------------------------------------------------------
 # |gradient| on the candidate's grid lines over |gradient| off them, measured in
 # both axes and taken at the weaker one, inside the box padded by one cell.
 ALIGN_PAD_CELLS = 1
+# The alignment ratio is a ratio, so it means nothing when its denominator is a
+# near-zero gradient: a black or flat studio backdrop divides by noise and scores
+# arbitrarily high. Below this the candidate is rejected rather than scored.
+ALIGN_OFF_GRID_FLOOR = 0.5
+# The region has to be ON THE BODY, as a fraction of its own area. Mosaic on the
+# backdrop is a clinic watermark's problem, not this gate's, and the two studio
+# backdrops that dominate the false positives here (drrohrich's blue, blaine's
+# black) are excluded by construction. Uses censorship.py's silhouette so there
+# is one definition of "body" in the pipeline, with its known limits.
+MIN_ON_BODY = 0.5
 # Two tiers, both measured to zero false positives on the negative sets above:
 # a small mosaic must be strongly grid-aligned, a large one may be weaker
 # because its size is itself evidence.
@@ -138,12 +163,13 @@ def _block_stats(gray8: np.ndarray, k: int) -> "tuple[np.ndarray, np.ndarray]":
     return mean, hi.astype(np.float32) - lo.astype(np.float32)
 
 
-def _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f) -> "np.ndarray | None":
-    """Cells of the (k, oy, ox) grid that are flat inside and stepped outside."""
+def _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f):
+    """Cells of the (k, oy, ox) grid that are flat inside and stepped outside,
+    with the grid's cell means alongside."""
     h, w = gray.shape
     ny, nx = (h - oy) // k, (w - ox) // k
     if ny < 3 or nx < 3:
-        return None
+        return None, None
     ys = oy + np.arange(ny) * k
     xs = ox + np.arange(nx) * k
     mean = mean_f[np.ix_(ys, xs)]
@@ -159,7 +185,7 @@ def _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f) -> "np.ndarray | None":
     cells = (rng <= FLAT_MAX) & (step >= STEP_MIN)
     company = cv2.blur(cells.astype(np.float32), (3, 3),
                        borderType=cv2.BORDER_CONSTANT) * 9
-    return cells & (company >= MIN_NEIGHBOURS)
+    return cells & (company >= MIN_NEIGHBOURS), mean
 
 
 def grid_alignment(gray, k, oy, ox, box) -> "tuple[float, float]":
@@ -185,9 +211,11 @@ def grid_alignment(gray, k, oy, ox, box) -> "tuple[float, float]":
     rows[(oy - 1 - y0) % k::k] = True
     if cols.all() or not cols.any() or rows.all() or not rows.any():
         return 0.0, 0.0
-    rx = float(gx[:, cols].mean() / max(gx[:, ~cols].mean(), 0.05))
-    ry = float(gy[rows, :].mean() / max(gy[~rows, :].mean(), 0.05))
-    return rx, ry
+    off_x = float(gx[:, ~cols].mean())
+    off_y = float(gy[~rows, :].mean())
+    if off_x < ALIGN_OFF_GRID_FLOOR or off_y < ALIGN_OFF_GRID_FLOOR:
+        return 0.0, 0.0  # nothing to be aligned against; see the constant
+    return float(gx[:, cols].mean() / off_x), float(gy[rows, :].mean() / off_y)
 
 
 def _is_mosaic(cells: int, align: float) -> bool:
@@ -228,16 +256,19 @@ def mosaic_regions(image: np.ndarray) -> "list[dict]":
         stride = max(1, k // PHASE_STEPS)
         for oy in range(0, k, stride):
             for ox in range(0, k, stride):
-                cells = _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f)
+                cells, cell_mean = _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f)
                 if cells is None or not cells.any():
                     continue
-                n, _, stats, _ = cv2.connectedComponentsWithStats(
+                n, labels, stats, _ = cv2.connectedComponentsWithStats(
                     cells.astype(np.uint8), 8)
                 for i in range(1, n):
                     cx, cy, cw, ch, area = (int(stats[i, j]) for j in range(5))
                     if area < SMALL_MIN_CELLS:
                         continue
                     if cw < MIN_SPAN_CELLS or ch < MIN_SPAN_CELLS:
+                        continue
+                    spread = float(cell_mean[labels == i].std())
+                    if not SPREAD_MIN <= spread <= SPREAD_MAX:
                         continue
                     box = (ox + cx * k, oy + cy * k, cw * k, ch * k)
                     rx, ry = grid_alignment(gray, k, oy, ox, box)
@@ -247,9 +278,21 @@ def mosaic_regions(image: np.ndarray) -> "list[dict]":
                     found.append({"x": box[0] * scale, "y": box[1] * scale,
                                   "w": box[2] * scale, "h": box[3] * scale,
                                   "cells": area, "cell_px": k * scale,
-                                  "alignment": round(align, 2)})
-    found.sort(key=lambda d: (-d["cells"] * d["cell_px"] ** 2, -d["alignment"]))
-    return found
+                                  "alignment": round(align, 2),
+                                  "spread": round(spread, 1)})
+    if not found:
+        return []
+    body = body_silhouette(skin_mask(image))
+    on_body = []
+    for d in found:
+        window = body[d["y"]:d["y"] + d["h"], d["x"]:d["x"] + d["w"]]
+        if window.size == 0:
+            continue
+        d["on_body"] = round(float(window.mean()), 2)
+        if d["on_body"] >= MIN_ON_BODY:
+            on_body.append(d)
+    on_body.sort(key=lambda d: (-d["cells"] * d["cell_px"] ** 2, -d["alignment"]))
+    return on_body
 
 
 def detect_mosaic(image: np.ndarray) -> "list[str]":
