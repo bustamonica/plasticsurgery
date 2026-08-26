@@ -1304,3 +1304,216 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# choice (Webflow lightbox gallery, consented 2026-08-25)
+# ---------------------------------------------------------------------------
+
+
+CHOICE_FIXTURE = "choice_listing.html"
+
+
+def _choice_cases():
+    return sg.choice_parse_listing(load_fixture(CHOICE_FIXTURE), "x")
+
+
+def test_choice_reads_every_view_from_the_lightbox_manifest():
+    """The thumbnail <img> shows one view; the manifest lists them all.
+
+    Case 1 publishes five composites and the page renders a single thumbnail,
+    so a parser that walked the <img> tags would collect one pair in five.
+    """
+    case = _choice_cases()[0]
+    assert case.case_id == "case1"
+    assert [p.key for p in case.pairs] == ["pair1", "pair2", "pair3", "pair4", "pair5"]
+
+
+def test_choice_takes_the_bare_original_not_a_srcset_downscale():
+    """`-p-500`/`-p-800` derivatives would fall under the 400px floor once the
+    composite is split (500/2 = 250 wide)."""
+    for case in _choice_cases():
+        for pair in case.pairs:
+            assert "-p-500" not in pair.before_url
+            assert "-p-800" not in pair.before_url
+
+
+def test_choice_pairs_are_split_composites_sharing_one_url():
+    case = _choice_cases()[0]
+    for pair in case.pairs:
+        assert pair.split_composite is True
+        assert pair.before_url == pair.after_url
+
+
+def test_choice_view_is_never_invented():
+    """Neither the page nor the filenames document a view, so every pair must
+    arrive without a hint and wait for an annotation."""
+    for case in _choice_cases():
+        for pair in case.pairs:
+            assert pair.view_hint is None
+            assert sg.resolve_view(pair, {}) == (None, None)
+
+
+def test_choice_reads_the_volume_out_of_the_narrative():
+    volumes = [sg.volume_cc(c.specs) for c in _choice_cases() if c.pairs]
+    assert volumes == [375, 270, 435, 330, 300]
+
+
+def test_choice_sided_volumes_land_on_the_right_sides():
+    """'a 480cc in the smaller right breast and 390cc implant in the larger
+    left breast' - the volume precedes its side, which the determiner-form
+    side marker ('in the right') cannot reach."""
+    case = [c for c in _choice_cases() if c.case_id == "case3"][0]
+    assert (case.specs.left_cc, case.specs.right_cc) == (390.0, 480.0)
+    assert sg.volume_cc(case.specs) == 435
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("A 360cc implant was inserted in the larger left breast and a 420cc "
+     "implant in the smaller right breast.", (360.0, 420.0)),
+    ("She underwent augmentation with a 390cc implant in her smaller left "
+     "breast and a 360cc implant in her larger right breast.", (390.0, 360.0)),
+    # A side word with no volume in its own clause must not steal the next
+    # one, and must not stop the clause after it from being read.
+    ("This lady had asymmetric breasts with her left breast being slightly "
+     "smaller. She had a 390cc implant in her left breast and a 360cc "
+     "implant in her right breast.", (390.0, 360.0)),
+])
+def test_sided_breast_phrasing_assigns_volumes_per_side(text, expected):
+    assert sg.parse_fill_volumes(text) == expected
+
+
+@pytest.mark.parametrize("text,expected,why", [
+    # camp 749 - the noun form reads the first, the determiner form the second.
+    ("Motiva RSF round, smooth-wall implants were selected - 335cc for the left "
+     "breast and 355cc for the right - to help achieve balance.",
+     (335.0, 355.0), "camp 749"),
+    # charlotte 33 - base read the sides the wrong way round.
+    ("implanted with Mentor smooth round saline implants (350cc for the right "
+     "breast, 360cc for the left)", (360.0, 350.0), "charlotte 33"),
+    # colville 382 / tccs 12124 - 'for the <side>' with no noun at all.
+    ("I chose to use two different Allergan Natrelle implants: a 365cc Style SSF "
+     "for the right side and a 240cc Style SSM for the left.",
+     (240.0, 365.0), "colville 382"),
+    ("a 470cc extra full profile implant for the right and a 365cc full profile "
+     "implant for the left.", (365.0, 470.0), "tccs 12124"),
+])
+def test_for_the_side_phrasing_assigns_volumes_per_side(text, expected, why):
+    """Measured against every cached case of all 32 offline-reachable clinics:
+    7 of 2426 change, all of them corrections. These four are the volume ones."""
+    assert sg.parse_fill_volumes(text) == expected, why
+
+
+def test_sided_breast_marker_does_not_reach_across_a_sentence_break():
+    """The photo-position reading of a side word is why the segment is cut at
+    the previous sentence: '275 cc implants ... on the right' must stay
+    bilateral rather than becoming a one-sided volume."""
+    text = ("She had 275 cc saline filled implants. She is shown here 3 years "
+            "post operatively on the right.")
+    assert sg.parse_fill_volumes(text) == (275.0, 275.0)
+
+
+def test_choice_profile_is_recorded_only_where_the_clinic_prints_one():
+    cases = {c.case_id: c for c in _choice_cases()}
+    assert cases["case2"].specs.profile == "moderate"   # '270cc round moderate profile'
+    # 'medium profile' (case 7 on the live page) is NOT in the captain's
+    # 2026-08-19 profile vocabulary, so it stays undecoded rather than being
+    # read as 'moderate'.
+    assert cases["case4"].specs.profile is None
+    assert "medium profile" in cases["case4"].specs.summary
+
+
+def test_choice_placement_prose_is_not_read_as_a_documented_placement():
+    """'placed under the muscle' is a description, not this clinic's charted
+    placement value (see PLACEMENT_PATTERNS)."""
+    case = [c for c in _choice_cases() if c.case_id == "case4"][0]
+    assert "under the muscle" in case.specs.summary
+    assert case.specs.placement is None
+    assert case.specs.incision is None
+
+
+def test_choice_drops_the_republished_duplicate_case():
+    """Cases 16 and 17 carry identical narratives and identical image
+    basenames; the page's own tell is that both reuse the lightbox id
+    'lighttest16'. One patient under two case ids would put the same person
+    in both halves of build_dataset.py's by-patient split."""
+    cases = _choice_cases()
+    dupes = [c for c in cases if any("duplicate case" in w for w in c.warnings)]
+    assert len(dupes) == 1
+    assert dupes[0].pairs == []
+    assert "case5" in dupes[0].warnings[0]
+
+
+@pytest.mark.parametrize("text,term", [
+    ("Breast augmentation with a mastopexy to lift the breasts.", "mastopexy"),
+    ("She had a mummy makeover with 350cc implants.", "mummy makeover"),
+    ("Augmentation combined with a breast lift and 300cc implants.",
+     "breast lift"),
+    ("300cc implants with fat transfer to the upper pole.", "fat transfer"),
+])
+def test_choice_purity_screen_rejects_a_combined_narrative(text, term):
+    assert sg.choice_screen_purity(text).lower() == term
+
+
+@pytest.mark.parametrize("text", [
+    "She wanted more volume without a breast lift, so 300cc implants were used.",
+    "Augmentation with 375cc implants rather than a breast reduction.",
+    "She did not want a mastopexy; 400cc implants were placed.",
+])
+def test_choice_purity_screen_allows_a_ruled_out_procedure(text):
+    assert sg.choice_screen_purity(text) is None
+
+
+def test_choice_purity_negation_is_scoped_to_its_own_clause():
+    """A later 'without a lift' must not clear an earlier reported lift."""
+    text = ("Breast augmentation with a mastopexy was performed. "
+            "The scar was placed without a vertical component.")
+    assert sg.choice_screen_purity(text) == "mastopexy"
+
+
+def test_choice_every_published_case_is_pure_breast_augmentation():
+    """Measured on the live listing: the clinic segregates its other
+    procedures into sibling galleries, and no narrative in this one reports a
+    combined procedure."""
+    assert [c for c in _choice_cases() if any("not pure" in w for w in c.warnings)] == []
+
+
+def test_choice_config_crops_the_before_after_caption_band():
+    cfg = sg.CLINICS["choice"]
+    assert cfg.kind == "choice"
+    assert cfg.consent_ref == "choice-agreement-2026-08-25"
+    # Band measured at 50-53px with gold text topping out at 53px over all 52
+    # published composites; the crop must clear it with margin and still leave
+    # a half above ingest.py's 400px floor.
+    assert cfg.bottom_crop_px == 60
+    assert 502 - cfg.bottom_crop_px >= 400
+    assert 910 // 2 >= 400
+
+
+def test_crop_bottom_trims_both_halves_by_the_same_rows():
+    from PIL import Image
+    import io
+
+    src = Image.new("RGB", (910, 502), "white")
+    buf = io.BytesIO()
+    src.save(buf, format="PNG")
+    before, after = sg.split_composite_image(buf.getvalue())
+    cropped = [sg.crop_bottom(half, 60) for half in (before, after)]
+    sizes = {Image.open(io.BytesIO(c)).size for c in cropped}
+    assert sizes == {(455, 442)}
+
+
+def test_crop_bottom_refuses_to_crop_away_the_whole_image():
+    from PIL import Image
+    import io
+
+    buf = io.BytesIO()
+    Image.new("RGB", (100, 50), "white").save(buf, format="PNG")
+    with pytest.raises(ValueError, match="exceeds image height"):
+        sg.crop_bottom(buf.getvalue(), 50)
+
+
+def test_crop_bottom_is_a_no_op_for_every_other_clinic():
+    payload = b"not-an-image"
+    assert sg.crop_bottom(payload, 0) is payload
+    assert [c.slug for c in sg.CLINICS.values() if c.bottom_crop_px] == ["choice"]

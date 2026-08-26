@@ -68,6 +68,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import re
 import sys
@@ -136,6 +137,23 @@ class ClinicConfig:
     base_url: str
     gallery_paths: list[str]
     kind: str  # parser implementation key
+    # Rows trimmed from the BOTTOM of both halves of every pair, after the
+    # composite split (or grid crop).
+    #
+    # This exists for one reason and it is not cosmetic. A mark burned into the
+    # bottom of a side-by-side composite lands on one half only once the
+    # composite is split, and a mark that correlates with the before/after
+    # label is a poisoned axis rather than a blemish: an edit model can satisfy
+    # "make the breasts larger" by learning to remove it, and that scores as
+    # success in evaluation while teaching nothing about augmentation. choice
+    # is the extreme case - its band literally prints the words BEFORE and
+    # AFTER under the respective halves.
+    #
+    # The crop is applied to BOTH halves equally so the two never differ in
+    # framing; a framing difference would be the same correlated-with-the-label
+    # artifact in another form. Anything falling under ingest.py's 400px floor
+    # after the crop is rejected there rather than shipped shrunken.
+    bottom_crop_px: int = 0
 
 
 CLINICS: dict[str, ClinicConfig] = {
@@ -323,6 +341,18 @@ CLINICS: dict[str, ClinicConfig] = {
     # under the same politeness contract as the other eleven - 2s delay, the
     # descriptive clinic-corpus-scraper UA (which the site's 'User-agent: *'
     # group allows), and never the admin-ajax endpoint.
+    # -- 2026-08-25 batch: prospected clinics consented 2026-08-25 --
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md, row 13.
+    "choice": ClinicConfig(
+        slug="choice", consent_ref="choice-agreement-2026-08-25",
+        base_url="https://www.choiceaesthetics.uk",
+        gallery_paths=["/gallery/breast/breast-augmentation"], kind="choice",
+        # The composite's caption band prints BEFORE under the left half and
+        # AFTER under the right. Measured over all 52 published composites:
+        # the band starts 50-53px from the bottom and its gold text tops out
+        # at 53px; 60 clears both with margin on every one of them, leaving
+        # 455x441 halves that stay above ingest.py's 400px floor.
+        bottom_crop_px=60),
     "tccs": ClinicConfig(
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
@@ -456,6 +486,26 @@ class PoliteFetcher:
         raise RuntimeError("unreachable")  # pragma: no cover
 
 
+def crop_bottom(data: bytes, rows: int) -> bytes:
+    """Trim `rows` pixels off the bottom of an encoded image.
+
+    Re-encodes, which every stage of this pipeline already does; the corpus's
+    last-mile builder re-encodes again on the way out.
+    """
+    from PIL import Image
+
+    if rows <= 0:
+        return data
+    with Image.open(io.BytesIO(data)) as img:
+        if rows >= img.height:
+            raise ValueError(
+                f"bottom crop of {rows}px exceeds image height {img.height}")
+        buf = io.BytesIO()
+        img.crop((0, 0, img.width, img.height - rows)).convert("RGB").save(
+            buf, format="JPEG", quality=95)
+        return buf.getvalue()
+
+
 def image_cache_key(clinic: str, url: str) -> str:
     name = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
     name = re.sub(r"[^\w.()-]+", "_", name)
@@ -491,13 +541,29 @@ _GRAM_UNIT = r"(?:grams?|gms?|grs?|gs?)\b(?!\s*(?:of\s+)?(?:tissue|fat|skin|lipo
 VOLUME_UNIT = rf"(?:ccs?\b|{_GRAM_UNIT})"
 
 
-# 'on the right', 'on her right', 'on right', 'in the right' - the phrasings
-# clinics actually use to attach a volume to a side in narrative prose. The
-# side word must not be followed by another word that makes it an adjective
-# ('on the right side' is a side marker, 'on the right track' is not, and
-# 'right breast' is the noun this is describing anyway).
+# 'on the right', 'on her right', 'on right', 'in the right', '355cc for the
+# right' - the phrasings clinics actually use to attach a volume to a side in
+# narrative prose. The side word must not be followed by another word that
+# makes it an adjective ('on the right side' is a side marker, 'on the right
+# track' is not).
+#
+# The second alternative is the side word attached directly to the noun:
+# '... a 480cc in the smaller right breast and 390cc implant in the larger
+# left breast' (choice). The determiner form cannot reach that, because an
+# adjective sits between 'the' and the side word - and widening the
+# determiner form to skip an arbitrary word would also swallow 'on the way
+# left'. Requiring the noun 'breast' is the tighter reading anyway: it is
+# exactly the ambiguity the sentence-break cut below exists to guard against,
+# since a bare 'on the right' often points at the right-hand PHOTOGRAPH.
+#
+# The two alternatives are one regex rather than two passes so the markers are
+# visited in text order, which is what lets each one read only the text since
+# the previous one. A clinic routinely writes both forms in one sentence:
+# charlotte 33's '350cc for the right breast, 360cc for the left' needs the
+# noun form for the first volume and the determiner form for the second.
 TRAILING_SIDE_RE = re.compile(
-    r"\b(?:on|in)\s+(?:the\s+|her\s+|his\s+)?(left|right)\b", re.I)
+    r"\b(?:(?:on|in|for)\s+(?:the\s+|her\s+|his\s+)?(left|right)\b"
+    r"|(left|right)\s+breasts?\b)", re.I)
 
 
 def _parse_fill_side(segment: str) -> float | None:
@@ -566,7 +632,7 @@ def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
         prev_end = m.end()
         cc = _parse_fill_side(segment)
         if cc is not None and 100 <= cc <= 1000:
-            assign(m.group(1).lower(), cc)
+            assign((m.group(1) or m.group(2)).lower(), cc)
     # Prefix markers: 'Right: 185cc ...', 'R 270 filled to 285cc'.
     if left is None and right is None:
         side_re = re.compile(r"\b(left|right|l|r)\b\s*:?\s*([^;,.]*)", re.I)
@@ -2458,6 +2524,128 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# choice parser (Webflow lightbox gallery; one JSON manifest per case)
+# ---------------------------------------------------------------------------
+
+# The gallery segregates its procedures into sibling galleries of their own
+# (/gallery/breast/mastopexy, /gallery/mummy-makeover, /gallery/breast/
+# breast-reduction, /gallery/breast/fat-transfer-to-breasts, ...), so the
+# augmentation listing is expected to be pure. Expected is not verified: the
+# Etna batch lost 86 combined cases to exactly that assumption, so every
+# narrative is screened on its own words. A term is a disqualifier only where
+# it names a procedure this patient had - 'breast reduction' in a sentence
+# about what she did NOT want is not one, which is what the negation guard is
+# for.
+CHOICE_COMBINED_RE = re.compile(
+    r"\b(?:mastopexy|breast\s+(?:lift|uplift|reduction)|mummy\s+makeover|"
+    r"mommy\s+makeover|abdominoplasty|tummy\s+tuck|liposuction|"
+    r"fat\s+transfer|lipofilling|areola\s+reduction|"
+    r"(?:implant|breast)\s+revision|explant)\b", re.I)
+# 'she did not want a breast lift', 'without a mastopexy', 'rather than a
+# breast reduction' - a mention that explicitly rules the procedure out.
+CHOICE_NEGATION_RE = re.compile(
+    r"\b(?:without|instead\s+of|rather\s+than|avoided|avoiding|declined|"
+    r"not\s+want\w*|didn.t\s+want|no\s+need\s+for)\b", re.I)
+
+
+def choice_screen_purity(text: str) -> str | None:
+    """The combined-procedure term this narrative reports, or None if pure.
+
+    Screens the CLINIC'S OWN TEXT, per the standing captain ruling; this
+    gallery publishes no per-case slug or chart to screen instead.
+    """
+    for m in CHOICE_COMBINED_RE.finditer(text):
+        # Scope the negation to this mention's own clause, not the whole
+        # narrative: a later sentence that says 'without a lift' must not
+        # clear an earlier sentence that reports one.
+        clause = re.split(r"[.;]", text[:m.start()])[-1]
+        if CHOICE_NEGATION_RE.search(clause):
+            continue
+        return m.group(0)
+    return None
+
+
+def choice_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """Webflow lightbox gallery, every case inline on one page.
+
+    Each case is a `div.gallery-div` holding a `w-lightbox` anchor whose
+    `script.w-json` manifest enumerates that case's images, and a
+    `div.text-block-14` narrative. Reading the manifest rather than the
+    thumbnail `<img>` matters twice over: the manifest lists EVERY view (the
+    thumbnail shows one), and it carries the bare original URL while the
+    thumbnail's `srcset` offers `-p-500`/`-p-800` downscales that would land
+    under ingest.py's 400px floor once the composite is split.
+
+    Every image is a side-by-side before|after composite (910x~502) finished
+    with a caption band printing BEFORE under the left half and AFTER under
+    the right. That band is a label leak in the most literal form available,
+    so `bottom_crop_px` trims it off both halves - see ClinicConfig.
+
+    Views are not documented anywhere on the page or in the filenames, so
+    every view label comes from an annotations file.
+
+    The listing republishes one case twice: cases 16 and 17 carry identical
+    narratives and identical image basenames, differing only in serving the
+    copies from the clinic's retired Webflow bucket (which now 403s). The
+    page gives its own tell - both blocks reuse the lightbox id
+    'lighttest16'. A duplicate is dropped rather than emitted, because
+    build_dataset.py splits train/val BY PATIENT and one patient under two
+    case ids defeats that split.
+    """
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases: list[CaseData] = []
+    seen_narratives: dict[str, str] = {}
+    for i, block in enumerate(soup.select("div.gallery-div"), 1):
+        manifest = block.find("script", class_="w-json")
+        if manifest is None or not manifest.string:
+            continue
+        try:
+            items = json.loads(manifest.string).get("items", [])
+        except json.JSONDecodeError:
+            continue
+        text_el = block.select_one("div.text-block-14")
+        narrative = text_el.get_text(" ", strip=True) if text_el is not None else ""
+        case_id = f"case{i}"
+        case = CaseData(case_id=case_id, source_url=source_url)
+
+        key = re.sub(r"\s+", " ", narrative).strip().lower()
+        if key and key in seen_narratives:
+            case.warnings.append(
+                f"duplicate case: identical narrative to {seen_narratives[key]}; "
+                "not emitted (one patient under two case ids would defeat the "
+                "by-patient train/val split)")
+            case.specs.summary = narrative
+            cases.append(case)
+            continue
+        if key:
+            seen_narratives[key] = case_id
+
+        combined = choice_screen_purity(narrative)
+        if combined is not None:
+            case.warnings.append(
+                f"not pure breast augmentation (narrative reports {combined!r})")
+            case.specs.summary = narrative
+            cases.append(case)
+            continue
+
+        for n, item in enumerate(items, 1):
+            url = item.get("url", "")
+            if url:
+                case.pairs.append(ImagePair(key=f"pair{n}", before_url=url,
+                                            after_url=url, split_composite=True))
+        specs = CaseSpecs()
+        specs.summary = narrative
+        specs.left_cc, specs.right_cc = parse_fill_volumes(narrative)
+        classify_brand_shape_profile(specs, narrative)
+        # 'above the muscle' / 'under the muscle' are prose, not this clinic's
+        # documented placement value, so placement is deliberately left unset
+        # (see PLACEMENT_PATTERNS).
+        case.specs = specs
+        cases.append(case)
+    return cases
+
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2859,6 +3047,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return heavenly_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "choice":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        return choice_parse_listing(listing, url)
     if cfg.kind == "mya":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -3000,8 +3192,10 @@ def main() -> int:
                 rows, cols = pair.grid_shape
                 before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
                 after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
-                (pair_dir / "before.jpg").write_bytes(before_data)
-                (pair_dir / "after.jpg").write_bytes(after_data)
+                (pair_dir / "before.jpg").write_bytes(
+                    crop_bottom(before_data, cfg.bottom_crop_px))
+                (pair_dir / "after.jpg").write_bytes(
+                    crop_bottom(after_data, cfg.bottom_crop_px))
             elif pair.split_composite:
                 full_url = (pair.before_url if pair.before_url.startswith("http")
                             else cfg.base_url + pair.before_url)
@@ -3012,13 +3206,19 @@ def main() -> int:
                     print(f"    SKIP {pair.key}: {exc}")
                     skipped += 1
                     continue
-                (pair_dir / "before.jpg").write_bytes(before_data)
-                (pair_dir / "after.jpg").write_bytes(after_data)
+                (pair_dir / "before.jpg").write_bytes(
+                    crop_bottom(before_data, cfg.bottom_crop_px))
+                (pair_dir / "after.jpg").write_bytes(
+                    crop_bottom(after_data, cfg.bottom_crop_px))
             else:
                 for stem, url in (("before", pair.before_url), ("after", pair.after_url)):
                     full_url = url if url.startswith("http") else cfg.base_url + url
                     ext = Path(urlsplit(full_url).path).suffix or ".jpg"
                     data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
+                    if cfg.bottom_crop_px:
+                        # crop_bottom re-encodes as JPEG, so the extension must
+                        # follow the bytes actually written.
+                        data, ext = crop_bottom(data, cfg.bottom_crop_px), ".jpg"
                     (pair_dir / f"{stem}{ext.lower()}").write_bytes(data)
             pair_ann = annotations.get("pairs", {}).get(pair.key, {})
             meta = build_meta(pair_id, view, specs, annotations, pair_ann,
