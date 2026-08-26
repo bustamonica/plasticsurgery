@@ -5395,6 +5395,12 @@ def test_gallatin_reads_the_case_specs_off_its_captions():
     ("16 monthd post-op with 385cc high profile silicone gel implants", 16.0),
     ("2 months with 380cc Moderate profile smooth round silicone gel implants", 2.0),
     ("bilateral breast augmentation", None),
+    # The post-op marker is not always hard against the interval, and is
+    # sometimes only implied - these are follow-up intervals all the same.
+    ("3 months, 400cc implants", 3.0),
+    ("6 month follow up with 350cc implants", 6.0),
+    ("6 months after surgery with 350cc implants", 6.0),
+    ("patient 6 months out with 350cc", 6.0),
 ])
 def test_gallatin_timepoint_tolerates_the_captions_as_written(caption, months):
     assert sg.gallatin_months_post_op(caption) == months
@@ -5417,6 +5423,39 @@ def test_gallatin_excludes_a_combined_case_and_says_which_term():
     assert cases["117"].pairs == []
     assert any("mommy makeover" in w for w in cases["117"].warnings)
     assert cases["121"].pairs                   # its neighbours are untouched
+
+
+def test_gallatin_accounting_separates_a_ruling_from_a_parse_failure(capsys):
+    """A purity-screened case DID pair; only its ruling kept it out.
+
+    Reporting its items as unpaired classifies a captain ruling as a parser
+    miss, and the per-clinic accounting has to sum every rendered item into
+    exactly one disposition.
+    """
+    html = load_fixture("gallatin_listing.html").replace(
+        "before bilateral breast augmentation in partial submuscular pocket",
+        "before a mommy makeover", 1)
+    sg.gallatin_parse_listing(html, GALLATIN_URL)
+    line = capsys.readouterr().out
+    assert "renders 8 item(s); 8 of them paired into 4 pair(s)" in line
+    assert "across 4 case(s)" in line
+    assert "1 pair(s) excluded as combined procedures" in line
+    assert "0 item(s) unresolved" in line
+
+
+def test_gallatin_accounting_sums_every_item_when_one_will_not_pair(capsys):
+    html = load_fixture("gallatin_listing.html").replace(
+        "</li>",
+        '</li><li class="gps-gallery-item">'
+        '<img data-src="https://x/Patient-500-Before-Front.jpg">'
+        '<div class="image-meta"><h6 class="caption">31 year old patient before '
+        'bilateral breast augmentation</h6></div></li>', 1)
+    sg.gallatin_parse_listing(html, GALLATIN_URL)
+    line = capsys.readouterr().out
+    # 9 rendered = 3 pairs x 2 paired + 3 unresolved, none of them excluded.
+    assert "renders 9 item(s); 6 of them paired into 3 pair(s)" in line
+    assert "0 pair(s) excluded as combined procedures" in line
+    assert "3 item(s) unresolved" in line
 
 
 def test_gallatin_unresolvable_item_shifts_the_pairing_by_one(capsys):
@@ -5512,11 +5551,13 @@ def test_gallatin_reports_a_case_whose_captions_disagree_on_the_volume():
     assert any("disagrees" in w and "410cc" in w for w in case.warnings)
 
 
-def test_gallatin_timepoint_does_not_read_the_patients_age():
-    """The captions open with the age, so an unanchored figure reads as one."""
+@pytest.mark.parametrize("age_phrase", [
+    "29 year old patient", "29-year-old patient", "29 years old patient"])
+def test_gallatin_timepoint_does_not_read_the_patients_age(age_phrase):
+    """The captions open with the age, and an age is a number-and-unit too."""
+    assert sg.gallatin_months_post_op(age_phrase) is None
     assert sg.gallatin_months_post_op(
-        "29 year old patient, 6 months post-op with 410 cc implants") == 6.0
-    assert sg.gallatin_months_post_op("29 year old patient") is None
+        f"{age_phrase}, 6 months post-op with 410 cc implants") == 6.0
 
 
 # ---------------------------------------------------------------------------
@@ -5593,6 +5634,27 @@ def test_pair_laterality_wins_over_the_case_default():
 def test_an_unannotated_pair_is_reported_differently_from_a_held_one():
     """Held and never-looked-at are separate dispositions in the accounting."""
     assert sg.view_skip_reason(_lateral_pair(), {}) == "no view annotation"
+
+
+@pytest.mark.parametrize("laterality", ["Left", "l", "L", "unknown"])
+def test_a_laterality_the_release_path_rejects_is_named_not_called_missing(
+        laterality):
+    """The annotator filled the field in; the accounting must not deny it.
+
+    Releasing a held pair is meant to cost one field and no re-crawl, so a
+    value resolve_view will not take has to be reported as the value it is.
+    """
+    ann = {"pairs": {"pair2": {"view": "side", "laterality": laterality}}}
+    assert sg.resolve_view(_lateral_pair(), ann) == (None, None)
+    reason = sg.view_skip_reason(_lateral_pair(), ann)
+    assert repr(laterality) in reason
+    assert "no laterality" not in reason
+
+
+def test_a_case_level_laterality_the_release_path_rejects_is_named_too():
+    ann = {"laterality": "LEFT", "pairs": {"pair2": {"view": "oblique"}}}
+    assert sg.resolve_view(_lateral_pair(), ann) == (None, None)
+    assert "'LEFT'" in sg.view_skip_reason(_lateral_pair(), ann)
 
 
 def test_a_page_documented_view_type_still_needs_its_laterality():

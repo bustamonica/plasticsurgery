@@ -4774,12 +4774,15 @@ GALLATIN_SIDE_RE = re.compile(r"(?<![A-Za-z])(?:side|sode|sied)(?![A-Za-z])", re
 GALLATIN_OBLIQUE_RE = re.compile(r"(?<![A-Za-z])oblique(?![A-Za-z])", re.I)
 GALLATIN_POSTOP_RE = re.compile(
     r"\b(?:post[- ]?op|months?d?\s+(?:post|with)|weeks?\s+(?:post|with))", re.I)
-# The interval must sit against a post-op marker, exactly as GALLATIN_POSTOP_RE
-# reads one. The captions open with the patient's age ('29 year old patient'),
-# so a bare first number-and-unit anywhere in the string reads an age as a
-# follow-up interval and writes it to months_post_op in meta.json.
+# The captions open with the patient's age ('29 year old patient, 6 months
+# post-op'), and an age is a number-and-unit like any other, so a figure the
+# caption itself qualifies as an age is the one thing this must not read - it
+# would write 348 months into meta.json. Excluding that figure is enough:
+# requiring a post-op marker hard against the interval instead would drop the
+# ordinary follow-up phrasings ('3 months, 400cc implants', '6 month follow up
+# with 350cc') that carry the marker a few words away or not at all.
 GALLATIN_TIMEPOINT_RE = re.compile(
-    r"(\d+(?:\.\d+)?)[\s-]*(month|week|year)s?d?[\s-]*(?:post|with)", re.I)
+    r"(\d+(?:\.\d+)?)[\s-]*(month|week|year)s?d?\b(?![\s-]*old)", re.I)
 GALLATIN_MONTHS_PER = {"month": 1.0, "week": 1 / 4.345, "year": 12.0}
 
 
@@ -4956,13 +4959,24 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
             case, _gallatin_pair_specs(before_cap, after_cap), key)
 
     cases = [by_case[c] for c in order]
+    excluded_pairs = 0
     for case in cases:
         term = combined_procedure_term(case.specs.summary)
         if term is not None:
             case.warnings.append(
                 f"not pure breast augmentation (caption names '{term}'); "
                 "excluded by captain ruling")
+            excluded_pairs += len(case.pairs)
             case.pairs = []
+    # The gallery publishes no case total of its own, so the honest check is
+    # that every rendered item is accounted for, and each disposition is its
+    # own term: a case the purity screen rejected DID pair, and reporting its
+    # items as unpaired would classify a ruling as a parse failure.
+    paired = sum(len(c.pairs) for c in cases) + excluded_pairs
+    print(f"  gallatin: listing renders {len(items)} item(s); {paired * 2} of "
+          f"them paired into {paired} pair(s) across {len(cases)} case(s); "
+          f"{excluded_pairs} pair(s) excluded as combined procedures; "
+          f"{len(unresolved)} item(s) unresolved")
     if unresolved:
         print(f"  WARN gallatin: {len(unresolved)} gallery item(s) did not "
               f"resolve into a before/after couple: {', '.join(unresolved[:8])}"
@@ -7013,6 +7027,15 @@ def _pair_view_type(pair: ImagePair, pair_ann: dict) -> tuple[str | None, str | 
     return None, None
 
 
+def _pair_laterality(pair_ann: dict, annotations: dict):
+    """The laterality recorded for a pair, verbatim - a pair's own wins.
+
+    Read by both the release path and the hold accounting so the two cannot
+    disagree about whether a label was recorded at all.
+    """
+    return pair_ann.get("laterality") or annotations.get("laterality")
+
+
 def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | None]:
     """(schema view, annotation source) for a pair, or (None, ...) to skip."""
     pair_ann = annotations.get("pairs", {}).get(pair.key, {})
@@ -7026,7 +7049,7 @@ def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | 
     view_type, type_source = _pair_view_type(pair, pair_ann)
     if view_type is None:
         return None, None
-    laterality = pair_ann.get("laterality") or annotations.get("laterality")
+    laterality = _pair_laterality(pair_ann, annotations)
     if laterality not in ("left", "right"):
         return None, None
     lat_source = "laterality from visual inspection of downloaded images"
@@ -7040,10 +7063,20 @@ def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
     'Held' and 'unannotated' are different dispositions and must not be
     reported as one: a held pair is fully view-typed and waiting on a single
     laterality field, an unannotated one has never been looked at.
+
+    A laterality the annotator DID write but that resolve_view will not accept
+    ('Left', 'l', 'unknown') is a third disposition. Reporting it as 'no
+    laterality' tells them the release path is still waiting on the field they
+    just filled in, with nothing pointing at the value that was rejected.
     """
     pair_ann = annotations.get("pairs", {}).get(pair.key, {})
     view_type, _ = _pair_view_type(pair, pair_ann)
     if view_type is not None:
+        laterality = _pair_laterality(pair_ann, annotations)
+        if laterality:
+            return (f"view type '{view_type}' recorded but laterality "
+                    f"{laterality!r} is not 'left' or 'right'; held pending a "
+                    "left/right label")
         return (f"view type '{view_type}' recorded but no laterality; held "
                 "pending a left/right label")
     return "no view annotation"
@@ -7805,15 +7838,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
     if cfg.kind == "gallatin":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
-        cases = gallatin_parse_listing(listing, url)
-        # The gallery publishes no case total of its own; the honest check is
-        # that every rendered item landed in a pair.
-        items = len(gallatin_list_items(listing))
-        paired = sum(len(c.pairs) for c in cases) * 2
-        print(f"  {cfg.slug}: listing renders {items} item(s); "
-              f"{paired} of them paired into {sum(len(c.pairs) for c in cases)} "
-              f"pair(s) across {len(cases)} case(s)")
-        return cases
+        # gallatin_parse_listing prints the item -> pair -> case accounting: it
+        # is the only place that still knows how many pairs the purity screen
+        # took out, since it zeroes case.pairs to do it.
+        return gallatin_parse_listing(listing, url)
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 
 
