@@ -61,6 +61,20 @@ def pixelate(image, box, cell):
     return out
 
 
+def mosaic_only_box(image):
+    """(x0, y0, x1, y1) of a chest patch that ONLY the mosaic gate sees.
+
+    `conftest.chest_box` is wider, and pixelating it also trips
+    `censorship.py`'s detail-suppressed rule - so a pair built on it is held
+    whether or not the mosaic gate is wired in, and proves nothing about the
+    gate at a boundary where censorship is checked first. This patch is small
+    enough that `detect_censorship` passes it and `detect_mosaic` does not,
+    which is what makes the mosaic wiring the only thing under test.
+    """
+    h, w = image.shape[:2]
+    return int(w * 0.44), int(h * 0.38), int(w * 0.56), int(h * 0.44)
+
+
 def jpeg_roundtrip(image, quality=95):
     """What ingest.py actually hands the gate: a re-encoded JPEG, not raw pixels."""
     ok, buf = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
@@ -110,6 +124,23 @@ def test_mosaic_on_a_dark_region_is_flagged():
 
 
 # --- negatives: the known false-positive families --------------------------
+
+def test_the_mosaic_only_box_is_invisible_to_the_censorship_gate(torso):
+    """What `mosaic_only_box` promises, asserted rather than assumed.
+
+    Both gate wirings (`ingest.py`, `emit_corpus.py`) check censorship first, so
+    a fixture that trips both would let those tests pass with the mosaic gate
+    removed. If this ever goes red, those tests have quietly stopped proving
+    what they claim - re-measure the box rather than relaxing them.
+    """
+    from censorship import detect_censorship
+
+    box = mosaic_only_box(torso)
+    damaged = jpeg_roundtrip(pixelate(tattoo(torso, box), box, 12))
+    assert detect_mosaic(damaged)
+    assert not detect_censorship(damaged)
+    assert not detect_censorship(jpeg_roundtrip(tattoo(torso, box)))
+
 
 def test_a_clean_torso_is_not_flagged(torso):
     assert detect_mosaic(jpeg_roundtrip(torso)) == []

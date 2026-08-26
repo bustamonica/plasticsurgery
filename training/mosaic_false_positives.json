@@ -1,0 +1,10 @@
+{
+ "_comment": "Mosaic flags a human opened and judged FALSE. Read by training/scripts/emit_corpus.py (--mosaic-cleared). This releases a 'mosaic' hold and NOTHING else: a listed pair that also trips the censorship gate, the 400px floor, the EXIF check or the duplicate check is still held on that ground, under that disposition. It is not a general override, it does not retire anything, and it has no effect on a pair already in the finished corpus tree. Enumerated per pair id and never rule-derived or pattern-matched, for the same reason retired_pairs.json is: a rule is a live query over a staging tree, so a later re-annotation could silently widen a judgement made over a fixed set. Every entry must carry clinic, ruling and evidence - an entry without evidence is not reviewable, and emit_corpus.py refuses the run rather than reading a malformed file as an empty allow-list. A release is loud: the pair reads 'mosaic-released' in --report and prints a RELEASE line, so it never looks like a pair the gate did not flag. To add one: open the region the detail string names, satisfy yourself it is not mosaic, and record what you looked at.",
+ "cleared": {
+  "drdanielbarrett-9122-side-right": {
+   "clinic": "drdanielbarrett",
+   "ruling": "captain, 2026-08-26 (ba-viz-mosaic-detector-adopt-fix-review-gate)",
+   "evidence": "Burned-in watermark lettering, not mosaic. The detector flags the after half at 6px cells, 15 of them, x=554 y=603 24x42px, grid alignment 2.24 - a region that sits on the clinic's translucent serif 'BARRETT PLASTIC SURGERY' watermark, whose stroke edges tile like a grid. Opened at nearest-neighbour zoom with the box drawn: ~/firstmate/data/ba-viz-mosaic-detector-adopt/verify-mosaic-flags.html. The whole drdanielbarrett family was hand-checked in the corpus sweep and all 7 of that clinic's corpus flags were false for the same reason; this pair is one of 8 the gate holds in staging and the only one of the 8 not already in the finished tree. Per-pair records: staging-sweep-flagged.json."
+  }
+ }
+}

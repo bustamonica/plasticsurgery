@@ -157,12 +157,28 @@ def main() -> int:
                 print(f"REJECT {label}: {stem} is a duplicate of {seen_hashes[digest]}")
                 pair_ok = False
                 break
-            marks = detect_censorship(pixels) + detect_mosaic(pixels)
+            marks = detect_censorship(pixels)
             if marks:
                 print(
                     f"REJECT {label}: {stem} is censored or annotated - "
                     + "; ".join(marks)
                     + ". Ask the clinic for the unmarked chart original; do not crop around it"
+                )
+                pair_ok = False
+                break
+            # Evaluated separately, and only once censorship has passed. The two
+            # gates keep separate measured tables, so a run log has to be
+            # countable per gate or neither can be re-measured from it; the
+            # short-circuit also spares the grid search on an image already
+            # rejected.
+            blocks = detect_mosaic(pixels)
+            if blocks:
+                print(
+                    f"REJECT {label}: {stem} carries burned-in mosaic - "
+                    + "; ".join(blocks)
+                    + ". Open the region before believing it: half this gate's corpus "
+                    "flags were burned-in watermark lettering. If the mosaic is real, "
+                    "ask the clinic for the uncensored original - it cannot be undone"
                 )
                 pair_ok = False
                 break

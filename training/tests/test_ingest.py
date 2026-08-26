@@ -200,20 +200,43 @@ class TestIngestMain:
 
         `censorship.py` does not see mosaic - measured 0 of 182 on aips while
         ingest accepted all 22 mosaicked pairs - so this is `mosaic.py`'s gate,
-        and a pair only stops here if that gate is actually wired in.
+        and the damage is drawn where only that gate sees it: censorship is
+        checked first, so a fixture both gates catch would stop here with the
+        mosaic wiring removed.
         """
         from conftest import make_torso
-        from test_mosaic import jpeg_roundtrip, pixelate, tattoo
+        from test_mosaic import jpeg_roundtrip, mosaic_only_box, pixelate, tattoo
 
-        before = make_torso(seed=31)
         after = make_torso(seed=32)
-        h, w = after.shape[:2]
-        box = (int(w * 0.30), int(h * 0.33), int(w * 0.70), int(h * 0.47))
+        box = mosaic_only_box(after)
         after = jpeg_roundtrip(pixelate(tattoo(after, box), box, 12))
-        make_pair("clinic01-0001", valid_meta, images=(before, after))
+        make_pair("clinic01-0001", valid_meta, images=(make_torso(seed=31), after))
         rc, staging, out = self.run_ingest(tmp_path, capsys)
         assert rc == 1
+        assert "carries burned-in mosaic" in out
         assert "mosaic pixelation" in out
+        assert not (staging / "clinic01-0001").exists()
+
+    def test_the_two_gates_report_separately(self, make_pair, valid_meta, tmp_path, capsys):
+        """A run log has to be countable per gate.
+
+        Both modules publish their own measured table and their own re-measure
+        recipe, so a censored image must never be logged as a mosaic hit or the
+        other way round. A censored pair reads only as censored, and the mosaic
+        search is not even paid for it.
+        """
+        import cv2
+
+        from conftest import make_torso
+
+        censored = make_torso(seed=41)
+        h, w = censored.shape[:2]
+        cv2.circle(censored, (int(w * 0.40), int(h * 0.40)), int(min(h, w) * 0.09), (0, 0, 0), -1)
+        make_pair("clinic01-0001", valid_meta, images=(censored, censored))
+        rc, staging, out = self.run_ingest(tmp_path, capsys)
+        assert rc == 1
+        assert "is censored or annotated" in out
+        assert "carries burned-in mosaic" not in out
         assert not (staging / "clinic01-0001").exists()
 
     def test_uncensored_photographic_pair_is_accepted(

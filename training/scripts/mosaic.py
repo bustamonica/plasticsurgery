@@ -62,12 +62,13 @@ LIMITS - read before trusting a clean run
 -----------------------------------------
 WHAT IS CAUGHT, exactly: a tiling of at least `MIN_SPAN_CELLS` (3) cells across
 in BOTH directions and `SMALL_MIN_CELLS` (5) cells in all, of `CELL_MIN` (5px)
-or larger, sitting ON THE BODY (`MIN_ON_BODY`), each cell flat inside
-(`FLAT_MAX`) and stepping `STEP_MIN` (6) levels or more against its neighbours,
-with the cluster's own cell means spread between `SPREAD_MIN` (3) and
-`SPREAD_MAX` (20), and grid-aligned at `SMALL_MIN_ALIGN`/`LARGE_MIN_ALIGN`.
-Anything that fails one of those is invisible to this gate, and four families
-measurably do:
+up to the searched ceiling below, sitting ON THE BODY (`MIN_ON_BODY`), each cell
+flat inside (`FLAT_MAX`), stepping `STEP_MIN` (6) levels or more against its
+neighbours and keeping company with at least `MIN_NEIGHBOURS` (4) of its own 3x3
+neighbourhood counting itself, with the cluster's own cell means spread between
+`SPREAD_MIN` (3) and `SPREAD_MAX` (20), and grid-aligned at
+`SMALL_MIN_ALIGN`/`LARGE_MIN_ALIGN`. Anything that fails one of those is
+invisible to this gate, and five families measurably do:
 
   1. The sanantonio/marina family - a few dozen cells of skin-tone-on-skin-tone
      mosaic over a tattoo at the clinic's published 450px - is NOT caught, and
@@ -90,7 +91,24 @@ measurably do:
      silhouette. That is what keeps a flat studio backdrop beside a bright body
      edge from reading as a tiling (112 false images over blaine, drrohrich,
      swan and charlotte), and it costs any mosaic drawn off the body.
-  4. An 8px mosaic re-encoded OUT OF PHASE with JPEG's own 8x8 DCT grid is
+  4. A mosaic COARSER than the searched ceiling is never tested at its own cell
+     size. The bound is
+     `kmax = int(min(CELL_MAX 48, max(2*CELL_MIN, min(h, w) * CELL_MAX_FRACTION 0.07)))`,
+     i.e. 7% of the frame's short side: on a 400px pair - the corpus floor set
+     by `ingest.py`'s `MIN_DIMENSION` - kmax is 28, so nothing coarser than 28px
+     is searched there, and the 48px cap binds from a 686px short side up.
+     Two things keep that from being an absolute wall. It is a DEGRADATION,
+     because a sub-multiple grid tiles a coarser mosaic - a 5px grid tiles a
+     10px one and every cell of it is flat and stepped, which is the same reason
+     `mosaic_regions` warns that the reported `cell_px` may be a divisor of the
+     true cell size. And the bound is computed at the WORKING resolution: any
+     frame longer than `WORK_LONG_EDGE` (1200px) is searched at an integer
+     reduction, so in ORIGINAL pixels the ceiling is kmax times that reduction
+     factor. A 2560px export is searched at half scale, where kmax 48 reaches a
+     96px mosaic in original pixels - which is why the 60-100px mosaic on such a
+     frame is reachable at all, and why the 28px figure is a statement about a
+     400px pair and not about a large one.
+  5. An 8px mosaic re-encoded OUT OF PHASE with JPEG's own 8x8 DCT grid is
      smeared past detection: measured 0 regions at quality 95, 37 at quality
      100, and 394 when the two grids happen to align. aips publishes an 8px
      mosaic and is still caught 18 of 22 pairs, so this is a degradation rather
