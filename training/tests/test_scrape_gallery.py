@@ -4,6 +4,8 @@ Fixtures under fixtures/gallery/ are text/HTML excerpts of real case pages
 (gallery image tags + spec blocks). No patient images are stored.
 """
 
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -1304,3 +1306,353 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# swan parser (The Swan Center; 2026-08-25 prospected batch)
+#
+# Etna asset naming on a self-hosted WordPress plugin. The images are the etna
+# family; the PAGE is not - a structured '.attributes-list' chart, a published
+# procedures list, and a public REST route for enumeration. The tests below pin
+# each of those three differences, because each is a place where reusing the
+# etna parser wholesale would have failed silently.
+# ---------------------------------------------------------------------------
+
+SWAN_GALLERY = "/gallery/breast/breast-augmentation/"
+
+
+def swan_case(case_id: str):
+    return sg.swan_parse_case(
+        load_fixture(f"swan_case_{case_id}.html"), case_id, "x")
+
+
+# -- enumeration: the gallery states its own total --------------------------
+
+
+def test_swan_listing_declares_its_own_total_and_load_more_term():
+    """'Showing 12 of 90 Cases' is the reconciliation target for the walk."""
+    listing = load_fixture("swan_listing.html")
+    assert sg.swan_declared_total(listing) == 90
+    assert sg.swan_rest_term(listing) == "573"
+    assert len(sg.swan_list_case_ids(listing, SWAN_GALLERY)) == 12
+
+
+def test_swan_rest_page_yields_ids_and_restates_the_gallery_total():
+    page = sg.swan_rest_page(load_fixture("swan_cases_page2.json"), SWAN_GALLERY)
+    assert len(page["ids"]) == 12
+    assert page["ids"][0] == "17760"
+    assert (page["loaded"], page["total"], page["more"]) == (24, 90, True)
+
+
+def test_swan_rest_page_reports_the_end_of_the_walk():
+    """'more': false is what stops the pagination; a short page does not."""
+    payload = json.dumps({"html": "", "loaded": 90, "total": 90, "more": False})
+    page = sg.swan_rest_page(payload, SWAN_GALLERY)
+    assert page["ids"] == []
+    assert page["more"] is False
+
+
+def test_swan_missing_load_more_control_yields_no_term():
+    assert sg.swan_rest_term('<div id="eii-gallery-footer"></div>') is None
+
+
+def test_swan_declared_total_absent_is_reported_as_none():
+    assert sg.swan_declared_total("<html><body>no counter</body></html>") is None
+
+
+# -- purity: screened from the case text, never the filename slug ------------
+
+
+def test_swan_pure_augmentation_case_is_kept():
+    case = swan_case("17094")
+    assert case.warnings == []
+    assert len(case.pairs) == 2
+
+
+def test_swan_combined_case_excluded_by_its_own_procedures_list():
+    """The structured screen the etna clinics do not publish.
+
+    There is Etna asset naming here, so the etna parser's filename-slug screen
+    would read 'breast-augmentation-...' and keep this case. The page's own
+    procedures list says otherwise, and that is the case text.
+    """
+    html = load_fixture("swan_case_17094.html").replace(
+        "</ul>",
+        '<li><a class="case-category-link" href="#">Breast Lift</a></li></ul>')
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert case.pairs == []
+    assert any("not pure breast augmentation" in w and "breast lift" in w
+               for w in case.warnings)
+
+
+def test_swan_case_with_no_procedures_list_is_excluded_not_assumed_pure():
+    html = re.sub(r'<ul class="eii-gallery-details-procedures-list".*?</ul>', "",
+                  load_fixture("swan_case_17094.html"), flags=re.S)
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert case.pairs == []
+    assert any("no procedures list" in w for w in case.warnings)
+
+
+def test_swan_narrative_backstop_catches_a_combined_procedure():
+    """A case can be filed under one procedure and described as another."""
+    html = load_fixture("swan_case_17094.html").replace(
+        "39-year old shown with",
+        "39-year old shown after augmentation-mastopexy with")
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert case.pairs == []
+    assert any("combined procedure" in w for w in case.warnings)
+
+
+@pytest.mark.parametrize("phrase", [
+    "breast lift", "mastopexy", "mommy makeover", "breast reduction",
+    "implant exchange", "explant",
+])
+def test_swan_combined_vocabulary_matches_the_phrases_that_report_surgery(phrase):
+    assert sg.SWAN_COMBINED_RE.search(f"patient shown after {phrase} results")
+
+
+@pytest.mark.parametrize("phrase", [
+    "the implants lift the breast tissue",
+    "a fuller, lifted appearance",
+])
+def test_swan_combined_vocabulary_does_not_fire_on_prose_about_shape(phrase):
+    """'lift' alone describes what an implant does as often as a mastopexy."""
+    assert sg.SWAN_COMBINED_RE.search(phrase) is None
+
+
+# -- the structured attributes chart -----------------------------------------
+
+
+def test_swan_full_chart_populates_every_documented_field():
+    case = swan_case("17094")
+    specs = case.specs
+    assert specs.age == 39
+    assert specs.gender == "Female"
+    assert sg.volume_cc(specs) == 325
+    assert specs.profile == "moderate-plus"
+    assert specs.shape == "round"
+    assert specs.placement == "dual-plane"
+    assert specs.fields["Cup Size Before"] == "AA"
+    assert specs.fields["Implant Contents"] == "Silicone"
+
+
+def test_swan_height_and_weight_have_no_documented_unit_and_do_not_convert():
+    """The chart publishes bare '62' and '135'.
+
+    Reading them as inches and pounds is an inference, and a wrong frame metric
+    is worse than a missing one (the sanantonio precedent). The verbatim values
+    still survive into the notes.
+    """
+    specs = swan_case("17094").specs
+    assert specs.height == "62"
+    assert specs.height_cm is None
+    assert specs.weight_lbs is None
+    assert specs.weight_kg is None
+    assert "Weight Before: 135" in sg.build_notes(specs, None)
+
+
+def test_swan_bare_number_in_a_labelled_implant_size_field_reads_as_cc():
+    """The 2026-08-15 units ruling: labelled field yes, free prose no."""
+    specs = swan_case("17094").specs
+    assert (specs.left_cc, specs.right_cc) == (325.0, 325.0)
+
+
+def test_swan_asymmetric_volumes_average_and_say_so_in_the_notes():
+    case = swan_case("25826")
+    assert (case.specs.left_cc, case.specs.right_cc) == (375.0, 400.0)
+    assert sg.volume_cc(case.specs) == 388
+    assert "asymmetric volumes" in sg.build_notes(case.specs, None)
+
+
+def test_swan_incision_comes_from_the_charts_own_field():
+    """Only 16 of the 90 cases publish 'Breast Incision Type'."""
+    case = swan_case("25810")
+    assert case.specs.fields["Breast Incision Type"] == "Inframammary"
+    assert case.specs.incision == "inframammary"
+
+
+def test_swan_incision_is_unset_when_the_chart_omits_the_field():
+    assert swan_case("17094").specs.incision is None
+
+
+def test_swan_sparse_chart_leaves_undocumented_fields_unset():
+    """Absent is absent: no profile, no placement, no shape - never defaulted."""
+    case = swan_case("26713")
+    specs = case.specs
+    assert specs.profile is None
+    assert specs.placement is None
+    assert specs.shape is None
+    assert sg.volume_cc(specs) == 325
+    assert case.warnings == []
+
+
+# -- profile: a LABELLED field decodes a bare projection word ----------------
+
+
+def test_swan_labelled_profile_field_decodes_a_bare_word():
+    """'High' alone is not a profile in prose; in 'Implant Profile' it is."""
+    assert sg.PROFILE_PATTERNS[2][0].search("High") is None
+    assert swan_case("25826").specs.profile == "high"
+
+
+@pytest.mark.parametrize("published,expected", [
+    ("Moderate", "moderate"),
+    ("Moderate Plus", "moderate-plus"),
+    ("High", "high"),
+    # Captain's 2026-08-19 ruling: every one of these means extra-high.
+    ("Ultra High Profile", "extra-high"),
+    ("UHP", "extra-high"),
+    ("VHP", "extra-high"),
+    ("Extra-Full", "extra-high"),
+    ("Extra High Range", "extra-high"),
+    ("Corse", "extra-high"),
+])
+def test_swan_profile_vocabulary(published, expected):
+    html = load_fixture("swan_case_17094.html").replace(
+        ">Moderate Plus<", f">{published}<")
+    assert sg.swan_parse_case(html, "17094", "x").specs.profile == expected
+
+
+def test_swan_mentor_xtra_is_a_product_line_and_does_not_decode():
+    """Manufacturer model codes stay unparseable (captain's 2026-08-19 ruling).
+
+    Read against case 26713, whose narrative is the site's boilerplate, so the
+    labelled field is the only profile evidence on the page and an unrecognised
+    value leaves the case with no profile at all.
+    """
+    html = load_fixture("swan_case_26713.html").replace(
+        "</div>\n</div>",
+        '</div>\n<div class="attribute"><div class="attribute-name">Implant '
+        'Profile</div><div class="attribute-value">Xtra</div></div>\n</div>')
+    case = sg.swan_parse_case(html, "26713", "x")
+    assert case.specs.fields["Implant Profile"] == "Xtra"
+    assert case.specs.profile is None
+    assert any("not in the profile vocabulary" in w for w in case.warnings)
+
+
+def test_swan_a_narrative_profile_survives_an_unreadable_chart_value():
+    """Case 17094's prose says 'Moderate Plus Profile' in its own words.
+
+    That is a documented statement, so an unparseable chart value withholds the
+    chart's evidence without discarding the narrative's.
+    """
+    html = load_fixture("swan_case_17094.html").replace(
+        ">Moderate Plus<", ">Xtra<")
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert case.specs.profile == "moderate-plus"
+    assert any("not in the profile vocabulary" in w for w in case.warnings)
+
+
+# -- description block --------------------------------------------------------
+
+
+def test_swan_contact_us_boilerplate_is_not_a_clinic_description():
+    """21 of the 90 cases publish this in '.case-description'.
+
+    Letting it through writes a marketing sentence into those pairs' notes as
+    though the surgeon had described the case.
+    """
+    case = swan_case("26713")
+    assert case.specs.summary == ""
+    assert "Contact us for more details" not in sg.build_notes(case.specs, None)
+
+
+def test_swan_real_narrative_is_kept():
+    assert swan_case("17094").specs.summary.startswith("39-year old shown with")
+
+
+@pytest.mark.parametrize("phrase,months", [
+    ("shown 6 months post-op with", 6.0),
+    ("shown 1-year post-op with", 12.0),
+    ("shown 6 weeks post-op with", 1.4),
+    ("shown 6 months post-operative, with", 6.0),
+])
+def test_swan_post_op_interval_reads_in_the_unit_the_clinic_published(phrase, months):
+    html = load_fixture("swan_case_17094.html").replace("shown with", phrase)
+    assert sg.swan_parse_case(html, "17094", "x").specs.months_post_op == months
+
+
+def test_swan_no_post_op_phrase_leaves_months_unset():
+    assert swan_case("17094").specs.months_post_op is None
+
+
+# -- images -------------------------------------------------------------------
+
+
+def test_swan_images_are_split_composites_with_positional_view_names():
+    """Every case in this gallery publishes 'view-N', which documents nothing.
+
+    So every pair needs the annotation pass; resolve_view must refuse to guess.
+    """
+    case = swan_case("17094")
+    assert [p.key for p in case.pairs] == ["view-1", "view-2"]
+    for pair in case.pairs:
+        assert pair.split_composite
+        assert pair.before_url == pair.after_url
+        assert pair.view_hint is None
+        assert sg.resolve_view(pair, {}) == (None, None)
+
+
+def test_swan_third_view_is_collected_when_the_case_publishes_one():
+    assert [p.key for p in swan_case("26713").pairs] == [
+        "view-1", "view-2", "view-3"]
+
+
+def test_swan_annotation_supplies_the_view():
+    case = swan_case("17094")
+    annotations = {"pairs": {"view-1": {"view": "front"},
+                             "view-2": {"view": "side-left"}}}
+    assert [sg.resolve_view(p, annotations)[0] for p in case.pairs] == [
+        "front", "side-left"]
+
+
+def test_swan_populated_thumbnail_caption_outranks_a_visual_call():
+    """No case measured publishes one, but the slot exists in the markup."""
+    html = load_fixture("swan_case_17094.html").replace(
+        '<span class="case-view-lower"></span>',
+        '<span class="case-view-lower">Left Oblique</span>', 1)
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert case.pairs[0].view_hint == "oblique-left"
+    assert sg.resolve_view(case.pairs[0], {}) == ("oblique-left", None)
+
+
+def test_swan_each_view_emitted_once_despite_repeated_markup():
+    """The focus pane and the thumbnail strip publish the same photograph."""
+    html = load_fixture("swan_case_17094.html")
+    doubled = html + html
+    assert [p.key for p in sg.swan_parse_case(doubled, "17094", "x").pairs] == [
+        "view-1", "view-2"]
+
+
+def test_swan_another_cases_images_on_the_page_are_not_collected():
+    html = load_fixture("swan_case_17094.html").replace(
+        "</body>",
+        '<img src="https://www.swancenteratlanta.com/wp-content/uploads/2026/06/'
+        'breast-augmentation-99999-view-1-detail.jpg"/></body>')
+    case = sg.swan_parse_case(html, "17094", "x")
+    assert all("17094" in p.before_url for p in case.pairs)
+
+
+# -- emitted metadata ---------------------------------------------------------
+
+
+def test_swan_meta_carries_view_volume_profile_and_a_clinic_consent_ref():
+    case = swan_case("17094")
+    meta = sg.build_meta(
+        "swan-17094-front", "front", case.specs, {}, {},
+        "visual inspection of downloaded images",
+        sg.CLINICS["swan"].consent_ref)
+    assert meta["view"] == "front"
+    assert meta["volume_cc"] == 325
+    assert meta["profile"] == "moderate-plus"
+    assert meta["consent_ref"] == "swan-agreement-2026-08-25"
+    assert "swan" in meta["consent_ref"]
+
+
+def test_swan_meta_omits_a_profile_the_clinic_did_not_publish():
+    case = swan_case("26713")
+    meta = sg.build_meta("swan-26713-front", "front", case.specs, {}, {}, None,
+                         sg.CLINICS["swan"].consent_ref)
+    assert "profile" not in meta
+    assert meta["shape"] == "unknown"
+    assert meta["volume_cc"] == 325
