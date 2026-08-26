@@ -115,23 +115,27 @@ ALIGN_PAD_CELLS = 1
 # Two tiers, both measured to zero false positives on the negative sets above:
 # a small mosaic must be strongly grid-aligned, a large one may be weaker
 # because its size is itself evidence.
+# Frames longer than this are searched at an integer reduction (see mosaic_regions).
+WORK_LONG_EDGE = 1200
 SMALL_MIN_CELLS, SMALL_MIN_ALIGN = 5, 3.5
 LARGE_MIN_CELLS, LARGE_MIN_ALIGN = 14, 2.2
 
 
-def _block_stats(gray: np.ndarray, k: int) -> "tuple[np.ndarray, np.ndarray]":
+def _block_stats(gray8: np.ndarray, k: int) -> "tuple[np.ndarray, np.ndarray]":
     """Per-pixel mean of the k x k block anchored there, and its inner range.
 
     Anchored filters make every phase a strided slice of the same two arrays,
-    which is what keeps a full phase search affordable.
+    which is what keeps a full phase search affordable. Morphology runs on the
+    uint8 image rather than a float copy: same result on integer pixel values,
+    several times the throughput, and the sweep is ~90k images.
     """
-    mean = cv2.boxFilter(gray, cv2.CV_32F, (k, k), anchor=(0, 0), normalize=True,
+    mean = cv2.boxFilter(gray8, cv2.CV_32F, (k, k), anchor=(0, 0), normalize=True,
                          borderType=cv2.BORDER_REPLICATE)
     inner = max(1, k - 2)
     kernel = np.ones((inner, inner), np.uint8)
-    lo = cv2.erode(gray, kernel, anchor=(0, 0), borderType=cv2.BORDER_REPLICATE)
-    hi = cv2.dilate(gray, kernel, anchor=(0, 0), borderType=cv2.BORDER_REPLICATE)
-    return mean, hi - lo
+    lo = cv2.erode(gray8, kernel, anchor=(0, 0), borderType=cv2.BORDER_REPLICATE)
+    hi = cv2.dilate(gray8, kernel, anchor=(0, 0), borderType=cv2.BORDER_REPLICATE)
+    return mean, hi.astype(np.float32) - lo.astype(np.float32)
 
 
 def _stepped_flat_cells(gray, k, oy, ox, mean_f, rng_f) -> "np.ndarray | None":
@@ -203,12 +207,24 @@ def mosaic_regions(image: np.ndarray) -> "list[dict]":
     """
     if image is None or image.ndim != 3:
         return []
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    gray8 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # A frame much larger than the corpus norm is searched at a reduced scale.
+    # Cell size scales with the frame, so a 2560px gallery export whose mosaic
+    # runs 60-100px is OUT of the CELL_MAX range at native resolution and only
+    # comes into it here; the sweep also costs ~9x less. The reported boxes are
+    # mapped back to the original pixel grid.
+    scale = 1
+    while max(gray8.shape) // (scale + 1) >= WORK_LONG_EDGE:
+        scale += 1
+    if scale > 1:
+        gray8 = cv2.resize(gray8, (gray8.shape[1] // scale, gray8.shape[0] // scale),
+                           interpolation=cv2.INTER_AREA)
+    gray = gray8.astype(np.float32)
     h, w = gray.shape
     kmax = int(min(CELL_MAX, max(2 * CELL_MIN, min(h, w) * CELL_MAX_FRACTION)))
     found: list[dict] = []
     for k in range(CELL_MIN, kmax + 1):
-        mean_f, rng_f = _block_stats(gray, k)
+        mean_f, rng_f = _block_stats(gray8, k)
         stride = max(1, k // PHASE_STEPS)
         for oy in range(0, k, stride):
             for ox in range(0, k, stride):
@@ -228,8 +244,10 @@ def mosaic_regions(image: np.ndarray) -> "list[dict]":
                     align = min(rx, ry)
                     if not _is_mosaic(area, align):
                         continue
-                    found.append({"x": box[0], "y": box[1], "w": box[2], "h": box[3],
-                                  "cells": area, "cell_px": k, "alignment": round(align, 2)})
+                    found.append({"x": box[0] * scale, "y": box[1] * scale,
+                                  "w": box[2] * scale, "h": box[3] * scale,
+                                  "cells": area, "cell_px": k * scale,
+                                  "alignment": round(align, 2)})
     found.sort(key=lambda d: (-d["cells"] * d["cell_px"] ** 2, -d["alignment"]))
     return found
 
