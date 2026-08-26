@@ -2577,3 +2577,185 @@ def test_every_rejected_body_is_retried_on_the_full_schedule(
     # 1 reset + the first body + one per retry_wait.
     assert session.calls == 5
     assert not (tmp_path / "aj.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# sculpted: bespoke WordPress, paginated inline listing of framed composites
+# ---------------------------------------------------------------------------
+
+
+def test_sculpted_case_key_is_the_asset_stem_not_the_published_index():
+    """The published 'Patient N' title is a display position, not an identity.
+
+    Page 1's 'Patient 1' and 'Patient 2' are served from Patient_14_* and
+    Patient_16_* respectively, and the two numberings run in opposite
+    directions. Keying on the title would re-point every pair id the moment the
+    practice publishes a new case at the top of the list, so the case key comes
+    from the (immutable) wp-content upload stem and the display index is kept in
+    the notes instead.
+    """
+    cases = sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p1.html"), "x")
+    assert [c.case_id for c in cases] == ["14", "16"]
+    assert [c.specs.fields["published as"] for c in cases] == [
+        "Patient 1", "Patient 2"]
+
+
+@pytest.mark.parametrize("filename,case_id,view", [
+    ("Breast-Implants-Patient_7_Front.jpg", "7", "front"),    # the common spelling
+    ("Breast-Implants-patient-19-front.jpg", "19", "front"),  # lowercase, hyphens
+    ("Breast-Implants-patient_N7_Side.jpg", "n7", "side"),    # non-numeric stem
+])
+def test_sculpted_reads_all_three_filename_spellings(filename, case_id, view):
+    """One gallery, three spellings of the same asset name.
+
+    'Patient_7_Front', 'patient-19-front' and 'patient_N7_Front' all appear in
+    this 13-case gallery; a parser that pinned one separator or assumed a purely
+    numeric case number would silently drop the other two cases.
+    """
+    m = sg.SCULPTED_ASSET_RE.search(filename)
+    assert m is not None
+    assert (m.group(1).lower(), m.group(2).lower()) == (case_id, view)
+
+
+def test_sculpted_page_two_yields_both_odd_spellings_as_cases():
+    ids = [c.case_id for c in sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p2.html"), "x")]
+    assert ids == ["19", "n7"]
+
+
+def test_sculpted_pairs_are_framed_composites_with_bare_view_hints():
+    cases = sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p1.html"), "x")
+    pairs = cases[1].pairs
+    assert [p.key for p in pairs] == ["front", "angle", "side"]
+    # 'Angle' is this gallery's word for oblique. Neither the filename nor the
+    # alt text documents laterality, so oblique/side stay bare hints and reach
+    # the corpus only through an annotation.
+    assert [p.view_hint for p in pairs] == ["front", "oblique", "side"]
+    for pair in pairs:
+        assert pair.split_composite and pair.before_url == pair.after_url
+        assert pair.composite_border == sg.SCULPTED_BORDER_PX
+        assert pair.composite_gutter == sg.SCULPTED_GUTTER_PX
+
+
+def test_sculpted_strips_the_wordpress_size_suffix():
+    """The fancybox href is already the bare original; keep it that way.
+
+    Every image is also published as a '-768x432' derivative. Linking one would
+    halve the resolution of a composite whose halves are only 578px wide after
+    the frame trim, so the suffix is stripped rather than trusted.
+    """
+    assert sg.SCULPTED_SIZE_SUFFIX_RE.sub(
+        "", "/x/Breast-Implants-Patient_7_Front-768x432.jpg"
+    ) == "/x/Breast-Implants-Patient_7_Front.jpg"
+
+
+def test_sculpted_reads_volume_age_and_post_op_from_the_caption():
+    case = sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p3.html"), "x")[0]
+    assert sg.volume_cc(case.specs) == 440
+    assert case.specs.age == 32
+    assert case.specs.months_post_op == 2.0
+    assert case.specs.profile is None   # the gallery publishes no profile at all
+    # The caption's own 'Patient 13 :' prefix is not clinical description.
+    assert case.specs.summary.startswith("32F patient underwent")
+
+
+def test_sculpted_keeps_asymmetric_volumes_on_their_documented_sides():
+    """'a 420cc implant in right breast and a 315cc implant in left breast'."""
+    case = sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p5_asym.html"), "x")[0]
+    assert (case.specs.left_cc, case.specs.right_cc) == (315.0, 420.0)
+    assert sg.volume_cc(case.specs) == 368
+    assert "asymmetric volumes" in sg.build_notes(case.specs, None)
+
+
+@pytest.mark.parametrize("weeks_phrase,months", [
+    ("Post operative photos taken at 6 weeks.", 1.4),
+    ("Post operative photos taken at 1 year.", 12.0),
+    ("Post operative photos taken at 2.5 months.", 2.5),
+])
+def test_sculpted_converts_documented_post_op_units_to_months(weeks_phrase, months):
+    m = sg.SCULPTED_POSTOP_RE.search(weeks_phrase)
+    value, unit = float(m.group(1)), m.group(2).lower()
+    assert round(value * sg.SCULPTED_POSTOP_UNIT_MONTHS[unit], 1) == months
+
+
+@pytest.mark.parametrize("phrase", [
+    "Bilateral Breast Augmentation with a lift",
+    "Bilateral Breast Augmentation and Mastopexy",
+    "Mommy Makeover",
+])
+def test_sculpted_drops_a_case_whose_text_names_a_second_procedure(phrase):
+    """Purity is screened on the case TEXT; the slug carries no procedure here.
+
+    Every image in this gallery is published under the same 'Breast-Implants-'
+    prefix whatever the case was, so a filename screen would pass everything.
+    """
+    html = load_fixture("sculpted_listing_p3.html").replace(
+        "Bilateral Breast Augmentation", phrase)
+    case = sg.sculpted_parse_listing_page(html, "x")[0]
+    assert case.pairs == []
+    assert any("not pure breast augmentation" in w for w in case.warnings)
+
+
+@pytest.mark.parametrize("phrase", [
+    "Bilateral Breast Augmentation, which gives a natural lift",
+    "Bilateral Breast Augmentation for a lifted appearance",
+])
+def test_sculpted_keeps_a_case_whose_prose_merely_says_lift(phrase):
+    """'a natural lift' is what implants alone do, not a second procedure.
+
+    A bare-'lift' screen would drop cases the captain ruling never meant to
+    exclude, so only a lift named AS a procedure counts.
+    """
+    html = load_fixture("sculpted_listing_p3.html").replace(
+        "Bilateral Breast Augmentation", phrase)
+    case = sg.sculpted_parse_listing_page(html, "x")[0]
+    assert len(case.pairs) == 3
+    assert case.warnings == []
+
+
+def test_sculpted_visual_exclusions_drop_their_cases_with_a_reason():
+    """Two findings the case text cannot express, so they are enumerated.
+
+    Case 14 carries a mosaic over an identifying mark in all three views (which
+    censorship.py does not detect), and case n7's BEFORE photo shows a
+    pre-existing mastopexy scar set behind a caption that names only an
+    augmentation.
+    """
+    assert set(sg.SCULPTED_VISUAL_EXCLUSIONS) == {"14", "n7"}
+    case = sg.sculpted_parse_listing_page(
+        load_fixture("sculpted_listing_p1.html"), "x")[0]
+    assert case.case_id == "14" and case.pairs == []
+    assert any("mosaic censoring" in w for w in case.warnings)
+
+
+def test_sculpted_composite_trim_is_symmetric_and_refuses_to_over_crop():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (1200, 675), "white").save(buf, format="JPEG")
+    before, after = sg.split_composite_image(
+        buf.getvalue(), border=sg.SCULPTED_BORDER_PX, gutter=sg.SCULPTED_GUTTER_PX)
+    sizes = {Image.open(io.BytesIO(half)).size for half in (before, after)}
+    # Both halves lose exactly the same amount, so the pair stays matched, and
+    # 578x655 clears ingest.py's 400px floor.
+    assert sizes == {(578, 655)}
+    with pytest.raises(ValueError, match="leaves no image"):
+        sg.split_composite_image(buf.getvalue(), border=10, gutter=600)
+
+
+def test_split_composite_image_default_is_still_the_raw_midpoint_split():
+    """The trim is opt-in: every composite clinic before sculpted is untouched."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (1200, 675), "white").save(buf, format="JPEG")
+    before, after = sg.split_composite_image(buf.getvalue())
+    assert {Image.open(io.BytesIO(h)).size for h in (before, after)} == {(600, 675)}

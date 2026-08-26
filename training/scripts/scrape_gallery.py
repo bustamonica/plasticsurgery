@@ -392,6 +392,17 @@ CLINICS: dict[str, ClinicConfig] = {
         # edge sits 122px from the bottom at the median, 124px at p95) with a
         # small margin. See ClinicConfig.bottom_crop_px for why this matters.
         bottom_crop_px=130),
+    # -- 2026-08-25 batch: prospected clinics with executed AI-training consent
+    #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
+    # sculpted.com's robots.txt (last modified 2023-11-22) names GPTBot,
+    # ChatGPT-User, CCBot, anthropic-ai, Claude-Web and Google-Extended and
+    # disallows each; it publishes NO 'User-agent: *' group, so it states no
+    # rule for this scraper's own descriptive UA, and no Crawl-delay. Neither
+    # the robots file nor any response header carries a Content-Signal.
+    "sculpted": ClinicConfig(
+        slug="sculpted", consent_ref="sculpted-agreement-2026-08-25",
+        base_url="https://sculpted.com",
+        gallery_paths=["/gallery/breast-implants/"], kind="sculpted"),
 }
 
 
@@ -445,6 +456,14 @@ class ImagePair:
     grid_shape: tuple[int, int] | None = None
     before_cell: tuple[int, int] | None = None
     after_cell: tuple[int, int] | None = None
+    # A split_composite whose two halves are laid out inside a printed
+    # presentation frame: composite_border px of that frame on all four outer
+    # edges and composite_gutter px on EACH side of the midpoint, trimmed
+    # before the split. Both halves lose the same amount, so their dimensions
+    # stay matched. 0/0 (the default) splits the raw image, which is what every
+    # composite clinic before sculpted publishes.
+    composite_border: int = 0
+    composite_gutter: int = 0
 
 
 @dataclass
@@ -3138,11 +3157,199 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
-def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
+# ---------------------------------------------------------------------------
+# sculpted parser (bespoke WordPress; paginated inline listing of composites)
+# ---------------------------------------------------------------------------
+#
+# Sculpted (Gold Coast QLD, AU) publishes one `div.patientgallery-list` per
+# page holding a wrapper div per case: a `.patientgallery-title`, a
+# `.patientgallery-slider` of exactly three `<a data-fancybox>` links to the
+# full-size images, and a `.patientgallery-captions` paragraph. Pagination is
+# WordPress `/page/N`; the last page 200s with an EMPTY list rather than 404ing,
+# so the walk terminates on "no case blocks", never on a status code.
+#
+# Two things about this gallery are not guessable and cost data if assumed:
+#
+# 1. THE PUBLISHED "Patient N" TITLE IS A DISPLAY INDEX, NOT THE CASE'S IDENTITY.
+#    Page 1's "Patient 2" is served from `Breast-Implants-Patient_16_*.jpg`, and
+#    the numbers run in opposite directions: display 1..13 maps to asset
+#    14,16,7,12,11,9,19,8,5,4,3,N7,2. The display index is a position in a
+#    reverse-chronological list and shifts the moment the practice publishes a
+#    new case, so keying on it would silently re-point every pair id on a
+#    re-scrape. The asset stem is baked into an immutable wp-content upload
+#    path, so THAT is the case key; the display index is recorded in the notes.
+#
+# 2. THE ASSET STEM IS SPELLED THREE DIFFERENT WAYS across the 13 cases -
+#    `Patient_7_Front`, `patient-19-front`, `patient_N7_Front` - so the stem is
+#    matched case-insensitively over both separators and the number may carry a
+#    non-numeric prefix ('N7'). All three spellings are pinned by fixtures.
+#
+# The view is documented twice and agreeably: in the filename token
+# (Front/Angle/Side) and again in the alt text ('..., patient 16, front view').
+# Angle is this gallery's word for oblique. Neither documents LATERALITY, so
+# oblique/side pairs carry a bare view_hint and reach the corpus only with a
+# visual-inspection annotation (CLAUDE.md's anchored-landmark rule); front
+# needs none.
+#
+# Every image is a landscape side-by-side before|after composite split at the
+# midpoint by the shared `split_composite_image`.
+
+SCULPTED_ASSET_RE = re.compile(
+    r"Breast-Implants-patient[-_]([A-Za-z]?\d+)[-_](front|angle|side)", re.I)
+SCULPTED_VIEW_MAP = {"front": "front", "angle": "oblique", "side": "side"}
+# WordPress writes its resized derivatives as '<stem>-768x432.jpg'; the
+# fancybox href is already the bare original, but strip the suffix anyway so a
+# markup change that starts linking a derivative cannot silently halve the
+# resolution.
+SCULPTED_SIZE_SUFFIX_RE = re.compile(r"-\d+x\d+(?=\.\w+$)")
+SCULPTED_DISPLAY_RE = re.compile(r"patient\s*(\d+)", re.I)
+SCULPTED_AGE_RE = re.compile(r"\b(\d{2})\s*(?:F\b|year[- ]old)", re.I)
+SCULPTED_POSTOP_RE = re.compile(
+    r"photos?\s+taken\s+at\s+(?:about\s+)?(\d+(?:\.\d+)?)\s*(week|month|year)s?\b", re.I)
+# Captain ruling: pure breast augmentation only. Screened on the CASE TEXT, not
+# the filename slug - every one of these images is published under the same
+# `Breast-Implants-` prefix whatever the case actually was, so the slug carries
+# no procedure information at all here and a slug screen would pass everything.
+# A bare 'lift' is deliberately NOT a match - clinics write 'a natural lift' and
+# 'lifted appearance' about what implants alone do - so a lift only counts when
+# it is named as a procedure this patient had ('breast lift', 'mastopexy', or a
+# lift conjoined to the augmentation: 'with a lift', 'and a lift', '+ lift').
+SCULPTED_COMBINED_RE = re.compile(
+    r"\b(?:mastopexy|breast\s+lift"
+    r"|mommy\s+makeover|reduction|liposuction|lipo(?:filling|sculpture)?"
+    r"|abdominoplasty|tummy\s+tuck|fat\s+transfer|explant|revision"
+    r"|reconstruction|implant\s+(?:removal|exchange|replacement))\b"
+    r"|(?:\b(?:with|and|plus)\s+(?:a\s+)?(?:breast\s+)?|\+\s*)lift\b", re.I)
+# Months are the schema's unit; a documented figure in weeks or years is
+# converted (the same class of unit conversion as height_to_cm/pounds_to_kg),
+# and the verbatim sentence survives in specs.summary either way.
+SCULPTED_POSTOP_UNIT_MONTHS = {"week": 7 / 30.44, "month": 1.0, "year": 12.0}
+
+# Every composite is 1200x675 and carries a printed white presentation frame:
+# ~8px on the left, right and top edges, ~4px at the bottom, and a ~9px white
+# gutter straddling the midpoint. Measured across all 39 published images, not
+# assumed - the trim below (10px outer, 12px each side of the midpoint) clears
+# it on every one of the 78 halves, leaving no near-white band on any cropped
+# edge. Halves come out 578x655, well clear of ingest.py's 400px floor, and the
+# trim is symmetric so before and after stay dimension-matched. A fixed inset
+# beats an adaptive one here: the backdrop is a near-white wall, so an
+# auto-trim that chases "white" eats body pixels.
+SCULPTED_BORDER_PX = 10
+SCULPTED_GUTTER_PX = 12
+
+# Per-case exclusions that the CASE TEXT cannot express, so they cannot be
+# derived and are enumerated instead - each one is a finding from opening the
+# published images at native resolution (evidence:
+# ~/firstmate/data/ba-viz-collect-sculpted/report.md). Deleting an entry
+# re-admits that case's three pairs on the next run.
+SCULPTED_VISUAL_EXCLUSIONS = {
+    # A deliberate mosaic block over an identifying mark on the lateral chest,
+    # present in BOTH halves of all three views and sitting on the
+    # inferolateral breast border in the oblique and side. censorship.py does
+    # NOT catch it (it flags ten unrelated halves at this clinic and misses
+    # this one), so the hold has to be named here. Standing rule for a censored
+    # image is reject, not crop around it.
+    "14": "mosaic censoring over an identifying mark on the body, all 3 views",
+    # The published BEFORE photo shows a healed vertical/Wise-pattern mastopexy
+    # scar set - periareolar, vertical and inframammary scars on both breasts.
+    # The clinic's text names only 'Bilateral Breast Augmentation with 300cc
+    # round implants', so the text purity screen passes it; the images say the
+    # baseline is a previously lifted breast. Withheld rather than dropped: the
+    # before->after delta really is implants only, so this is a captain call on
+    # whether a secondary augmentation over a mastopexy belongs in the corpus.
+    "n7": "before photo shows a pre-existing mastopexy scar set; withheld "
+          "pending a captain ruling on secondary augmentation",
+}
+
+
+def sculpted_case_blocks(soup) -> list:
+    """The per-case wrapper divs on one listing page, in published order."""
+    return [slider.parent for slider in soup.select("div.patientgallery-slider")
+            if slider.parent is not None]
+
+
+def sculpted_parse_listing_page(listing_html: str, source_url: str) -> list[CaseData]:
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases = []
+    for block in sculpted_case_blocks(soup):
+        title_el = block.select_one("div.patientgallery-title")
+        caption_el = block.select_one("div.patientgallery-captions")
+        title = title_el.get_text(" ", strip=True) if title_el else ""
+        caption = (" ".join(caption_el.get_text(" ", strip=True).split())
+                   if caption_el else "")
+        # The caption repeats its own display index as a 'Patient N :' prefix;
+        # drop it so it cannot be read as part of the clinical description.
+        body = caption.split(":", 1)[1].strip() if ":" in caption else caption
+
+        pairs, stems, warnings = [], [], []
+        for anchor in block.select("div.patientgallery-slider a[href]"):
+            href = SCULPTED_SIZE_SUFFIX_RE.sub("", anchor["href"])
+            m = SCULPTED_ASSET_RE.search(href.rsplit("/", 1)[-1])
+            if m is None:
+                warnings.append(f"unrecognised image filename {href.rsplit('/', 1)[-1]}")
+                continue
+            stems.append(m.group(1).lower())
+            key = m.group(2).lower()
+            pairs.append(ImagePair(key=key, before_url=href, after_url=href,
+                                   view_hint=SCULPTED_VIEW_MAP[key],
+                                   split_composite=True,
+                                   composite_border=SCULPTED_BORDER_PX,
+                                   composite_gutter=SCULPTED_GUTTER_PX))
+        if not pairs:
+            continue
+        # One case, one patient: three views that disagree on the asset stem
+        # would mean the slider mixes patients, which no pair id could describe
+        # honestly. Report it rather than picking a majority.
+        if len(set(stems)) != 1:
+            warnings.append(
+                f"slider mixes asset stems {sorted(set(stems))}; keying on the first")
+        case_id = stems[0]
+
+        specs = CaseSpecs(summary=body)
+        if body:
+            specs.left_cc, specs.right_cc = parse_fill_volumes(body)
+            classify_brand_shape_profile(specs, body)
+            m = SCULPTED_AGE_RE.search(body)
+            if m:
+                specs.age = int(m.group(1))
+            m = SCULPTED_POSTOP_RE.search(body)
+            if m:
+                specs.months_post_op = round(
+                    float(m.group(1)) * SCULPTED_POSTOP_UNIT_MONTHS[m.group(2).lower()], 1)
+        display = SCULPTED_DISPLAY_RE.search(title)
+        if display:
+            specs.fields["published as"] = f"Patient {display.group(1)}"
+        # A case whose text names a second procedure is dropped whole: its after
+        # photograph shows a change the implants did not make.
+        combined = SCULPTED_COMBINED_RE.search(body)
+        if combined:
+            warnings.append(
+                f"not pure breast augmentation (case text names "
+                f"{combined.group(0)!r}); case dropped")
+            pairs = []
+        elif case_id in SCULPTED_VISUAL_EXCLUSIONS:
+            warnings.append(
+                f"{SCULPTED_VISUAL_EXCLUSIONS[case_id]}; case dropped")
+            pairs = []
+
+        case = CaseData(case_id=case_id, source_url=source_url, pairs=pairs,
+                        specs=specs, warnings=warnings)
+        cases.append(case)
+    return cases
+
+
+def split_composite_image(data: bytes, border: int = 0,
+                          gutter: int = 0) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
     The split is the exact horizontal midpoint. Raises ValueError for
     portrait/square images, where a left|right split cannot be assumed.
+
+    `border` and `gutter` trim a printed presentation frame before the split:
+    `border` px off each outer edge and `gutter` px off each side of the
+    midpoint. Both halves lose exactly the same amount, so a trimmed pair stays
+    dimension-matched; a trim that would leave nothing is refused rather than
+    silently clamped. The default 0/0 is the raw midpoint split.
     """
     import io
 
@@ -3154,8 +3361,16 @@ def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
             f"composite image is not landscape ({img.width}x{img.height}); "
             "cannot assume a left|right before|after split")
     half = img.width // 2
+    if border < 0 or gutter < 0:
+        raise ValueError("composite border/gutter must not be negative")
+    if border + gutter >= half or 2 * border >= img.height:
+        raise ValueError(
+            f"composite trim (border={border}, gutter={gutter}) leaves no image "
+            f"in a {img.width}x{img.height} composite")
+    top, bottom = border, img.height - border
     out = []
-    for box in ((0, 0, half, img.height), (half, 0, img.width, img.height)):
+    for box in ((border, top, half - gutter, bottom),
+                (half + gutter, top, img.width - border, bottom)):
         buf = io.BytesIO()
         img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
         out.append(buf.getvalue())
@@ -3682,6 +3897,29 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             if page > 40:
                 break
         return cases
+    if cfg.kind == "sculpted":
+        # WordPress /page/N pagination. The page AFTER the last one 200s with a
+        # fully rendered shell and an empty gallery list rather than 404ing, so
+        # the walk stops on "no case blocks" and _fetch_optional's 404 handling
+        # is only a backstop. The gallery publishes no case total anywhere -
+        # the pager's highest numbered link is the only count it declares - so
+        # the run walks one page past the last non-empty one to prove the end.
+        cases, page = [], 1
+        while True:
+            path = (cfg.gallery_paths[0] if page == 1
+                    else f"{cfg.gallery_paths[0].rstrip('/')}/page/{page}")
+            url = cfg.base_url + path
+            html = _fetch_optional(fetcher, url, f"{cfg.slug}_listing_p{page}.html")
+            if html is None:
+                break
+            page_cases = sculpted_parse_listing_page(html, url)
+            if not page_cases:
+                break
+            cases.extend(page_cases)
+            page += 1
+            if page > 20:
+                break
+        return cases
     raise ValueError(f"unknown clinic kind {cfg.kind!r}")
 
 
@@ -3814,7 +4052,9 @@ def main() -> int:
                     data = fetcher.get(full_url,
                                        image_cache_key(cfg.slug, full_url))
                     try:
-                        before_data, after_data = split_composite_image(data)
+                        before_data, after_data = split_composite_image(
+                            data, border=pair.composite_border,
+                            gutter=pair.composite_gutter)
                     except ValueError as exc:
                         print(f"    SKIP {pair.key}: {exc}")
                         skipped += 1
