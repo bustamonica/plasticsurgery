@@ -36,9 +36,11 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   a clinic's blur bands. A clinic watermark clear of breast tissue is kept
   unmasked *only* when it appears on both halves of the pair: a mark burned into
   one half alone correlates perfectly with the before/after label and is cropped
-  out of both halves at scrape time (`ClinicConfig.bottom_crop_px` in
-  `scripts/scrape_gallery.py`). Which clinic carries what, whether it touches
-  breast tissue, and the verdict on each is in `clinic_watermarks.md`.
+  out of both halves at scrape time. Four crop mechanisms exist, one per way a
+  clinic draws its mark, and they are not interchangeable - AGENTS.md's four-crop
+  bullet says which knob does what. Which clinic carries what, whether it touches
+  breast tissue, which crop it uses and the verdict on each is in
+  `clinic_watermarks.md`.
 - Pairs are **retired, not deleted**. `retired_pairs.json` enumerates every pair
   id withheld from the finished corpus with the ruling and the reason;
   `emit_corpus.py` reads it and copies each withheld pair into the quarantine

@@ -19,9 +19,13 @@ Two rendering modes:
   asymmetry) visible in BOTH images of the pair, which can only be checked
   with the two side by side.
 
-Composites are decoded exactly the way scrape_gallery.py's emit path decodes
-them (``split_composite_image`` / ``crop_grid_cell``), so what you label is
-what gets written.
+Composites are decoded and cropped through the same two seams the emit path
+uses (``decode_pair_halves`` then ``finish_pair_halves``), so every clinic's
+measured crop - the composite border/gutter, the caption band and seam trim,
+the fractional and pixel bottom crops, the grid gutter, the watermark
+postprocess - is already applied to what you label. That is also what
+``--min-dim`` measures, so a pair the 400px floor would reject after cropping
+is never put in front of you.
 
 Usage:
 
@@ -62,19 +66,18 @@ def _pair_images(cfg: sg.ClinicConfig, cache_dir: Path,
     data = _cached(cfg, cache_dir, pair.before_url)
     if data is None:
         return None
-    if pair.grid_shape is not None:
-        rows, cols = pair.grid_shape
-        return (sg.crop_grid_cell(data, rows, cols, pair.before_cell),
-                sg.crop_grid_cell(data, rows, cols, pair.after_cell))
-    if pair.split_composite:
+    if pair.grid_shape is not None or pair.split_composite:
         try:
-            return sg.split_composite_image(data)
+            halves = sg.decode_pair_halves(cfg, pair, data)
         except ValueError:
             return None
-    after = _cached(cfg, cache_dir, pair.after_url)
-    if after is None:
-        return None
-    return data, after
+    else:
+        after = _cached(cfg, cache_dir, pair.after_url)
+        if after is None:
+            return None
+        halves = (data, after)
+    before_data, after_data, _ = sg.finish_pair_halves(cfg, *halves)
+    return before_data, after_data
 
 
 def _min_dimension(images: tuple[bytes, bytes]) -> int:
