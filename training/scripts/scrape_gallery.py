@@ -79,6 +79,8 @@ from urllib.parse import unquote, urljoin, urlsplit
 import requests
 from bs4 import BeautifulSoup
 
+import page1_solutions as p1
+
 USER_AGENT = (
     "clinic-corpus-scraper/1.0 (consented before/after gallery crawl for "
     "AI training-data intake; sequential, rate-limited)"
@@ -327,6 +329,16 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
         gallery_paths=["/gallery/breast-surgery/breast-augmentation/"], kind="etna"),
+    # -- 2026-08-25 batch: clinics consented in
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md --
+    # Page 1 Solutions platform; scripts/page1_solutions.py is the parser.
+    "ncps": ClinicConfig(
+        slug="ncps", consent_ref="ncps-agreement-2026-08-25",
+        # drgregpark.com 301s to the www host, which is also where /files/
+        # serves the images; base_url points at the canonical host directly.
+        base_url="https://www.drgregpark.com",
+        gallery_paths=["/before-after-gallery-san-diego/breast-augmentation/"],
+        kind="page1"),
 }
 
 
@@ -2458,6 +2470,94 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
+# ---------------------------------------------------------------------------
+# Page 1 Solutions parser (shared platform; see scripts/page1_solutions.py)
+# ---------------------------------------------------------------------------
+
+
+def page1_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
+    """One Page 1 Solutions case: labelled chart + positional Before/After singles.
+
+    The markup contract, the case-key rule and the purity screen live in
+    page1_solutions.py; this is the glue that turns them into CaseData. A case
+    whose documented procedure is not a pure primary augmentation is returned
+    with no pairs and a warning naming the rejection class, so the driver
+    accounts for it instead of silently emitting it.
+    """
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+    entry = soup.select_one("div.patient-entry")
+    if entry is None:
+        case.warnings.append("no patient-entry block")
+        return case
+    content = entry.select_one("div.single-content")
+    fields, narrative = p1.page1_split_chart(
+        p1.page1_chart_lines(content) if content is not None else [])
+
+    specs = CaseSpecs()
+    specs.fields = dict(fields)
+    specs.summary = narrative
+    specs.gender = fields.get("Gender", "")
+    if fields.get("Age", "").isdigit():
+        specs.age = int(fields["Age"])
+    specs.height = fields.get("Height", "")
+    m = re.match(r"(\d+)", fields.get("Weight", ""))
+    if m:
+        specs.weight_lbs = int(m.group(1))
+    m = re.match(r"(\d+(?:\.\d+)?)", fields.get("Months Post-Op", ""))
+    if m:
+        specs.months_post_op = float(m.group(1))
+    specs.height_cm = height_to_cm(specs.height)
+    if specs.weight_lbs is not None:
+        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+    # 'Left Implant Size: 410 cc' is a LABELLED implant-size field, so a bare
+    # number there counts as a volume; a bare number in the narrative does not,
+    # which is why the sides are read from the chart first and the narrative is
+    # only the fallback (and parse_fill_volumes there still demands a unit).
+    specs.left_cc = _page1_labelled_cc(fields.get("Left Implant Size", ""))
+    specs.right_cc = _page1_labelled_cc(fields.get("Right Implant Size", ""))
+    if specs.left_cc is None and specs.right_cc is None and narrative:
+        specs.left_cc, specs.right_cc = parse_fill_volumes(narrative)
+    elif specs.left_cc is None:
+        specs.left_cc = specs.right_cc
+    elif specs.right_cc is None:
+        specs.right_cc = specs.left_cc
+    # Shape/profile/brand come from the CHART's own labelled fields, not the
+    # narrative and not the whole chart: the prose routinely names the implant
+    # line ('Mentor MemoryShape ... anatomic (tear drop) shaped') while the
+    # chart states what this patient received, and reading only the three
+    # fields that document these keeps a value from leaking in from a
+    # neighbouring one.
+    profile_text, profile_is_sided = p1.page1_profile(fields)
+    classify_brand_shape_profile(specs, " ".join([
+        fields.get("Implant Type", ""),
+        fields.get("Implant Shape", "") or fields.get("Shape", ""),
+        "" if profile_is_sided else profile_text,
+    ]))
+    if specs.profile is None and not profile_is_sided:
+        specs.profile = p1.page1_bare_profile(profile_text)
+    chart_text = " ".join(fields.values())
+    classify_placement_incision(specs, chart_text)
+    case.specs = specs
+
+    rejection = p1.page1_purity(fields, narrative)
+    if rejection is not None:
+        case.warnings.append(f"not pure augmentation ({rejection})")
+        return case
+    for i, (before_url, after_url) in enumerate(p1.page1_pair_urls(entry), 1):
+        case.pairs.append(ImagePair(key=f"pair{i}", before_url=before_url,
+                                    after_url=after_url))
+    if not case.pairs:
+        case.warnings.append("no usable image pairs")
+    return case
+
+
+def _page1_labelled_cc(value: str) -> float | None:
+    """Volume from a labelled implant-size field ('410 cc', '215cc', '410')."""
+    m = re.match(r"(\d+(?:\.\d+)?)", value.strip())
+    return float(m.group(1)) if m else None
+
+
 def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
@@ -2883,6 +2983,42 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             page += 1
             if page > 20:
                 break
+        return cases
+    if cfg.kind == "page1":
+        # The platform publishes no case total, and page N past the end is a
+        # plain 404, so the walk runs until a page yields no cases and the
+        # count reconciles against that boundary rather than a declared figure.
+        gallery_path = cfg.gallery_paths[0]
+        listed: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        page = 1
+        while True:
+            url = (cfg.base_url + gallery_path if page == 1
+                   else f"{cfg.base_url}{gallery_path}page/{page}/")
+            key = (f"{cfg.slug}_listing.html" if page == 1
+                   else f"{cfg.slug}_listing_p{page}.html")
+            # _fetch_seed, not _fetch_optional: page N+1 past the end is a
+            # 404 that was never cached, so an OFFLINE re-parse (the
+            # blast-radius check every shared parser needs) has to treat a
+            # missing cache entry as the same end-of-pages boundary.
+            html = _fetch_seed(fetcher, url, key)
+            if html is None:
+                break
+            found = p1.page1_list_cases(html)
+            if not found:
+                break
+            for case_number, case_url in found:
+                if case_number not in seen:
+                    seen.add(case_number)
+                    listed.append((case_number, case_url))
+            page += 1
+        print(f"  listing walk: {page - 1} page(s), {len(listed)} case(s) "
+              f"(platform publishes no declared total)")
+        cases = []
+        for case_number, case_url in listed:
+            html = fetcher.get(case_url, f"{cfg.slug}_case_{case_number}.html"
+                               ).decode("utf-8", "replace")
+            cases.append(page1_parse_case(html, case_number, case_url))
         return cases
     if cfg.kind == "drteitelbaum":
         cases, page = [], 1

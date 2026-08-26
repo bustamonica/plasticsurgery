@@ -1304,3 +1304,141 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Page 1 Solutions (scripts/page1_solutions.py; first clinic on it is ncps)
+# ---------------------------------------------------------------------------
+
+
+def _page1_case(number):
+    html = load_fixture(f"page1_ncps_case_{number}.html")
+    return sg.page1_parse_case(
+        html, number,
+        "https://www.drgregpark.com/before-after-gallery-san-diego/"
+        f"breast-augmentation/{number}/")
+
+
+def test_page1_lists_cases_by_case_number_not_slug():
+    """The Case # in the anchor text is the key; the URL slug is not.
+
+    Page 1 of ncps publishes a word slug ('ideal-breast-implant-2') on a case
+    whose number is 11549, so keying on the slug would give that case an id
+    unrelated to every other case in the gallery.
+    """
+    cases = sg.p1.page1_list_cases(load_fixture("page1_ncps_listing.html"))
+    assert [number for number, _ in cases] == ["9325", "11549"]
+    assert cases[1][1].endswith("/ideal-breast-implant-2/")
+
+
+def test_page1_numeric_slug_is_not_the_case_number():
+    """Even a numeric slug disagrees with its own case number (slug 8901 is #12688)."""
+    cases = sg.p1.page1_list_cases(load_fixture("page1_ncps_listing_p20.html"))
+    assert [number for number, _ in cases] == ["12688"]
+    assert cases[0][1].endswith("/8901/")
+
+
+def test_page1_parses_the_standard_chart_layout():
+    case = _page1_case("9325")
+    specs = case.specs
+    assert specs.fields["Procedure Type"] == "Breast Augmentation"
+    assert sg.volume_cc(specs) == 410
+    assert specs.profile == "high"
+    assert specs.shape == "round"
+    assert specs.placement == "dual-plane"
+    assert specs.incision == "inframammary"
+    assert specs.months_post_op == 3
+    assert specs.weight_lbs == 135
+    # 5'6" typed with PRIME/DOUBLE PRIME still converts.
+    assert specs.height == "5' 6\""
+    assert specs.height_cm == 167.6
+
+
+def test_page1_parses_the_bare_label_chart_layout():
+    """Same site, second layout: 'Profile'/'Shape' without the 'Implant' prefix,
+    and a 'Procedure Type:' whose value the template put on the next line."""
+    case = _page1_case("10494")
+    specs = case.specs
+    assert specs.fields["Procedure Type"] == "Gummy Bear Breast Augmentation"
+    assert specs.fields["Profile"] == "Medium Height Moderate Profile Implant"
+    assert specs.profile == "moderate"
+    assert specs.shape == "teardrop"
+    assert specs.placement == "subfascial"
+    assert sg.volume_cc(specs) == 215
+    assert case.warnings == []
+
+
+def test_page1_pairs_images_positionally_at_full_resolution():
+    case = _page1_case("9325")
+    assert len(case.pairs) == 2  # fixture keeps the first 2 of the page's 5
+    for pair in case.pairs:
+        assert "-300x300" not in pair.before_url
+        assert "-300x300" not in pair.after_url
+    assert case.pairs[0].before_url.endswith("1of10.jpg")
+    assert case.pairs[0].after_url.endswith("2of10.jpg")
+    assert case.pairs[1].before_url.endswith("3of10.jpg")
+
+
+def test_page1_full_res_strips_only_the_size_suffix():
+    assert sg.p1.page1_full_res("/files/2017/08/56674855-1of10-300x300.jpg") == (
+        "/files/2017/08/56674855-1of10.jpg")
+    assert sg.p1.page1_full_res("/files/a-2of10.jpg") == "/files/a-2of10.jpg"
+
+
+def test_page1_rejects_a_chart_documented_revision():
+    case = _page1_case("7374")
+    assert case.pairs == []
+    assert any("chart/revision" in w for w in case.warnings)
+
+
+def test_page1_rejects_a_lift_that_only_the_narrative_reports():
+    """Case 2647's chart says plain 'Breast Augmentation'; the mastopexy is in
+    the prose, which is why the narrative is screened at all."""
+    case = _page1_case("2647")
+    assert case.specs.fields["Procedure Type"] == "Breast Augmentation"
+    assert case.pairs == []
+    assert any("narrative/combined-procedure:lift" in w for w in case.warnings)
+
+
+def test_page1_keeps_a_case_that_declined_a_lift():
+    """'She did not want to have breast lift ... and opted for a breast
+    augmentation alone' names a lift without reporting one."""
+    case = _page1_case("15246")
+    assert "breast lift" in case.specs.summary.lower()
+    assert case.warnings == []
+    assert len(case.pairs) == 2
+
+
+def test_page1_keeps_a_case_whose_prose_mentions_a_previous_tumor_removal():
+    """A prior unrelated operation is not this operation - and the case also
+    documents a different implant size per side."""
+    case = _page1_case("9756")
+    assert "tumor removal" in case.specs.summary.lower()
+    assert case.warnings == []
+    assert case.specs.left_cc == 375
+    assert case.specs.right_cc == 350
+    # 362.5 -> 362: volume_cc uses Python's round(), which is banker's rounding.
+    assert sg.volume_cc(case.specs) == 362
+
+
+def test_page1_decodes_a_bare_projection_word_in_a_labelled_profile_field():
+    assert _page1_case("25590").specs.profile == "high"
+
+
+def test_page1_leaves_a_per_side_profile_undocumented():
+    """'Moderate+ Left, High Profile Right' documents two profiles and the
+    schema records one, so neither is written."""
+    case = _page1_case("16152")
+    assert "Left" in sg.p1.page1_profile_field(case.specs.fields)
+    assert case.specs.profile is None
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("High", "high"),
+    ("moderate plus", "moderate-plus"),
+    ("Moderate High", None),   # not a term in the captain's profile mapping
+    ("Classic Profile", None),
+    ("See Below", None),
+])
+def test_page1_bare_profile_decodes_only_documented_terms(value, expected):
+    assert sg.p1.page1_bare_profile(value) == expected
