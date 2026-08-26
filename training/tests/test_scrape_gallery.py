@@ -3092,6 +3092,82 @@ def _page1_case(number):
         f"breast-augmentation/{number}/")
 
 
+def test_page1_dispatch_routes_ncps_through_its_own_paginated_walk(tmp_path):
+    """Two clinics on two Page 1 Solutions parsers must not share a `kind`.
+
+    ncps and psiw were both registered `kind="page1"` after their collections
+    merged, so the first matching branch in collect_cases claimed both and ncps
+    was enumerated with psiw's inline-listing parser - which finds no
+    `div.patient-holder` here and returns zero cases, a silent-zero run that
+    looks exactly like a finished collection.
+    """
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "ncps_listing.html").write_text(
+        load_fixture("page1_ncps_listing.html"))
+    for number in ("9325", "11549"):
+        (cache / f"ncps_case_{number}.html").write_text(
+            load_fixture("page1_ncps_case_9325.html"))
+    fetcher = sg.PoliteFetcher(cache, delay=0, offline=True)
+
+    cases = sg.collect_cases(sg.CLINICS["ncps"], fetcher)
+
+    assert [c.case_id for c in cases] == ["9325", "11549"]
+    assert all(c.pairs for c in cases)
+
+
+def test_page1_dispatch_routes_psiw_through_its_own_inline_listing(tmp_path):
+    """psiw keeps the inline-listing parser it was collected with."""
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "psiw_listing.html").write_text(
+        load_fixture("page1_psiw_listing.html"))
+    fetcher = sg.PoliteFetcher(cache, delay=0, offline=True)
+
+    cases = sg.collect_cases(sg.CLINICS["psiw"], fetcher)
+
+    expected = sg.page1_parse_listing(
+        load_fixture("page1_psiw_listing.html"), PSIW_GALLERY)
+    assert [c.case_id for c in cases] == [c.case_id for c in expected]
+    assert cases[0].pairs[0].before_url == expected[0].pairs[0].before_url
+
+
+def test_page1_listing_walk_stops_at_the_page_ceiling(tmp_path, monkeypatch):
+    """A gallery that 200s past its last page must not walk forever.
+
+    The platform normally 404s past the end, but a WordPress gallery re-serving
+    the same cases on every page would keep the walk fetching: the `seen` set
+    dedupes the repeats away, so the "no new cases" test never fires.
+    """
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    listing = load_fixture("page1_ncps_listing.html")
+    fetched = []
+
+    class _EndlessSession:
+        headers = {}
+
+        def get(self, url, timeout=None):
+            fetched.append(url)
+
+            class R:
+                status_code = 200
+                content = listing.encode()
+
+                def raise_for_status(self):
+                    return None
+
+            return R()
+
+    monkeypatch.setattr(sg, "PAGE1_MAX_PAGES", 3)
+    fetcher = _fetcher(cache, monkeypatch, _EndlessSession())
+
+    cases = sg.collect_cases(sg.CLINICS["ncps"], fetcher)
+
+    assert len([u for u in fetched if "/page/" in u]) == 2
+    assert [c.case_id for c in cases] == ["9325", "11549"]
+
+
 def test_page1_lists_cases_by_case_number_not_slug():
     """The Case # in the anchor text is the key; the URL slug is not.
 
@@ -3414,7 +3490,7 @@ def test_crop_bottom_trims_both_halves_by_the_same_rows():
     assert sizes == {(455, 442)}
 
 
-def test_crop_bottom_refuses_to_crop_away_the_whole_image():
+def test_crop_bottom_error_names_the_image_height_it_exceeds():
     from PIL import Image
     import io
 

@@ -183,14 +183,16 @@ ARPS_HEIGHT_CM_RE = re.compile(r"^(\d{2,3}(?:\.\d+)?)\s*cm\b", re.I)
 # The separator class deliberately excludes '-', so 'Pre-op bra size: Right-A,
 # Left-B' (a cup size, not a volume) cannot be read as one.
 #
-# The shared parse_fill_volumes() cannot read the first shape: its prefix pass
-# consumes everything up to the next comma or full stop as the FIRST side's
-# segment, so 'Left 450cc / Right 425cc' returns the left volume and never sees
-# the right one, and volume_cc then averages one number instead of two. Fixing
-# it there would change how 22 other clinics' text is read, and that blast
-# radius is not proven here, so this gallery reads its own sided volumes and
-# falls back to the shared helper for everything else (AGENTS.md, "Before
-# changing a parser that more than one clinic shares").
+# The shared parse_fill_volumes() could not read the first shape when this
+# parser was written - its prefix pass ran to the next comma or full stop, so
+# 'Left 450cc / Right 425cc' returned the left volume and never saw the right
+# one. That half was fixed centrally on 2026-08-25 (the segment now stops at
+# the next side marker); the SECOND shape is still live, and
+# 'implant size: 400cc right 375cc left' still comes back with the sides wrong.
+# Widening the shared helper to cover it would change how 22 other clinics'
+# text is read, and that blast radius is not proven here, so this gallery reads
+# its own sided volumes and falls back to the shared helper for everything else
+# (AGENTS.md, "Before changing a parser that more than one clinic shares").
 ARPS_SIDE_FIRST_RE = re.compile(
     r"\b(left|right|l|r)\b[\s:,/]*(\d{2,4})\s*(?:cc|ml)\b", re.I)
 ARPS_VOLUME_FIRST_RE = re.compile(

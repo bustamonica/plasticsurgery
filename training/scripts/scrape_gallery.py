@@ -610,7 +610,13 @@ CLINICS: dict[str, ClinicConfig] = {
         # plasticsurgerynow.com 301s to the www host, which is where the
         # relative image paths resolve.
         base_url="https://www.plasticsurgerynow.com",
-        gallery_paths=["/gallery/breast-procedures/augmentation/"], kind="page1"),
+        gallery_paths=["/gallery/breast-procedures/augmentation/"],
+        # `page1_inline`, not `page1`: two collections landed a Page 1 Solutions
+        # parser independently and both claimed the same kind, which routed ncps
+        # through this clinic's listing parser and collected zero cases from it.
+        # The two parsers stay separate (consolidating them needs the shared-
+        # parser blast-radius proof); the KINDS are what must not collide.
+        kind="page1_inline"),
     # -- 2026-08-25 batch: prospected clinics (CONSENT-2026-08-25-PROSPECTED-
     #    CLINICS.md). One clinic per collection lane; see that file for the
     #    executed forms and for what the consent does NOT grant (access).
@@ -4268,7 +4274,7 @@ def bayside_parse_case(case_html: str, case_id: str, source_url: str) -> CaseDat
     return case
 
 # ---------------------------------------------------------------------------
-# page1 parser (Page 1 Solutions; single inline listing, numbered folders)
+# page1_inline parser (Page 1 Solutions; single inline listing, numbered folders)
 # ---------------------------------------------------------------------------
 #
 # Markup contract, one `div.patient-holder` per case:
@@ -4403,12 +4409,14 @@ def page1_parse_volumes(text: str) -> tuple[float | None, float | None]:
 
     Tried in order: the labelled sided chart fields, then this family's two
     narrative side phrasings, then the shared narrative reader. The first two
-    exist because the shared reader mis-reads both layouts - its prefix branch
-    consumes the rest of the line as one segment, so 'Implant Size (Left): 350
-    cc Implant Size (Right): 325 cc' loses the right side and reports the left
-    figure as the average, and '405 cc left and 360 cc right' assigns 360 to
-    the left. Sixteen of this clinic's 104 cases publish asymmetric volumes, so
-    both misreads change the caption's cc.
+    exist because the shared reader mis-read both layouts when this parser was
+    written: its prefix branch consumed the rest of the line as one segment, so
+    'Implant Size (Left): 350 cc Implant Size (Right): 325 cc' lost the right
+    side and reported the left figure as the average, and '405 cc left and 360
+    cc right' assigned 360 to the left. The chart half was fixed centrally on
+    2026-08-25 and the shared reader handles it now; the narrative half is
+    still live. Sixteen of this clinic's 104 cases publish asymmetric volumes,
+    so either misread changes the caption's cc.
     """
     left = right = None
     sided_block_open = False
@@ -4868,6 +4876,15 @@ def choice_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
 # ---------------------------------------------------------------------------
 # Page 1 Solutions parser (shared platform; see scripts/page1_solutions.py)
 # ---------------------------------------------------------------------------
+
+# The listing walk's ceiling. Page N past the end is a plain 404 on this
+# platform, so the walk normally ends on its own - but a WordPress gallery that
+# 200s past the end with the last page's cases re-rendered (sculpted does
+# exactly that) would otherwise loop forever at one fetch per delay interval,
+# because the `seen` set dedupes the repeats away while the page keeps parsing
+# non-empty. ncps, the largest clinic on this platform, publishes 370 cases
+# across 37 pages.
+PAGE1_MAX_PAGES = 200
 
 
 def page1_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
@@ -5652,10 +5669,10 @@ TCCLINIC_CHART_SPELLINGS = [
     # correct 'Inframammary' in the same gallery.
     (re.compile(r"\binfram(?:am)?m?ary\b", re.I), "inframammary"),
 ]
-# 'Left: 400cc / Right: 425cc'. The shared parse_fill_volumes() reads the first
-# side and then loses the second, because its prefix-marker segment runs to the
-# end of the string on anything but a ';' / ',' / '.' separator - a bug worth
-# fixing centrally, but not from inside one clinic's collection run.
+# 'Left: 400cc / Right: 425cc'. The shared parse_fill_volumes() lost the second
+# side of this layout until its prefix-marker segment was taught to stop at the
+# next side marker (fixed 2026-08-25); it reads both sides now, and this stays
+# as the clinic's own reader of its own chart field rather than as a workaround.
 TCCLINIC_SIDE_VOLUME_RE = re.compile(
     rf"\b(left|right)\b\s*:?\s*(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", re.I)
 
@@ -5883,6 +5900,49 @@ def postprocess_pair(cfg: ClinicConfig, before: bytes,
 
         return (*page1solutions.crop_watermark(before, after), True)
     return before, after, False
+
+
+def decode_pair_halves(cfg: ClinicConfig, pair: ImagePair,
+                       data: bytes) -> tuple[bytes, bytes]:
+    """The two halves of a pair carried in ONE fetched image.
+
+    Only for a pair whose `grid_shape` is set or whose `split_composite` is
+    true; a two-file pair has nothing to decode. Every knob a clinic measured
+    is applied here - `ClinicConfig.grid_gutter_px`, `ImagePair.composite_border`
+    / `composite_gutter` / `composite_bottom_frac` / `crop_caption_band` /
+    `seam_trim` - so a caller cannot decode a composite with some of them and
+    silently frame the pair differently from what the emit writes. Raises
+    ValueError when the composite is too small to split, exactly as
+    `split_composite_image` does.
+    """
+    if pair.grid_shape is not None:
+        rows, cols = pair.grid_shape
+        return (crop_grid_cell(data, rows, cols, pair.before_cell,
+                               cfg.grid_gutter_px),
+                crop_grid_cell(data, rows, cols, pair.after_cell,
+                               cfg.grid_gutter_px))
+    return split_composite_image(
+        data, border=pair.composite_border,
+        gutter=pair.composite_gutter,
+        bottom_frac=pair.composite_bottom_frac,
+        bottom_crop=(caption_band_crop(data) if pair.crop_caption_band else 0),
+        seam_trim=pair.seam_trim)
+
+
+def finish_pair_halves(cfg: ClinicConfig, before: bytes,
+                       after: bytes) -> tuple[bytes, bytes, bool]:
+    """Clinic-level pixel work every emitted half gets, whatever its source.
+
+    `postprocess_pair` then the two bottom crops, in that order, on both halves.
+    Returns (before, after, postprocessed) - the flag is what decides whether a
+    two-file half may keep its source extension.
+    """
+    before, after, postprocessed = postprocess_pair(cfg, before, after)
+    return (crop_bottom(crop_bottom_frac(before, cfg.bottom_crop_frac),
+                        cfg.bottom_crop_px),
+            crop_bottom(crop_bottom_frac(after, cfg.bottom_crop_frac),
+                        cfg.bottom_crop_px),
+            postprocessed)
 
 
 def crop_bottom_frac(data: bytes, frac: float) -> bytes:
@@ -6577,7 +6637,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         else:
             print(f"  gallery declares {declared} patient(s); parsed {len(cases)}")
         return cases
-    if cfg.kind == "page1":
+    if cfg.kind == "page1_inline":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         cases = page1_parse_listing(listing, url)
@@ -6647,6 +6707,11 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                     seen.add(case_number)
                     listed.append((case_number, case_url))
             page += 1
+            if page > PAGE1_MAX_PAGES:
+                print(f"  WARN {cfg.slug}: listing walk hit the "
+                      f"{PAGE1_MAX_PAGES}-page ceiling; the gallery may still "
+                      f"be paging, so this count is a floor, not a total")
+                break
         print(f"  listing walk: {page - 1} page(s), {len(listed)} case(s) "
               f"(platform publishes no declared total)")
         cases = []
@@ -6845,21 +6910,12 @@ def main() -> int:
                                 else cfg.base_url + pair.before_url)
                     data = fetcher.get(full_url,
                                        image_cache_key(cfg.slug, full_url))
-                    rows, cols = pair.grid_shape
-                    before_data = crop_grid_cell(data, rows, cols, pair.before_cell,
-                                                 cfg.grid_gutter_px)
-                    after_data = crop_grid_cell(data, rows, cols, pair.after_cell,
-                                                cfg.grid_gutter_px)
-                    before_data, after_data, _ = postprocess_pair(
+                    before_data, after_data = decode_pair_halves(
+                        cfg, pair, data)
+                    before_data, after_data, _ = finish_pair_halves(
                         cfg, before_data, after_data)
-                    (pair_dir / "before.jpg").write_bytes(
-                        crop_bottom(crop_bottom_frac(
-                            before_data, cfg.bottom_crop_frac),
-                            cfg.bottom_crop_px))
-                    (pair_dir / "after.jpg").write_bytes(
-                        crop_bottom(crop_bottom_frac(
-                            after_data, cfg.bottom_crop_frac),
-                            cfg.bottom_crop_px))
+                    (pair_dir / "before.jpg").write_bytes(before_data)
+                    (pair_dir / "after.jpg").write_bytes(after_data)
                 elif pair.split_composite:
                     full_url = (pair.before_url
                                 if pair.before_url.startswith("http")
@@ -6867,27 +6923,16 @@ def main() -> int:
                     data = fetcher.get(full_url,
                                        image_cache_key(cfg.slug, full_url))
                     try:
-                        before_data, after_data = split_composite_image(
-                            data, border=pair.composite_border,
-                            gutter=pair.composite_gutter,
-                            bottom_frac=pair.composite_bottom_frac,
-                            bottom_crop=(caption_band_crop(data)
-                                         if pair.crop_caption_band else 0),
-                            seam_trim=pair.seam_trim)
+                        before_data, after_data = decode_pair_halves(
+                            cfg, pair, data)
                     except ValueError as exc:
                         print(f"    SKIP {pair.key}: {exc}")
                         skipped += 1
                         continue
-                    before_data, after_data, _ = postprocess_pair(
+                    before_data, after_data, _ = finish_pair_halves(
                         cfg, before_data, after_data)
-                    (pair_dir / "before.jpg").write_bytes(
-                        crop_bottom(crop_bottom_frac(
-                            before_data, cfg.bottom_crop_frac),
-                            cfg.bottom_crop_px))
-                    (pair_dir / "after.jpg").write_bytes(
-                        crop_bottom(crop_bottom_frac(
-                            after_data, cfg.bottom_crop_frac),
-                            cfg.bottom_crop_px))
+                    (pair_dir / "before.jpg").write_bytes(before_data)
+                    (pair_dir / "after.jpg").write_bytes(after_data)
                 else:
                     halves = {}
                     for stem, url in (("before", pair.before_url),
@@ -6897,7 +6942,7 @@ def main() -> int:
                         data = fetcher.get(full_url,
                                            image_cache_key(cfg.slug, full_url))
                         halves[stem] = (full_url, data)
-                    before_data, after_data, cropped = postprocess_pair(
+                    before_data, after_data, cropped = finish_pair_halves(
                         cfg, halves["before"][1], halves["after"][1])
                     for stem, data in (("before", before_data),
                                        ("after", after_data)):
@@ -6908,10 +6953,7 @@ def main() -> int:
                                 if cropped or cfg.bottom_crop_frac
                                 else emitted_image_name(stem, halves[stem][0],
                                                         cfg.bottom_crop_px))
-                        (pair_dir / name).write_bytes(
-                            crop_bottom(crop_bottom_frac(
-                                data, cfg.bottom_crop_frac),
-                                cfg.bottom_crop_px))
+                        (pair_dir / name).write_bytes(data)
             except requests.exceptions.HTTPError as exc:
                 # One image missing from the CDN must not end the clinic. tccs
                 # publishes case 11336 with a front photograph that 404s, and an
