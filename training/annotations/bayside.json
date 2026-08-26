@@ -1,0 +1,984 @@
+{
+ "bayside:bam-case-1-age-28": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-10-age-22": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-11-age-26": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-12-age-22": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-13-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-14-age-33": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-15-age-31": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-16-age-34": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-17-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   }
+  }
+ },
+ "bayside:bam-case-18-age-38": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-19-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-2-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-20-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-21-age-30": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-22-age-34": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-23-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-24-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-26-age-32": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-27-age-35": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-28-age-34": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   }
+  }
+ },
+ "bayside:bam-case-29-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-3-age-28": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-30-age-39": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-31-age-49": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-33-age-55": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-34-age-54": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-35-age-41": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-36-age-44": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-37-age-52": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-38-age-46": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-4-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-5-age-20": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-6-age-23": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-7-age-27": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-8-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:bam-case-9-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-14-age-22": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-15-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-16-age-20": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-17-age-21": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-18-age-26": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-19-age-27": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-20-age-26": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-21-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-22-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-23-age-21": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-24-age-27": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-25-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-26-age-20": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-27-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-28-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-29-age-25": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-30-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-31-age-20": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-33-age-24": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-34-age-30": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-35-age-38": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-36-age-33": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-37-age-33": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-39-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-40-age-31": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-41-age-37": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-42-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-43-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-44-age-39": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-45-age-37": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-46-age-36": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-47-age-38": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-48-age-44": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-49-age-41": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-50-age-40": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-51-age-41": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-52-age-42": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-53-age-49": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-54-age-42": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ },
+ "bayside:breast-augmentation-case-55-age-47": {
+  "pairs": {
+   "img1-2": {
+    "view": "front"
+   },
+   "img3-4": {
+    "view": "oblique-right"
+   },
+   "img5-6": {
+    "view": "oblique-left"
+   }
+  }
+ }
+}
