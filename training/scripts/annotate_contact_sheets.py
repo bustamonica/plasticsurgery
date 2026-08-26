@@ -64,17 +64,20 @@ def _pair_images(cfg: sg.ClinicConfig, cache_dir: Path,
         return None
     if pair.grid_shape is not None:
         rows, cols = pair.grid_shape
-        return (sg.crop_grid_cell(data, rows, cols, pair.before_cell),
-                sg.crop_grid_cell(data, rows, cols, pair.after_cell))
-    if pair.split_composite:
+        halves = (sg.crop_grid_cell(data, rows, cols, pair.before_cell),
+                  sg.crop_grid_cell(data, rows, cols, pair.after_cell))
+    elif pair.split_composite:
         try:
-            return sg.split_composite_image(data)
+            halves = sg.split_composite_image(data)
         except ValueError:
             return None
-    after = _cached(cfg, cache_dir, pair.after_url)
-    if after is None:
-        return None
-    return data, after
+    else:
+        after = _cached(cfg, cache_dir, pair.after_url)
+        if after is None:
+            return None
+        halves = (data, after)
+    before_data, after_data, _ = sg.postprocess_pair(cfg, *halves)
+    return before_data, after_data
 
 
 def _min_dimension(images: tuple[bytes, bytes]) -> int:
