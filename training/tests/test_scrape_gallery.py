@@ -1304,3 +1304,204 @@ def test_etna_pose_tokens_are_not_folded_into_a_schema_view(token):
     case = sg.etna_parse_case(html, "7", "x", BREAST_AUG_GALLERY)
     assert case.pairs == []
     assert any(token in w and "no schema view" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# mwps (Mountain West Plastic Surgery): Influx Growthstack, stitched composites
+# ---------------------------------------------------------------------------
+
+
+def test_mwps_list_cases_enumerates_the_whole_listing():
+    ids = sg.mwps_list_cases(load_fixture("mwps_listing.html"),
+                             "/gallery/breast/breast-augmentation/")
+    # The listing is unpaginated and inlines every case; the gallery publishes
+    # no declared total of its own to reconcile against.
+    assert len(ids) == 67
+    assert ids[:3] == ["6", "10", "11"] and ids[-1] == "193"
+    assert ids == sorted(ids, key=int)
+
+
+def test_mwps_every_slide_is_its_own_before_after_composite():
+    case = sg.mwps_parse_case(load_fixture("mwps_case_6.html"), "6", "x")
+    assert [p.key for p in case.pairs] == ["6-01", "6-02"]
+    for pair in case.pairs:
+        assert pair.split_composite
+        assert pair.before_url == pair.after_url
+        assert pair.crop_bottom_frac == sg.MWPS_WATERMARK_CROP_BOTTOM_FRAC
+
+
+def test_mwps_ignores_the_templates_before_after_slide_classes():
+    """Case 162's three composites are classed before/after/before.
+
+    They are leftovers of the un-stitched Influx layout and mean nothing in a
+    'stitched' subcategory; reading them as a before/after tagging would pair
+    two unrelated views and drop the third.
+    """
+    html = load_fixture("mwps_case_162.html")
+    assert 'gallery-image-before' in html and 'gallery-image-after' in html
+    case = sg.mwps_parse_case(html, "162", "x")
+    assert [p.key for p in case.pairs] == ["162-01", "162-02", "162-03"]
+
+
+def test_mwps_reads_the_older_terse_description():
+    specs = sg.mwps_parse_case(load_fixture("mwps_case_6.html"), "6", "x").specs
+    assert sg.volume_cc(specs) == 350
+    assert specs.profile == "high"
+    assert specs.shape == "round"
+    assert specs.age == 25 and specs.gender == "Female"
+
+
+def test_mwps_averages_a_sided_volume_from_prose():
+    # '345cc (Right) and 385cc (Left)' - both sides published, so volume_cc is
+    # the average the schema asks for, not whichever side was printed first.
+    specs = sg.mwps_parse_case(load_fixture("mwps_case_18.html"), "18", "x").specs
+    assert (specs.right_cc, specs.left_cc) == (345.0, 385.0)
+    assert sg.volume_cc(specs) == 365
+
+
+def test_mwps_reads_the_newer_labelled_chart():
+    specs = sg.mwps_parse_case(load_fixture("mwps_case_172.html"), "172", "x").specs
+    # A BARE number under a labelled implant-size field counts as cc.
+    assert sg.volume_cc(specs) == 415
+    # Height is published as plain inches, which height_to_cm cannot read.
+    assert specs.height_cm == pytest.approx(170.2)
+    assert specs.weight_kg == pytest.approx(63.5)
+    assert specs.months_post_op == 12
+
+
+def test_mwps_never_reads_a_bare_number_in_prose_as_a_volume():
+    # Case 92: 'Smooth round 385 Implants placed submuscular' - no unit, and
+    # no labelled implant-size field, so the volume stays unrecorded.
+    specs = sg.mwps_parse_case(load_fixture("mwps_case_92.html"), "92", "x").specs
+    assert sg.volume_cc(specs) is None
+    assert specs.shape == "round"
+
+
+def test_mwps_never_reads_placement_off_the_narrative():
+    # Case 92's prose says 'placed submuscular' and case 172's says nothing;
+    # neither Description is a chart, so placement/incision stay undocumented.
+    for fixture, case_id in (("mwps_case_92.html", "92"),
+                             ("mwps_case_172.html", "172")):
+        specs = sg.mwps_parse_case(load_fixture(fixture), case_id, "x").specs
+        assert specs.placement is None and specs.incision is None
+
+
+@pytest.mark.parametrize("fixture,case_id,reason", [
+    ("mwps_case_113.html", "113", "implant removal"),
+])
+def test_mwps_excludes_an_implant_exchange(fixture, case_id, reason):
+    """A revision reads as an augmentation unless removed/replaced is caught:
+    its 'before' is a patient who already has implants."""
+    case = sg.mwps_parse_case(load_fixture(fixture), case_id, "x")
+    assert case.pairs == []
+    assert case.warnings == [
+        f"excluded: not a pure breast augmentation ({reason})"]
+
+
+@pytest.mark.parametrize("fixture,case_id", [
+    ("mwps_case_168.html", "168"),   # '...cosmetic and RECONSTRUCTIVE surgery'
+    ("mwps_case_188.html", "188"),   # '...an UPLIFTed confidence'
+])
+def test_mwps_marketing_boilerplate_does_not_exclude_a_pure_case(fixture, case_id):
+    """The newer cases wrap the case in practice-marketing prose. Screening it
+    with loose substrings would reject cases that are pure augmentations."""
+    case = sg.mwps_parse_case(load_fixture(fixture), case_id, "x")
+    assert case.warnings == []
+    assert len(case.pairs) == 3
+
+
+def test_mwps_marketing_prose_never_invents_a_brand_or_profile():
+    """'her decision motivated by personal preference' + 'a full, balanced
+    figure' used to parse as a Motiva implant at high profile - a fabricated
+    training label out of a sentence naming no implant at all."""
+    for fixture, case_id in (("mwps_case_188.html", "188"),
+                             ("mwps_case_172.html", "172")):
+        specs = sg.mwps_parse_case(load_fixture(fixture), case_id, "x").specs
+        assert specs.brand == "unknown"
+        assert specs.profile is None
+
+
+def test_mwps_does_not_decode_an_unbranded_full_profile():
+    """'shaped silicone implants' documents a shape and no profile. Bare
+    'Full'/'Demi' only decode for a documented Motiva implant (the clinic
+    names no manufacturer anywhere), so profile stays unrecorded."""
+    specs = sg.mwps_parse_case(load_fixture("mwps_case_11.html"), "11", "x").specs
+    assert specs.shape == "teardrop"
+    assert specs.profile is None
+    assert sg.volume_cc(specs) == 295
+
+
+def test_brand_keyword_motiva_needs_a_word_boundary():
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(specs, "Her motivation was a fuller figure")
+    assert specs.brand == "unknown"
+    assert specs.profile is None
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(specs, "Motiva Ergonomix Full implants")
+    assert specs.brand == "motiva" and specs.profile == "high"
+
+
+def test_brand_keywords_other_than_motiva_stay_substring_matches():
+    """harrington strips its inline <a> without a separator, publishing
+    '...mammoplasty withSientrasmooth round silicone implants'. A word
+    boundary there would silently drop a documented brand."""
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(specs, "mammoplasty withSientrasmooth round")
+    assert specs.brand == "sientra"
+
+
+def test_split_composite_crops_the_bottom_off_both_halves_equally():
+    """mwps's watermark is centred ON the split seam, so an equal piece lands
+    on each half; cropping one side only would leave a mark on one half of the
+    pair, which is a label leak. The crop is applied to the whole composite
+    before the split, so the halves stay dimension- and framing-matched."""
+    import io
+
+    from PIL import Image
+
+    # The mark is scaled to the frame, so the crop is a fraction of height:
+    # a fixed pixel count measured on one height leaves the logo's top behind
+    # on every taller composite.
+    for height, kept in ((499, 389), (568, 443), (644, 502)):
+        buf = io.BytesIO()
+        Image.new("RGB", (1500, height), (10, 20, 90)).save(buf, format="JPEG")
+        before, after = sg.split_composite_image(buf.getvalue(),
+                                                 crop_bottom_frac=0.22)
+        assert [Image.open(io.BytesIO(d)).size for d in (before, after)] == [
+            (750, kept), (750, kept)]
+
+
+def test_split_composite_without_a_crop_is_unchanged():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (1000, 500), (10, 20, 90)).save(buf, format="JPEG")
+    before, after = sg.split_composite_image(buf.getvalue())
+    assert [Image.open(io.BytesIO(d)).size for d in (before, after)] == [
+        (500, 500), (500, 500)]
+
+
+def test_split_composite_refuses_a_crop_that_consumes_the_image():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (1000, 80), (10, 20, 90)).save(buf, format="JPEG")
+    with pytest.raises(ValueError, match="leaves nothing"):
+        sg.split_composite_image(buf.getvalue(), crop_bottom_frac=1.0)
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("65", 165.1), ("62", 157.5), ("67 in", 170.2), ("", None),
+    ("5'6\"", None),   # feet/inches is height_to_cm's job, not this one
+    ("12", None),      # out of the schema's height_cm range
+])
+def test_inches_to_cm(value, expected):
+    result = sg.inches_to_cm(value)
+    if expected is None:
+        assert result is None
+    else:
+        assert result == pytest.approx(expected)

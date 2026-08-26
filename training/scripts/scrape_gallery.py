@@ -61,6 +61,12 @@ specific markup contract.
 served by the single kind='etna' parser - one parser configured twelve times.
 See the etna section below for the platform's markup contract, its five
 published spec-block layouts, and how enumeration and procedure purity work.
+
+The 2026-08-25 batch (prospected clinics, consent in
+clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) adds kind='mwps', an
+Influx Growthstack gallery whose subcategory is 'stitched': every slide is a
+whole before|after composite, and every composite carries a bottom-edge
+watermark that is cropped before the split. See the mwps section below.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -69,6 +75,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 import time
@@ -94,6 +101,20 @@ BRAND_KEYWORDS = [
     ("allergan", "natrelle"),  # Natrelle is Allergan/AbbVie's implant line
     ("sientra", "sientra"),
 ]
+# 'motiva' is also the prefix of 'motivated'/'motivation', which clinic
+# marketing prose uses constantly ('her motivation was to enhance her natural
+# silhouette' - mwps case 188). A substring test read that as a Motiva implant,
+# and because Motiva is first in BRAND_KEYWORDS it also beat the brand a case
+# actually named (12 etna cases published Natrelle and were recorded Motiva).
+# Worse, a false Motiva unlocks MOTIVA_PROFILE_PATTERNS, so 'a full, balanced
+# figure' in the same sentence became profile=high - a fabricated training
+# label out of prose naming no implant at all.
+# Only this one keyword is anchored. The others stay substring matches because
+# clinic markup routinely glues a brand to its neighbour: harrington strips its
+# inline <a> without a separator, publishing '...mammoplasty withSientrasmooth
+# round silicone implants', where a word boundary would silently drop 66 pairs'
+# documented brand.
+BRAND_WORD_ONLY = {"motiva"}
 PROFILE_PATTERNS = [
     (re.compile(r"\b(extra[- ]high|ultra[- ]high)\b", re.I), "extra-high"),
     (re.compile(r"\bmoderate[- ](profile[- ])?plus\b", re.I), "moderate-plus"),
@@ -262,6 +283,15 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="drteitelbaum", consent_ref="drteitelbaum-agreement-2026-08",
         base_url="https://www.drteitelbaum.com",
         gallery_paths=["/gallery/breast/breast-augmentation/"], kind="drteitelbaum"),
+    # -- 2026-08-25 batch: prospected clinics, consent executed 2026-08-25 --
+    # (clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md; section 2 grants
+    # AI/ML use including model training and derivative works). That instrument
+    # is a USE consent and grants no access, so the crawl still honours
+    # robots.txt: mwps allows /gallery/ and publishes no crawl-delay.
+    "mwps": ClinicConfig(
+        slug="mwps", consent_ref="mwps-agreement-2026-08-25",
+        base_url="https://www.mountainwestplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="mwps"),
     # -- 2026-08-15 batch: 12 newly consented clinics, all Etna Interactive --
     # Consent executed 2026-08-15; recorded in clinic-corpus/CONSENT-STATUS.md
     # with the instrument filed beside it. Section 2 of that instrument grants
@@ -373,6 +403,14 @@ class ImagePair:
     # True when before_url/after_url point at the same side-by-side composite
     # image (left half before, right half after) that must be split on save.
     split_composite: bool = False
+    # Fraction of the composite's HEIGHT to trim off its BOTTOM before
+    # splitting, for a gallery that burns an edge watermark there (mwps).
+    # A fraction rather than a pixel count because the mark is rendered at a
+    # fixed proportion of the frame, not a fixed size. Applied to the whole
+    # composite, so both halves are cropped identically and stay dimension- and
+    # framing-matched; a watermark centred on the split seam lands on both
+    # halves, so cropping one side only would be a label leak.
+    crop_bottom_frac: float = 0.0
     # Set (with before_url == after_url) when before_url/after_url point at a
     # shared multi-panel grid composite (e.g. drrohrich's 2x2, teitelbaum's
     # 2x3): grid_shape is (rows, cols); before_cell/after_cell are (row, col)
@@ -589,7 +627,11 @@ def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
 def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
     lower = haystack.lower()
     for keyword, brand in BRAND_KEYWORDS:
-        if keyword in lower:
+        if keyword in BRAND_WORD_ONLY:
+            hit = re.search(rf"\b{re.escape(keyword)}\b", lower) is not None
+        else:
+            hit = keyword in lower
+        if hit:
             specs.brand = brand
             break
     if re.search(r"\bround\b", lower):
@@ -603,7 +645,10 @@ def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
         if pattern.search(haystack):
             specs.profile = profile
             break
-    if specs.profile is None and "motiva" in lower:
+    # Same anchoring as the brand loop above, and for the same reason: this
+    # gate is what turns a false Motiva into a fabricated profile, because
+    # MOTIVA_PROFILE_PATTERNS decodes the bare words 'full'/'demi'/'mini'.
+    if specs.profile is None and re.search(r"\bmotiva\b", lower):
         for pattern, profile in MOTIVA_PROFILE_PATTERNS:
             if pattern.search(haystack):
                 specs.profile = profile
@@ -641,6 +686,20 @@ def height_to_cm(height: str) -> float | None:
         return None
     inches = int(m.group(1)) * 12 + int(m.group(2) or 0)
     cm = round(inches * 2.54, 1)
+    return cm if 120 <= cm <= 220 else None
+
+
+def inches_to_cm(height_inches: str) -> float | None:
+    """Schema height_cm from a bare inches figure, or None.
+
+    mwps's chart publishes height as a plain integer number of inches
+    ('Height: 65'), which its own narrative spells out ('standing 62 inches
+    tall'); height_to_cm's feet/inches form cannot read that.
+    """
+    m = re.fullmatch(r"\s*(\d{2,3})(?:\s*(?:in|inches|\"))?\s*", height_inches)
+    if m is None:
+        return None
+    cm = round(int(m.group(1)) * 2.54, 1)
     return cm if 120 <= cm <= 220 else None
 
 
@@ -1374,6 +1433,182 @@ def charlotte_parse_case(case_html: str, case_id: str, source_url: str) -> CaseD
     case.specs = specs
     return case
 
+
+# ---------------------------------------------------------------------------
+# mwps parser (Mountain West Plastic Surgery; Influx Growthstack, Astro build,
+# 'gallery-stitched-subcategory': every slide is a before|after composite)
+# ---------------------------------------------------------------------------
+
+MWPS_GALLERY_IMG_RE = re.compile(r"/_static_/gallery/")
+# Every composite carries a translucent "MW MOUNTAIN WEST PLASTIC SURGERY" mark
+# (circle monogram over two lines of type) centred on the split seam at the
+# bottom of the frame, so an equal piece of it lands on EACH half - cropping
+# one side only would leave the mark on one half of a pair, which is a label
+# leak. It is cropped, never masked, and the crop is applied to the whole
+# composite before the split so the halves stay dimension- and framing-matched.
+#
+# The mark is SCALED TO THE FRAME, not stamped at a fixed pixel size. Measured
+# by eye off a row ruler at 2-3x zoom on three heights, the top of the circle
+# sits at 133/644, 118/568 and 103/499 of the way up from the bottom - 0.2065,
+# 0.2077, 0.2064. 0.22 covers that with ~6% headroom.
+# Do not re-derive this by aligning a residual on the bottom edge across the
+# gallery: that population is dominated by one height (53 of 114 composites are
+# 1500x499) and reports a plausible-looking constant ~100px offset, which
+# silently leaves the logo's top on every image taller than ~515 - i.e. on
+# every composite that clears the 400px floor.
+MWPS_WATERMARK_CROP_BOTTOM_FRAC = 0.22
+
+# Purity screen (captain ruling: pure breast augmentation only). Read off the
+# case's own Description, never the URL slug. Two traps, both real here:
+#   - the newer cases wrap the case in practice-marketing prose, so 'a wide
+#     range of cosmetic and RECONSTRUCTIVE surgery procedures' (case 168) and
+#     'an UPLIFTed confidence' (case 188) must NOT exclude a pure case: the
+#     patterns are anchored to breast-procedure wording and to word starts.
+#   - an implant EXCHANGE reads as an augmentation unless 'removed/replaced'
+#     is caught (cases 113, 121, 128): the before photo is of a patient who
+#     already has implants, which is not the before this corpus means.
+MWPS_IMPURE_PATTERNS = [
+    (re.compile(r"\bmastopexy\b", re.I), "mastopexy"),
+    (re.compile(r"\blift(s|ed|ing)?\b", re.I), "breast lift"),
+    (re.compile(r"\breduction\b", re.I), "reduction"),
+    (re.compile(r"\brevision\b", re.I), "revision"),
+    (re.compile(r"\bexplant\w*\b", re.I), "explant"),
+    (re.compile(r"\bremov\w*\b[^.]{0,60}\bimplant", re.I), "implant removal"),
+    (re.compile(r"\breplac\w*\b[^.]{0,60}\bimplant", re.I), "implant exchange"),
+    (re.compile(r"\bimplants?\b[^.]{0,60}\breplac\w*", re.I), "implant exchange"),
+    (re.compile(r"\bmommy makeover\b", re.I), "mommy makeover"),
+    (re.compile(r"\bfat (transfer|graft\w*)\b", re.I), "fat transfer"),
+    (re.compile(r"\bbreast reconstruction\b", re.I), "breast reconstruction"),
+    (re.compile(r"\babdominoplasty\b|\btummy tuck\b", re.I), "abdominoplasty"),
+    (re.compile(r"\bliposuction\b", re.I), "liposuction"),
+]
+# Volume: the newer chart publishes a BARE number under a labelled implant-size
+# field ('Implant Size Left: 415'), which counts per the captain's volume rule;
+# a bare number in free prose does not (case 92's 'Smooth round 385 Implants'
+# stays unrecorded), which is why prose only ever goes through parse_fill_volumes.
+MWPS_VOLUME_LABELS = {"implant size left": "left", "implant size right": "right"}
+MWPS_BARE_CC_RE = re.compile(r"^\s*(\d{2,4})(?:\s*(?:cc|ml))?\s*$", re.I)
+MWPS_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*months?", re.I)
+
+
+def mwps_list_cases(listing_html: str, gallery_path: str) -> list[str]:
+    """Numbered case subpages linked from the single (unpaginated) listing."""
+    ids: list[str] = []
+    for m in re.finditer(re.escape(gallery_path) + r"(\d+)/", listing_html):
+        if m.group(1) not in ids:
+            ids.append(m.group(1))
+    return sorted(ids, key=int)
+
+
+def mwps_impure_reason(text: str) -> str | None:
+    """The combined/revision procedure a case's own description names, or None."""
+    for pattern, reason in MWPS_IMPURE_PATTERNS:
+        if pattern.search(text):
+            return reason
+    return None
+
+
+def mwps_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
+    """One case page: N stitched before|after composites plus a spec block.
+
+    Images. The gallery is a 'stitched' subcategory, so EVERY slide is a whole
+    before|after composite that needs its own midpoint split. The slides still
+    carry the template's `gallery-image-before`/`gallery-image-after` classes
+    from the un-stitched layout and those classes are meaningless here - case
+    162 publishes three composites classed before/after/before. Reading them as
+    a before/after tagging (as influx_swiper legitimately does on its own
+    template) would pair two unrelated views. Order is the clinic's own view
+    order and is not documented, so views come from visual-inspection
+    annotations, keyed by the image stem ('6-01').
+
+    Specs. Two generations share one block. The older cases publish only
+    Patient Age/Patient Gender as labelled fields and put everything else in a
+    terse free-text Description ("...high profile round implants; 350cc"); the
+    newer ones publish a labelled chart (Height in inches, Weight Before in lb,
+    Implant Size Left/Right, Post Op Time) alongside a long marketing narrative.
+    Neither Description is a chart, so neither feeds placement/incision - a
+    narrative that names a plane is prose, per CLAUDE.md.
+    """
+    case = CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+
+    specs = CaseSpecs()
+    detail = soup.select_one("div.gallery-patient-details div.gallery-description")
+    if detail is not None:
+        heading = detail.select_one("h2.about-patient-description")
+        if heading is not None:
+            nxt = heading.find_next_sibling()
+            if nxt is not None and nxt.name == "p":
+                specs.summary = nxt.get_text(" ", strip=True)
+        for p in detail.select("p"):
+            span = p.find("span", class_="about-patient-title")
+            if span is None:
+                continue
+            label = span.get_text(strip=True).rstrip(":")
+            value = p.get_text(" ", strip=True)[len(span.get_text(strip=True)):].strip()
+            if label and value:
+                specs.fields[label] = value
+
+    reason = mwps_impure_reason(specs.summary)
+    if reason is not None:
+        case.warnings.append(
+            f"excluded: not a pure breast augmentation ({reason})")
+        case.specs = specs
+        return case
+
+    for slide in soup.select("div.swiper-slide"):
+        img = slide.find("img")
+        if img is None:
+            continue
+        src = img.get("src", "")
+        if not src or not MWPS_GALLERY_IMG_RE.search(src):
+            continue
+        if any(p.before_url == src for p in case.pairs):
+            continue
+        case.pairs.append(ImagePair(
+            key=Path(urlsplit(src).path).stem,
+            before_url=src, after_url=src, split_composite=True,
+            crop_bottom_frac=MWPS_WATERMARK_CROP_BOTTOM_FRAC))
+    if not case.pairs:
+        case.warnings.append("no usable image pairs")
+
+    age = specs.fields.get("Patient Age", "")
+    if age.isdigit():
+        specs.age = int(age)
+    specs.gender = specs.fields.get("Patient Gender", "")
+    for label, side in MWPS_VOLUME_LABELS.items():
+        value = next((v for k, v in specs.fields.items() if k.lower() == label), "")
+        m = MWPS_BARE_CC_RE.match(value)
+        if m and 100 <= int(m.group(1)) <= 1000:
+            setattr(specs, f"{side}_cc", float(m.group(1)))
+    if specs.left_cc is None and specs.right_cc is None:
+        specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
+    elif specs.left_cc is None or specs.right_cc is None:
+        # One side labelled and the other absent: the schema wants the average
+        # of what was published, not a side silently doubled.
+        only = specs.left_cc if specs.left_cc is not None else specs.right_cc
+        specs.left_cc = specs.right_cc = only
+
+    m = re.search(r"(\d+['’]\s?\d{0,2})\"?", specs.summary)
+    if m:
+        specs.height = m.group(1).replace("’", "'").replace(" ", "")
+        specs.height_cm = height_to_cm(specs.height)
+    if specs.height_cm is None:
+        specs.height_cm = inches_to_cm(specs.fields.get("Height", ""))
+    m = re.search(r"(\d{2,3})\s*lbs?\b", specs.summary, re.I)
+    if m:
+        specs.weight_lbs = int(m.group(1))
+    elif MWPS_BARE_CC_RE.match(specs.fields.get("Weight Before", "")):
+        specs.weight_lbs = int(specs.fields["Weight Before"].strip())
+    if specs.weight_lbs is not None:
+        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
+    m = MWPS_MONTHS_RE.search(specs.fields.get("Post Op Time", ""))
+    if m:
+        specs.months_post_op = float(m.group(1))
+
+    classify_brand_shape_profile(specs, specs.summary)
+    case.specs = specs
+    return case
 
 # ---------------------------------------------------------------------------
 # allure parser (no listing index; discovered by walking Next links)
@@ -2458,11 +2693,16 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     return cases
 
 
-def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
+def split_composite_image(data: bytes,
+                          crop_bottom_frac: float = 0.0) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
     The split is the exact horizontal midpoint. Raises ValueError for
     portrait/square images, where a left|right split cannot be assumed.
+
+    crop_bottom_frac trims that fraction of the height off the bottom of the
+    composite FIRST, so both halves lose exactly the same rows (see
+    ImagePair.crop_bottom_frac).
     """
     import io
 
@@ -2473,9 +2713,14 @@ def split_composite_image(data: bytes) -> tuple[bytes, bytes]:
         raise ValueError(
             f"composite image is not landscape ({img.width}x{img.height}); "
             "cannot assume a left|right before|after split")
+    bottom = img.height - math.ceil(img.height * crop_bottom_frac)
+    if bottom <= 0:
+        raise ValueError(
+            f"crop_bottom_frac={crop_bottom_frac} leaves nothing of a "
+            f"{img.width}x{img.height} composite")
     half = img.width // 2
     out = []
-    for box in ((0, 0, half, img.height), (half, 0, img.width, img.height)):
+    for box in ((0, 0, half, bottom), (half, 0, img.width, bottom)):
         buf = io.BytesIO()
         img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
         out.append(buf.getvalue())
@@ -2691,6 +2936,17 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher) -> list[CaseData]:
             html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
                 "utf-8", "replace")
             cases.append(charlotte_parse_case(html, case_id, url))
+        return cases
+    if cfg.kind == "mwps":
+        gallery_path = cfg.gallery_paths[0]
+        listing = fetcher.get(cfg.base_url + gallery_path,
+                              f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = []
+        for case_id in mwps_list_cases(listing, gallery_path):
+            url = f"{cfg.base_url}{gallery_path}{case_id}/"
+            html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
+                "utf-8", "replace")
+            cases.append(mwps_parse_case(html, case_id, url))
         return cases
     if cfg.kind == "allure":
         cases = []
@@ -3007,7 +3263,8 @@ def main() -> int:
                             else cfg.base_url + pair.before_url)
                 data = fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
                 try:
-                    before_data, after_data = split_composite_image(data)
+                    before_data, after_data = split_composite_image(
+                        data, pair.crop_bottom_frac)
                 except ValueError as exc:
                     print(f"    SKIP {pair.key}: {exc}")
                     skipped += 1
