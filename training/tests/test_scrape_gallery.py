@@ -2759,3 +2759,148 @@ def test_split_composite_image_default_is_still_the_raw_midpoint_split():
     Image.new("RGB", (1200, 675), "white").save(buf, format="JPEG")
     before, after = sg.split_composite_image(buf.getvalue())
     assert {Image.open(io.BytesIO(h)).size for h in (before, after)} == {(600, 675)}
+
+
+# ---------------------------------------------------------------------------
+# aips (Breakdance page builder; CSS-background pairs on one inline listing)
+# ---------------------------------------------------------------------------
+
+
+AIPS_UPLOADS = "https://www.aiplasticsurgery.com/wp-content/uploads/"
+
+
+def aips_cases():
+    cases = sg.aips_parse_listing(load_fixture("aips_listing.html"), "src")
+    return {c.case_id: c for c in cases}
+
+
+def test_aips_reads_photos_from_css_backgrounds_not_the_label_imgs():
+    """The <img> in each slot is a transparent BEFORE/AFTER label overlay; the
+    patient photo is the slot div's background-image, declared in the page's
+    inline <style>. A parser that trusted the <img> would collect the same two
+    label PNGs for every case in the gallery."""
+    case = aips_cases()["01"]
+    assert [p.key for p in case.pairs] == [
+        "PC236751-P2107653", "PC236763-P2107667", "PC236760-P2107664"]
+    for pair in case.pairs:
+        for url in (pair.before_url, pair.after_url):
+            assert url.startswith(AIPS_UPLOADS + "bna_braug_01_")
+            assert "bna_label_" not in url
+
+
+def test_aips_direct_img_slot_wins_over_a_stale_background():
+    """Case 14's third AFTER slot publishes its photo as a real <img> and also
+    carries a background left over from case 01. The <img> is what a viewer
+    sees, so it must win - reading the background there would emit another
+    patient's photo as this patient's result."""
+    pair = aips_cases()["14"].pairs[-1]
+    assert pair.after_url == AIPS_UPLOADS + "bna_braug_14_P7093367.jpg"
+    assert "bna_braug_01" not in pair.after_url
+
+
+def test_aips_flags_a_republished_image_without_guessing_which_row_is_real():
+    """Case 16 publishes one 'before' against two different 'afters' (the
+    clinic never published a front before for it), so at most one of those two
+    rows is a real pair. Both are kept and flagged: the markup does not say
+    which, and only looking at the images does."""
+    case = aips_cases()["16"]
+    assert [p.key for p in case.pairs] == [
+        "P3191094-P7163622", "P3191094-P7163633", "P3191090-P7163631"]
+    assert case.pairs[0].before_url == case.pairs[1].before_url
+    assert any("republishes an image" in w for w in case.warnings)
+
+
+def test_aips_drops_a_row_whose_halves_belong_to_different_patients():
+    html = (
+        f'<style>.breakdance .bde-div-1-1{{background-image:url("{AIPS_UPLOADS}'
+        f'bna_braug_07_P9114754.jpg");}}'
+        f'.breakdance .bde-div-1-2{{background-image:url("{AIPS_UPLOADS}'
+        f'bna_braug_08_P6022570.jpg");}}</style>'
+        '<div class="bde-div-1-0 bde-div">'
+        f'<div class="bde-div-1-1 bde-div"><img alt="Before" src="{AIPS_UPLOADS}'
+        'bna_label_before.png"></div>'
+        f'<div class="bde-div-1-2 bde-div"><img alt="After" src="{AIPS_UPLOADS}'
+        'bna_label_after.png"></div>'
+        '<div class="bde-div-1-3 bde-div"><div class="bde-rich-text"></div></div>'
+        '</div>')
+    cases = sg.aips_parse_listing(html, "src")
+    assert [c.case_id for c in cases] == ["07"]
+    assert cases[0].pairs == []
+    assert any("belongs to case 08" in w for w in cases[0].warnings)
+
+
+def test_aips_case_id_does_not_match_the_augmentation_with_lift_assets():
+    """The practice publishes augmentation-with-lift under 'bna_braug_masto_NN'
+    on a SEPARATE gallery. The id pattern requires digits directly after
+    'braug_', so a looser one cannot read those in as augmentation cases."""
+    assert sg.AIPS_ASSET_RE.search("bna_braug_masto_01_IMG_0697.jpg") is None
+    m = sg.AIPS_ASSET_RE.search("bna_braug_07_P9114754.jpg")
+    assert (m.group(1), m.group(2)) == ("07", "P9114754")
+    # WordPress re-upload suffix is not part of the shoot token
+    m2 = sg.AIPS_ASSET_RE.search("bna_braug_04_PA135387_2.jpg")
+    assert (m2.group(1), m2.group(2)) == ("04", "PA135387")
+
+
+def test_aips_parses_the_nine_field_spec_chart():
+    specs = aips_cases()["01"].specs
+    assert specs.age == 39
+    assert specs.height == "5'8\""
+    assert specs.height_cm == 172.7
+    assert sg.volume_cc(specs) == 400
+    assert specs.profile == "high"
+    assert specs.shape == "round"          # SHELL: 'Smooth, Round'
+    assert specs.incision == "inframammary"
+    assert specs.fields["Type"] == "Silicone"
+    assert specs.fields["Children"] == "2"
+
+
+def test_aips_asymmetric_size_field_reads_both_sides():
+    specs = aips_cases()["14"].specs
+    assert (specs.left_cc, specs.right_cc) == (475.0, 500.0)
+    assert sg.volume_cc(specs) == 488     # schema records the average
+
+
+def test_aips_plane_is_not_decoded_into_the_placement_enum():
+    """'Under Muscle' covers both submuscular and dual-plane and 'Above Muscle'
+    covers both subglandular and subfascial, so neither is the documented
+    schema value. Recorded verbatim, never guessed."""
+    under, above = aips_cases()["01"].specs, aips_cases()["16"].specs
+    assert under.fields["Plane"] == "Under Muscle"
+    assert above.fields["Plane"] == "Above Muscle"
+    assert under.placement is None and above.placement is None
+
+
+def test_aips_notes_carry_the_undecodable_chart_fields():
+    notes = sg.build_notes(aips_cases()["16"].specs, None)
+    for expected in ("Plane: Above Muscle", "Type: Silicone", "Children: 3"):
+        assert expected in notes
+
+
+def test_aips_reports_a_case_whose_spec_chart_is_missing():
+    html = (
+        f'<style>.breakdance .bde-div-2-1{{background-image:url("{AIPS_UPLOADS}'
+        f'bna_braug_09_P3201183.jpg");}}'
+        f'.breakdance .bde-div-2-2{{background-image:url("{AIPS_UPLOADS}'
+        f'bna_braug_09_P5122023.jpg");}}</style>'
+        '<div class="bde-div-2-0 bde-div">'
+        f'<div class="bde-div-2-1 bde-div"><img alt="Before" src="{AIPS_UPLOADS}'
+        'bna_label_before.png"></div>'
+        f'<div class="bde-div-2-2 bde-div"><img alt="After" src="{AIPS_UPLOADS}'
+        'bna_label_after.png"></div>'
+        '<div class="bde-div-2-3 bde-div"><div class="bde-rich-text"></div></div>'
+        '</div>')
+    case = sg.aips_parse_listing(html, "src")[0]
+    assert len(case.pairs) == 1
+    assert any("no spec chart" in w for w in case.warnings)
+
+
+def test_aips_views_are_never_inferred_from_the_page():
+    """Nothing in the markup, the alt text or the camera's DCIM filenames says
+    which view a row is, so every pair must reach resolve_view with no hint and
+    be skipped until a visual annotation supplies one."""
+    for case in aips_cases().values():
+        for pair in case.pairs:
+            assert pair.view_hint is None
+            assert sg.resolve_view(pair, {}) == (None, None)
+    pair = aips_cases()["01"].pairs[0]
+    assert sg.resolve_view(pair, {"pairs": {pair.key: {"view": "front"}}})[0] == "front"

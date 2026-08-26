@@ -63,6 +63,11 @@ Interactive, Webflow, Studio 3 Marketing/DatoCMS, WordPress-custom, and a
 handful of bespoke builds); see each parser function's docstring for its
 specific markup contract.
 
+The 2026-08-25 batch (clinics prospected in ba-viz-prospect-20-international
+and consented on 2026-08-25) adds one parser per gallery platform in the same
+way; kind='aips' is the first, a Breakdance page builder whose photos are CSS
+background-images rather than <img> tags. See its section below.
+
 12 more (2026-08-15 batch) all run the Etna Interactive photo gallery and are
 served by the single kind='etna' parser - one parser configured twelve times.
 See the etna section below for the platform's markup contract, its five
@@ -309,6 +314,17 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="drteitelbaum", consent_ref="drteitelbaum-agreement-2026-08",
         base_url="https://www.drteitelbaum.com",
         gallery_paths=["/gallery/breast/breast-augmentation/"], kind="drteitelbaum"),
+    # -- 2026-08-25 batch: prospected clinics consented 2026-08-25 --
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md, row 12.
+    "aips": ClinicConfig(
+        slug="aips", consent_ref="aips-agreement-2026-08-25",
+        # www. is the canonical host; the bare domain 301s to it.
+        base_url="https://www.aiplasticsurgery.com",
+        # The practice publishes one gallery per procedure. Breast Lift,
+        # Breast Lift + Implants, Breast Reduction and Breast Revision are
+        # separate galleries and are all out of scope: the combined
+        # augmentation-with-lift cases live under /breast-lift/photos/.
+        gallery_paths=["/breast-augmentation/photos/"], kind="aips"),
     # -- 2026-08-15 batch: 12 newly consented clinics, all Etna Interactive --
     # Consent executed 2026-08-15; recorded in clinic-corpus/CONSENT-STATUS.md
     # with the instrument filed beside it. Section 2 of that instrument grants
@@ -3158,6 +3174,189 @@ def mya_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
 
 
 # ---------------------------------------------------------------------------
+# aips parser (Breakdance page builder; one inline listing, CSS-background pairs)
+# ---------------------------------------------------------------------------
+
+# Breakdance renders each before/after pair as a three-column grid row:
+#
+#   <div class="bde-div-<sec>-<n>">                       <- the row
+#     <div class="bde-div-<sec>-<n+1>">                   <- BEFORE slot
+#       <img alt="Before" src=".../bna_label_before.png">
+#     <div class="bde-div-<sec>-<n+3>">                   <- AFTER slot
+#       <img alt="After"  src=".../bna_label_after.png">
+#     <div class="bde-div-<sec>-<n+5>"> <rich text>        <- spec chart
+#
+# The patient photo is NOT the <img>: the <img> is a transparent BEFORE/AFTER
+# label overlay, and the photo is the slot div's `background-image`, declared
+# in the page's inline <style> keyed by that div's `bde-div-*` class. So the
+# stylesheet has to be read to find the images at all.
+#
+# One slot on the live page breaks that rule and publishes the photo directly
+# as the slot's <img src> (with a descriptive alt instead of the label), so
+# both spellings are supported; a real <img> wins over the background, because
+# where both are present the <img> is what a viewer sees. That case matters:
+# the one slot that does it (case 14's third after) ALSO carries a stale
+# background left over from case 01, so reading the background there would
+# silently emit another patient's photo as this patient's result.
+AIPS_BG_RE = re.compile(
+    r'\.breakdance\s+\.(bde-div-[\w-]+)\s*\{[^}]*?'
+    r'background-image:\s*url\(\s*["\']?([^"\')]+)["\']?\s*\)')
+AIPS_LABEL_IMAGE = "bna_label_"
+# Case id and shoot token off the asset name: 'bna_braug_07_P9114754.jpg'.
+# The digits must follow 'braug_' directly - the clinic's augmentation-WITH-
+# LIFT cases are published as 'bna_braug_masto_NN_...' on a separate gallery,
+# and a looser id pattern would read them as augmentation cases.
+AIPS_ASSET_RE = re.compile(r'bna_braug_(\d+)_([^/]+?)(?:_\d+)?\.\w+$', re.I)
+AIPS_FIELD_LABELS = {
+    "AGE", "HEIGHT", "CHILDREN", "TYPE", "PROFILE",
+    "SHELL", "SIZE", "INCISION", "PLANE",
+}
+
+
+def _aips_div_class(el) -> str | None:
+    for name in el.get("class", []):
+        if name.startswith("bde-div-"):
+            return name
+    return None
+
+
+def _aips_slot_url(slot, backgrounds: dict[str, str]) -> str | None:
+    """The patient photo in one before/after slot, or None."""
+    img = slot.find("img")
+    if img is not None:
+        src = img.get("src", "")
+        if src and AIPS_LABEL_IMAGE not in src:
+            return src
+    return backgrounds.get(_aips_div_class(slot) or "")
+
+
+def aips_parse_specs(spec_el) -> CaseSpecs:
+    """CaseSpecs from one '<p><strong>LABEL:</strong> value</p>' chart.
+
+    Every case publishes the same nine labels and every one of them carries a
+    value, so a missing or unknown label is a markup change worth noticing
+    rather than something to absorb silently.
+
+    Only SIZE, PROFILE, SHELL, INCISION, AGE and HEIGHT map onto the schema.
+    TYPE (Silicone/Saline) is the fill material, which the schema does not
+    record, and CHILDREN is parity - both are kept verbatim in the notes.
+
+    PLANE deliberately does NOT become `placement`. 'Under Muscle' is prose
+    covering both submuscular and dual-plane, and 'Above Muscle' covers both
+    subglandular and subfascial, so decoding either into the schema's enum
+    would invent a distinction the clinic never published. This is the same
+    call the module already makes for 'over the muscle' (see
+    classify_placement_incision).
+    """
+    specs = CaseSpecs()
+    if spec_el is None:
+        return specs
+    for p in spec_el.find_all("p"):
+        strong = p.find("strong")
+        if strong is None:
+            continue
+        label = strong.get_text(" ", strip=True).rstrip(":").strip().upper()
+        value = p.get_text(" ", strip=True)[len(strong.get_text(" ", strip=True)):]
+        value = value.strip().strip(":").strip()
+        if not label or not value:
+            continue
+        specs.fields[label.title()] = value
+        if label == "AGE" and value.isdigit():
+            specs.age = int(value)
+        elif label == "HEIGHT":
+            specs.height = value
+            specs.height_cm = height_to_cm(value)
+        elif label == "SIZE":
+            specs.left_cc, specs.right_cc = parse_fill_volumes(value)
+    # Chart text for the shared classifiers. SHELL ('Smooth, Round') carries
+    # the shape and PROFILE the projection; INCISION is a documented chart
+    # field, so classify_placement_incision may read it.
+    chart = ". ".join(f"{k}: {v}" for k, v in specs.fields.items())
+    classify_brand_shape_profile(specs, chart)
+    classify_placement_incision(specs, chart)
+    return specs
+
+
+def aips_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    """Every case of the whole gallery, inline on one page.
+
+    Rows are grouped into cases by the case number in the asset filename, in
+    first-appearance order; the page itself carries no case markup, no case
+    ids, no pagination and no declared total.
+
+    Views are not documented anywhere - not in the markup, not in the alt
+    text, not in the filenames (which are the camera's own DCIM names) - so
+    every pair needs a view annotation. Pair keys are therefore the before and
+    after shoot tokens ('P5192216-P7213664'), which are stable across re-runs
+    and unique within a case even where the clinic republishes one photo in
+    two rows.
+    """
+    backgrounds = dict(AIPS_BG_RE.findall(listing_html))
+    soup = BeautifulSoup(listing_html, "html.parser")
+    cases: dict[str, CaseData] = {}
+    for label_img in soup.select('img[alt="Before"]'):
+        slot = label_img.parent
+        row = slot.parent
+        slots = row.find_all("div", recursive=False)
+        if len(slots) < 2 or slots[0] is not slot:
+            continue
+        before_url = _aips_slot_url(slots[0], backgrounds)
+        after_url = _aips_slot_url(slots[1], backgrounds)
+        if not before_url or not after_url:
+            continue
+        m_before = AIPS_ASSET_RE.search(before_url)
+        m_after = AIPS_ASSET_RE.search(after_url)
+        if m_before is None or m_after is None:
+            continue
+        case_id, before_token = m_before.group(1), m_before.group(2)
+        after_case_id, after_token = m_after.group(1), m_after.group(2)
+        case = cases.get(case_id)
+        if case is None:
+            case = cases[case_id] = CaseData(case_id=case_id, source_url=source_url)
+        # A row whose two halves belong to different patients is a page-build
+        # error, not a pair. The clinic's own lift gallery has one (it pairs
+        # augmentation case 13's 'before' with a mastopexy case's 'after'), so
+        # this is a live failure mode rather than a hypothetical.
+        if after_case_id != case_id:
+            case.warnings.append(
+                f"row {before_token}: after image belongs to case "
+                f"{after_case_id}, not {case_id}; dropped")
+            continue
+        # The same photo republished in two rows means at most one of those
+        # rows is a real pair, and the markup does not say which - only the
+        # images do. Case 16 is the live example: its 'before' oblique is
+        # published against both the front AFTER and the oblique AFTER,
+        # because the clinic never published a front before at all. So the
+        # rows are kept and flagged rather than guessed at or dropped: a pair
+        # is only ever emitted once the view-annotation pass has looked at
+        # both halves, which is exactly the judgement this needs.
+        duplicate = next(
+            (q for q in case.pairs
+             if q.before_url == before_url or q.after_url == after_url), None)
+        if duplicate is not None:
+            case.warnings.append(
+                f"row {before_token}-{after_token} republishes an image also "
+                f"used by row {duplicate.key}; at most one of the two is a "
+                f"real pair - check both halves before annotating either")
+        case.pairs.append(ImagePair(key=f"{before_token}-{after_token}",
+                                    before_url=before_url, after_url=after_url))
+        if not case.specs.fields:
+            spec_el = (slots[2].find(class_="bde-rich-text")
+                       if len(slots) > 2 else None)
+            specs = aips_parse_specs(spec_el)
+            if specs.fields:
+                missing = AIPS_FIELD_LABELS - {k.upper() for k in specs.fields}
+                if missing:
+                    case.warnings.append(
+                        f"spec chart missing {sorted(missing)}")
+                case.specs = specs
+    for case in cases.values():
+        if not case.specs.fields:
+            case.warnings.append("no spec chart found for this case")
+    return list(cases.values())
+
+
+# ---------------------------------------------------------------------------
 # sculpted parser (bespoke WordPress; paginated inline listing of composites)
 # ---------------------------------------------------------------------------
 #
@@ -3855,6 +4054,16 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
         return heavenly_parse_listing(listing, cfg.base_url + cfg.gallery_paths[0])
+    if cfg.kind == "aips":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = aips_parse_listing(listing, url)
+        # The gallery publishes no case count of its own, so enumeration can
+        # only be checked against the shape the page actually has.
+        print(f"  {cfg.slug}: one inline listing page, no declared total; "
+              f"{len(cases)} case(s), "
+              f"{sum(len(c.pairs) for c in cases)} pair(s)")
+        return sorted(cases, key=lambda c: int(c.case_id))
     if cfg.kind == "mya":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
