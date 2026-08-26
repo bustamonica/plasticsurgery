@@ -229,11 +229,17 @@ def test_patient_number_and_procedure_come_off_the_list_block():
 
 
 def test_combined_procedure_case_is_excluded():
+    # A real case from the practice's sibling breast-lift-with-augmentation
+    # gallery. It publishes a full chart WITH volumes, which is the point: the
+    # specs parse fine and the case is excluded anyway, on its text.
     case = p1.page1_parse_case(
-        load("page1_bandy_case_combined.html"), "5301",
-        "https://www.drbandy.com/before-after-photos/breast-lift-with-augmentation/5301/")
+        load("page1_bandy_case_combined.html"), "11632",
+        "https://www.drbandy.com/before-after-photos/breast-lift-with-augmentation/11632/")
     assert case.pairs == []
     assert any("not pure breast augmentation" in w for w in case.warnings)
+    assert case.specs.fields["Procedure"] == "Breast Lift With Augmentation"
+    # The volumes are readable; being readable is not being collectable.
+    assert (case.specs.left_cc, case.specs.right_cc) == (850.0, 800.0)
 
 
 @pytest.mark.parametrize("text", [
