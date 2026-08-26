@@ -8,6 +8,9 @@ Output layout: <staging>/<pair_id>/{before,after}.jpg + meta.json
 - Re-encodes every image to clean JPEG, which strips EXIF/GPS/maker notes.
 - Rejects tiny images and exact-duplicate pairs (SHA-256 of pixel data).
 - Rejects censored or annotated photos (see censorship.py).
+- Rejects burned-in mosaic pixelation (see mosaic.py) - a separate gate because
+  censorship.py provably does not see it (0 of 182 on aips while 22 mosaicked
+  pairs were accepted), and because each gate has to be re-measured on its own.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -24,6 +27,7 @@ import numpy as np
 from PIL import Image
 
 from censorship import detect_censorship
+from mosaic import detect_mosaic
 
 # Deliberately below the 512px ideal: much of the drkolker gallery is published
 # at 418x418, and rejecting those would cost ~75% of a consented corpus. The
@@ -153,7 +157,7 @@ def main() -> int:
                 print(f"REJECT {label}: {stem} is a duplicate of {seen_hashes[digest]}")
                 pair_ok = False
                 break
-            marks = detect_censorship(pixels)
+            marks = detect_censorship(pixels) + detect_mosaic(pixels)
             if marks:
                 print(
                     f"REJECT {label}: {stem} is censored or annotated - "

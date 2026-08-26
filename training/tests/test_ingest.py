@@ -195,6 +195,27 @@ class TestIngestMain:
         assert "do not crop around it" in out
         assert not (staging / "clinic01-0001").exists()
 
+    def test_mosaicked_pair_is_rejected(self, make_pair, valid_meta, tmp_path, capsys):
+        """The standing 2026-08-14 rule, now enforced at the door.
+
+        `censorship.py` does not see mosaic - measured 0 of 182 on aips while
+        ingest accepted all 22 mosaicked pairs - so this is `mosaic.py`'s gate,
+        and a pair only stops here if that gate is actually wired in.
+        """
+        from conftest import make_torso
+        from test_mosaic import jpeg_roundtrip, pixelate, tattoo
+
+        before = make_torso(seed=31)
+        after = make_torso(seed=32)
+        h, w = after.shape[:2]
+        box = (int(w * 0.30), int(h * 0.33), int(w * 0.70), int(h * 0.47))
+        after = jpeg_roundtrip(pixelate(tattoo(after, box), box, 12))
+        make_pair("clinic01-0001", valid_meta, images=(before, after))
+        rc, staging, out = self.run_ingest(tmp_path, capsys)
+        assert rc == 1
+        assert "mosaic pixelation" in out
+        assert not (staging / "clinic01-0001").exists()
+
     def test_uncensored_photographic_pair_is_accepted(
         self, make_pair, valid_meta, tmp_path, capsys
     ):
