@@ -53,3 +53,14 @@ Landmarks on BOTH sides agree, which is what rules out a systematic mirror
 error. The convention itself is the corpus one: `oblique-left` means the
 patient's LEFT side faces the camera, putting the near shoulder on the
 VIEWER'S RIGHT.
+
+## mwps.json
+
+10 cases, 19 pairs - every emitted Mountain West pair, since `scrape_gallery.py` skips any pair with no view.
+The other ~95 published composites are deliberately unannotated: they are excluded by the 400px floor after the watermark crop, and annotating a pair that cannot be emitted would be guessing for nothing.
+
+The view is recorded per SLIDE because the slide order is not a protocol here - case 10 publishes oblique-right, front, side-right while case 11 publishes front, side-right - so there is no table to read this file against.
+
+Every non-front call was made at full annotation size, against the corpus convention (`-left` = near shoulder/arm on the VIEWER'S RIGHT, body angled toward the viewer's left), read off the visible chin/shoulder direction.
+That size matters: a first pass from 6-per-sheet contact sheets called case 14's oblique `left`, and re-rendered at full size it is unambiguously `oblique-right`.
+Every call was redone at the larger size.

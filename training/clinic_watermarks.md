@@ -20,10 +20,13 @@ than repair them.
 **Captain ruling, 2026-08-19: a mark that appears on only ONE half of a pair is
 cropped, not tolerated.** Clear of the breasts or not, a mark carried by every
 after image and no before image correlates perfectly with the training label, so
-`ClinicConfig.bottom_crop_px` (`scripts/scrape_gallery.py`) trims both halves
-equally when the scraper writes the pair. The crop is measured per clinic and
-never transferred between them; the full lesson, the detection recipe and the
-measured cost are `.claude/skills/clinic-prospecting/SKILL.md` Screen 4a.
+the scraper trims both halves equally when it writes the pair.
+`ClinicConfig.bottom_crop_px` is one of four crop mechanisms - one per way a
+clinic actually draws its mark, and they are not interchangeable; AGENTS.md's
+four-crop bullet says which knob does what, and the verdicts below name the one
+each clinic uses. The crop is measured per clinic and never transferred between
+them; the full lesson, the detection recipe and the measured cost are
+`.claude/skills/clinic-prospecting/SKILL.md` Screen 4a.
 
 A verdict below records those rulings; whether it is actually enforced on disk is
 a separate question, answered in "Excluded on paper vs excluded in fact".
@@ -56,6 +59,12 @@ confirming on representative full-size images.
 | privateclinic | "The Private Clinic of Harley Street" | **straddles the composite's split midpoint**, so each half carries a fragment | - | re-check if the clinic ever supplies originals; a fragment on both halves is harder to reason about than a whole mark on one |
 | drgrover | "© Sanjay Grover, MD, FACS" + date stamp (4 of 12 sampled) | bottom-right; **grazes the lower abdomen on some** | sometimes | re-check before this clinic is ever emitted |
 | allure, austinweston, charlotte, drjeremyhunt, drmiroshnik, lakeshore, marina, mya, sixsurgery | none | - | - | clean |
+| **choice** | white caption band printing **BEFORE** under the left half and **AFTER** under the right, in gold | caption band under both halves of the composite | no - below the subject | **cropped 2026-08-25**, `bottom_crop_px=60` (the band starts 50-53px from the bottom and its gold text tops out at 53px, measured over all 52 published composites); the halves stay 455x441, above the 400px floor. The words themselves are the label, so this is the leak in its most literal form even though both halves carry a band |
+| **arps** | "(c) Dr Eddie Cheng" (some exports "(c) DR Eddie Cheng AR Plastic Surgery") | bottom-left or bottom-right corner over clothing/backdrop at hip height, on **both** halves, so not a label leak | no - well below breast tissue | **cropped 2026-08-25**, `bottom_crop_frac=0.10` - a fraction of the frame's **WIDTH**, because the mark is drawn proportional to width and this gallery publishes six export sizes (top edge 3.8-7.2% of width, but 24-115px). Verified gone by eye on all 186 images and by the bottom band's high-pass peak falling from 3.4-28x the body baseline to ~1x; costs 0 pairs to the 400px floor |
+| **bandy** | practice wordmark burned into the bottom band of the 655x491 exports (241 of 2,664 images are un-watermarked originals, cropped identically anyway rather than by a per-image detector) | bottom band, both halves | no - over the lower abdomen | **cropped 2026-08-25**, `page1solutions.WATERMARK_CROP` keeps the top 81.67% of the frame, applied through `postprocess_pair()`; measured by a median high-pass over all 2,199 exports (the ink starts at y=401 of 491) |
+| **mwps** | translucent "MW / MOUNTAIN WEST PLASTIC SURGERY" circle monogram over two lines of type | centred **on the composite's split seam** at the bottom, so an equal piece lands on each half - not a label leak, though cropping one side would create one | no - over the lower abdomen | **cropped 2026-08-25**, `ImagePair.composite_bottom_frac=0.22` - a fraction of **HEIGHT** applied to the whole composite BEFORE the split, so the halves stay dimension- and framing-matched. The mark is scaled to the frame, not stamped at a fixed size (the circle's top sits at 0.2064-0.2077 of height on three heights). Do not re-derive it from a bottom-aligned residual: that population is dominated by one height and reports a plausible, wrong ~100px constant. The crop is why the yield is 19 pairs and not 125 - most of the gallery falls below the 400px floor after it |
+| **tcclinic** | white TCC caption band **plus a logo badge that rises 44px out of it into the frame** | bottom of the 1200x571 family only (9 of 65 composites; the 835px families carry none), straddling the seam so both halves carry it | no - lower torso | **cropped 2026-08-25**, `ImagePair.crop_caption_band` -> `caption_band_crop()` measures the rows per image (161px on all nine banded composites, 0 on the 56 unbanded) plus an 8px `seam_trim` either side of the midpoint. The band's own 117px height is the wrong crop - it would leave the badge on the image. Every emitted half clears the 400px floor |
+| aips, bayside, blaine, dsm, ncps, psiw, sculpted, swan, wyten | none | - | - | clean; each opened at full resolution during its 2026-08-25 collection - no corner, edge or on-body mark, so no crop is applied |
 
 drtavakoli marks some gallery images with its own name, but none of the pairs in
 the corpus carries one.

@@ -4,10 +4,18 @@
 Page 1 Solutions builds a WordPress "patient gallery" whose markup is the same
 across the practices that run it (drbandy.com, thebodydoc.com,
 plasticsurgerynow.com and drgregpark.com are all on it in the 2026-08-25
-consented batch). This module is that family's parser, kept out of
-`scrape_gallery.py` so the family can grow without touching the twenty-odd
-parsers already living there; `scrape_gallery.collect_cases` imports it for
-`kind="page1solutions"`.
+consented batch). This module is kept out of `scrape_gallery.py` so the family
+can grow without touching the twenty-odd parsers already living there;
+`scrape_gallery.collect_cases` imports it for `kind="page1solutions"`.
+
+**It is not the family's only parser, and it is not interchangeable with the
+others.** Three parallel collections each wrote one against a different set of
+that platform's practices, so `page1_solutions.py` (`kind="page1"`, ncps - the
+module name differs by one underscore) and the inline-listing parser inside
+`scrape_gallery.py` itself (`kind="page1_inline"`, psiw) parse markup this
+module does not. Read the one your clinic's `kind` dispatches to. Two clinics
+sharing one `kind` is how ncps once collected zero cases: `collect_cases`
+returns from the first matching branch.
 
 Markup contract
 ---------------

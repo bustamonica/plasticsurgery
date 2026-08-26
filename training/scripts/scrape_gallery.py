@@ -63,46 +63,42 @@ Interactive, Webflow, Studio 3 Marketing/DatoCMS, WordPress-custom, and a
 handful of bespoke builds); see each parser function's docstring for its
 specific markup contract.
 
-The 2026-08-25 batch (clinics prospected in ba-viz-prospect-20-international
-and consented on 2026-08-25) adds one parser per gallery platform in the same
-way; kind='aips' is the first, a Breakdance page builder whose photos are CSS
-background-images rather than <img> tags. See its section below.
-
 12 more (2026-08-15 batch) all run the Etna Interactive photo gallery and are
 served by the single kind='etna' parser - one parser configured twelve times.
 See the etna section below for the platform's markup contract, its five
 published spec-block layouts, and how enumeration and procedure purity work.
 
-The 2026-08-25 batch (19 prospected clinics, consent in
-clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) is being collected one
-clinic at a time; kind='blaine' is the first of them, a bespoke WordPress
-[gallery] shortcode. See its section for why 'Case #N' is not a patient key and
-why the procedure screen reads the whole figure rather than the spec field.
+14 more (2026-08-25 batch: aips, arps, bandy, bayside, blaine, choice, dsm,
+mwps, ncps, psiw, sculpted, swan, tcclinic, wyten; prospected in
+ba-viz-prospect-20-international, consent in
+clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) were collected one
+clinic per lane and add one parser per gallery platform in the same way. Each
+has its own section below, or its own module - arps in arps_gallery.py, bandy in
+page1solutions.py, ncps in page1_solutions.py - so read the one the clinic's
+ClinicConfig.kind dispatches to. Six carry a contract that is not guessable from
+the rendered page:
 
-The 2026-08-25 batch (prospected clinics, consent in
-clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) adds kind='mwps', an
-Influx Growthstack gallery whose subcategory is 'stitched': every slide is a
-whole before|after composite, and every composite carries a bottom-edge
-watermark that is cropped before the split. See the mwps section below.
-
-The 2026-08-25 prospected batch (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) adds
-one clinic per collection lane. kind='swan' is the first: Etna asset naming on
-a self-hosted WordPress plugin, with a structured attributes chart, a published
-procedures list that screens purity from the case text rather than the filename
-slug, and a public REST route that makes the gallery fully enumerable without an
-endpoint grant. See the swan section below.
-
-The 2026-08-25 batch (clinics prospected in ba-viz-prospect-20-international)
-adds tcclinic, a bespoke WordPress/Divi build; see the tcclinic section for why
-its photos have to be read out of the page's inline CSS as well as its markup.
-Its composites carry a caption-band watermark, cropped rather than tolerated by
-`caption_band_crop` + `split_composite_image(bottom_crop=...)`.
-
-wyten (2026-08-25 consent batch) is a bespoke WordPress/Elementor carousel: one
-page, one slide per case, no case pages and no declared total. Its slides mix
-implant augmentation with fat grafting, revisions and combined procedures, and
-the image FILENAMES do not separate them - so the purity screen reads the
-slide's own procedure title as an allow-list. See the wyten section below.
+- kind='aips' is a Breakdance page builder whose photos are CSS
+  background-images rather than <img> tags.
+- kind='blaine' is a bespoke WordPress [gallery] shortcode; its section says why
+  'Case #N' is not a patient key and why the procedure screen reads the whole
+  figure rather than the spec field.
+- kind='mwps' is an Influx Growthstack gallery whose subcategory is 'stitched':
+  every slide is a whole before|after composite, and every composite carries a
+  bottom-edge watermark that is cropped before the split.
+- kind='swan' is Etna asset naming on a self-hosted WordPress plugin, with a
+  structured attributes chart, a published procedures list that screens purity
+  from the case text rather than the filename slug, and a public REST route that
+  makes the gallery fully enumerable without an endpoint grant.
+- kind='tcclinic' is a bespoke WordPress/Divi build whose photos have to be read
+  out of the page's inline CSS as well as its markup; its composites carry a
+  caption-band watermark, cropped rather than tolerated by `caption_band_crop` +
+  `split_composite_image(bottom_crop=...)`.
+- kind='wyten' is a bespoke WordPress/Elementor carousel: one page, one slide per
+  case, no case pages and no declared total. Its slides mix implant augmentation
+  with fat grafting, revisions and combined procedures, and the image FILENAMES
+  do not separate them - so the purity screen reads the slide's own procedure
+  title as an allow-list.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.

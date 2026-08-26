@@ -2,9 +2,18 @@
 """Parser for the Page 1 Solutions before/after gallery platform.
 
 Page 1 Solutions builds the gallery for several consented practices; this
-module is the one parser for that family, imported by ``scrape_gallery.py``
-and configured per clinic through ``ClinicConfig``. First clinic on it:
-``ncps`` (North Coast Plastic Surgery, Dr Gregory Park, Oceanside CA).
+module is imported by ``scrape_gallery.py`` and configured per clinic through
+``ClinicConfig``. It serves ``kind='page1'``; first clinic on it: ``ncps``
+(North Coast Plastic Surgery, Dr Gregory Park, Oceanside CA).
+
+**It is not the family's only parser, and it is not interchangeable with the
+others.** Three parallel collections each wrote one against a different set of
+that platform's practices, so ``page1solutions.py`` (``kind='page1solutions'``,
+drbandy) and the inline-listing parser inside ``scrape_gallery.py`` itself
+(``kind='page1_inline'``, psiw) parse markup this module does not. The module
+names differ by one underscore; read the one your clinic's ``kind`` dispatches
+to. Two clinics sharing one ``kind`` is how ncps once collected zero cases:
+``collect_cases`` returns from the first matching branch.
 
 Markup contract
 ---------------

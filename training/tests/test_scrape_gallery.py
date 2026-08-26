@@ -3500,6 +3500,56 @@ def test_crop_bottom_error_names_the_image_height_it_exceeds():
         sg.crop_bottom(buf.getvalue(), 50)
 
 
+def test_the_four_burnt_in_mark_crops_stay_four_independent_mechanisms():
+    """One clinic, one measured mark, one mechanism - and none shadowing another.
+
+    Four collections invented a burnt-in-mark crop in parallel and two of them
+    took a name the default branch had just used, so a naive union leaves a
+    second definition that silently disables the pixel crop for the clinics
+    carrying a one-sided watermark. Nothing fails when that happens: the halves
+    simply keep the mark, and the model learns to read it instead of the
+    anatomy. So the guard is behavioural - each mechanism must still trim the
+    frame in its own way, and no clinic may ask for two of them.
+    """
+    from PIL import Image
+    import io
+
+    def png(w, h):
+        buf = io.BytesIO()
+        Image.new("RGB", (w, h), "white").save(buf, format="PNG")
+        return buf.getvalue()
+
+    def size(data):
+        with Image.open(io.BytesIO(data)) as im:
+            return im.size
+
+    composite = png(1000, 500)
+    half, _ = sg.split_composite_image(composite)
+    assert size(half) == (500, 500)
+
+    # a) absolute pixel rows, after the split (ClinicConfig.bottom_crop_px).
+    pixel = sg.crop_bottom(half, 60)
+    # b) a fraction of the half's WIDTH, after the split (bottom_crop_frac).
+    width_frac = sg.crop_bottom_frac(half, 0.10)
+    # c) a fraction of the composite's HEIGHT, before the split
+    #    (ImagePair.composite_bottom_frac).
+    height_frac, _ = sg.split_composite_image(composite, bottom_frac=0.22)
+    # d) a measured caption band plus the divider either side of the midpoint
+    #    (ImagePair.crop_caption_band / seam_trim).
+    band, _ = sg.split_composite_image(composite, bottom_crop=117, seam_trim=8)
+
+    assert size(pixel) == (500, 440)
+    assert size(width_frac) == (500, 450)
+    assert size(height_frac) == (500, 390)
+    assert size(band) == (492, 383)
+    # Four mechanisms, four geometries: any one silently replaced by another
+    # collapses this set.
+    assert len({size(pixel), size(width_frac), size(height_frac), size(band)}) == 4
+
+    assert [c.slug for c in sg.CLINICS.values()
+            if c.bottom_crop_px and c.bottom_crop_frac] == []
+
+
 def test_crop_bottom_is_a_no_op_for_every_other_clinic():
     """The crop is opt-in per clinic: only a measured mark earns one.
 
