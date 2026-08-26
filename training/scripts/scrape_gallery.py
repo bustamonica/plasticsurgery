@@ -91,6 +91,12 @@ a self-hosted WordPress plugin, with a structured attributes chart, a published
 procedures list that screens purity from the case text rather than the filename
 slug, and a public REST route that makes the gallery fully enumerable without an
 endpoint grant. See the swan section below.
+
+The 2026-08-25 batch (clinics prospected in ba-viz-prospect-20-international)
+adds tcclinic, a bespoke WordPress/Divi build; see the tcclinic section for why
+its photos have to be read out of the page's inline CSS as well as its markup.
+Its composites carry a caption-band watermark, cropped rather than tolerated by
+`caption_band_crop` + `split_composite_image(bottom_crop=...)`.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -585,6 +591,20 @@ CLINICS: dict[str, ClinicConfig] = {
         # every gallery image out of its own /wp-content/uploads/.
         base_url="https://www.swancenteratlanta.com",
         gallery_paths=["/gallery/breast/breast-augmentation/"], kind="swan"),
+    # -- 2026-08-25 batch: clinics prospected in ba-viz-prospect-20-international
+    # and consented on 2026-08-25. Toronto Cosmetic Clinic and Brisbane Cosmetic
+    # Clinic are cleared by the captain's confirmation recorded in
+    # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md; their executed
+    # forms are not yet archived on disk.
+    #
+    # The slug is 'tcclinic', not 'tcc': 'tccs' above is a DIFFERENT consented
+    # clinic (The Center for Cosmetic Surgery) and the two must not be
+    # confusable in a pair id, a cache key or an emit --clinic argument.
+    "tcclinic": ClinicConfig(
+        slug="tcclinic", consent_ref="tcclinic-agreement-2026-08-25",
+        base_url="https://www.tcclinic.com",
+        gallery_paths=["/surgical/breast-augmentation/before-after-photos/"],
+        kind="tcclinic"),
 }
 
 
@@ -654,6 +674,12 @@ class ImagePair:
     # composite clinic before sculpted publishes.
     composite_border: int = 0
     composite_gutter: int = 0
+    # split_composite only. crop_caption_band measures each composite's own
+    # logo band with caption_band_crop() and trims it before the split;
+    # seam_trim drops that many columns either side of the midpoint, for a
+    # composite that draws a divider strip between its two photos.
+    crop_caption_band: bool = False
+    seam_trim: int = 0
 
 
 @dataclass
@@ -5200,8 +5226,181 @@ def sculpted_parse_listing_page(listing_html: str, source_url: str) -> list[Case
     return cases
 
 
+# ---------------------------------------------------------------------------
+# tcclinic parser (Toronto Cosmetic Clinic; bespoke WordPress / Divi)
+# ---------------------------------------------------------------------------
+
+# One page holds the whole gallery, built out of Divi modules. Each case is a
+# photo module followed in document order by a `et_pb_toggle` whose title is the
+# clinic's own case label ('Patient 7') and whose body is a five-row chart:
+#
+#   Implant Size: | 350cc          (or 'Left: 400cc / Right: 425cc')
+#   Implant Type: | Gel
+#   Implant Profile: | High Profile
+#   Placement: | SubMuscular
+#   Incision: | Peri Areola
+#   *Photo Taken 3 Months after Surgery
+#
+# The photo module comes in TWO shapes and both must be read, because the newer
+# cases use one and the older cases the other:
+#
+# - `et_pb_gallery`: the composite originals are the `<a href>` of each
+#   `.et_pb_gallery_item`. 4 of 26 cases.
+# - `et_pb_slider`: the DOM carries only `<div class="et_pb_slide et_pb_slide_N">`
+#   and the image is a `background-image` in the page's INLINE CSS, keyed by that
+#   same N. 22 of 26 cases, 53 of 65 composites. A parser that reads `<img>`/
+#   `<a href>` alone sees 12 of the 65 published composites and reports 4 cases.
+#
+# Divi gives a gallery module BOTH classes, so `et_pb_gallery` must be tested
+# first or every gallery reads as a slider with zero slides.
+#
+# Each photo is a side-by-side before|after composite. Two families are
+# published: 1200x571 with a white TCC caption band (and a badge that rises out
+# of the band into the frame), and 835x455 with no band at all; both draw a
+# light divider strip down the seam. Views are NOT documented - the filename
+# index ('-01', '-02', '-03') is positional - so every view label comes from the
+# annotations file.
+
+# The seam divider measured on this gallery is 5px wide on the 1200px family;
+# 8px either side of the midpoint clears it on both families with margin, and
+# costs 16px of a half that has >= 180px of headroom over the 400px floor.
+TCCLINIC_SEAM_TRIM = 8
+TCCLINIC_SLIDE_BG_RE = re.compile(
+    r"\.et_pb_slider\s+\.et_pb_slide_(\d+)\s*\{[^}]*?background-image:\s*url\(([^)]+)\)")
+TCCLINIC_SLIDE_CLASS_RE = re.compile(r"^et_pb_slide_(\d+)$")
+TCCLINIC_PHOTO_TAKEN_RE = re.compile(
+    r"Photo\s+Taken\s+(\d+(?:\.\d+)?)\s*(month|week|year)s?\s+after\s+Surgery", re.I)
+TCCLINIC_MONTHS_PER = {"month": 1.0, "week": 7 / 30.44, "year": 12.0}
+# This clinic's own chart spellings, normalised for the shared classifiers.
+# Spelling only - each value is one the clinic printed on the chart, so nothing
+# here decides a spec the page did not state. Kept local rather than added to
+# PROFILE_PATTERNS / INCISION_PATTERNS because 'Moderate +' in particular is not
+# clinic-neutral: curtsinger publishes 'moderate + xtra', Mentor's product line,
+# which the captain's ruling says does NOT decode.
+TCCLINIC_CHART_SPELLINGS = [
+    (re.compile(r"\bmoderate\s*\+", re.I), "Moderate Plus"),
+    (re.compile(r"\bperi[- ]?areola\b", re.I), "periareolar"),
+    # 'Inframmary' is the clinic's own misspelling and appears alongside the
+    # correct 'Inframammary' in the same gallery.
+    (re.compile(r"\binfram(?:am)?m?ary\b", re.I), "inframammary"),
+]
+# 'Left: 400cc / Right: 425cc'. The shared parse_fill_volumes() reads the first
+# side and then loses the second, because its prefix-marker segment runs to the
+# end of the string on anything but a ';' / ',' / '.' separator - a bug worth
+# fixing centrally, but not from inside one clinic's collection run.
+TCCLINIC_SIDE_VOLUME_RE = re.compile(
+    rf"\b(left|right)\b\s*:?\s*(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", re.I)
+
+
+def tcclinic_implant_volumes(value: str) -> tuple[float | None, float | None]:
+    """(left_cc, right_cc) from this clinic's 'Implant Size' chart value."""
+    sides = {m.group(1).lower(): float(m.group(2))
+             for m in TCCLINIC_SIDE_VOLUME_RE.finditer(value)}
+    if sides:
+        return sides.get("left"), sides.get("right")
+    return parse_fill_volumes(value)
+
+
+def tcclinic_normalise_chart(text: str) -> str:
+    for pattern, replacement in TCCLINIC_CHART_SPELLINGS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def tcclinic_slide_backgrounds(listing_html: str) -> dict[int, str]:
+    """Slide index -> composite URL, read from the page's inline CSS."""
+    return {int(m.group(1)): m.group(2).strip("'\"")
+            for m in TCCLINIC_SLIDE_BG_RE.finditer(listing_html)}
+
+
+def tcclinic_case_id(urls: list[str]) -> str | None:
+    """The case's own asset folder, which is its stable key.
+
+    NOT the toggle title: 'Patient 4', 'Patient 24', 'Patient 25' and
+    'Patient 26' publish out of `patient-01`, `patient-02`, `patient-03` and
+    `patient-04`, so the displayed number is a running position on the page and
+    would renumber every case if the clinic reordered the gallery.
+    """
+    folders = [u.rstrip("/").rsplit("/", 2)[-2] for u in urls]
+    return folders[0] if folders else None
+
+
+def tcclinic_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
+    soup = BeautifulSoup(listing_html, "html.parser")
+    backgrounds = tcclinic_slide_backgrounds(listing_html)
+    cases: list[CaseData] = []
+    pending: list[str] = []
+    for module in soup.select("div.et_pb_gallery, div.et_pb_slider, div.et_pb_toggle"):
+        classes = module.get("class", [])
+        if "et_pb_gallery" in classes:
+            urls = [a["href"] for a in module.select("div.et_pb_gallery_item a[href]")]
+            pending = urls or pending
+            continue
+        if "et_pb_slider" in classes:
+            urls = []
+            for slide in module.select("div.et_pb_slide"):
+                for name in slide.get("class", []):
+                    m = TCCLINIC_SLIDE_CLASS_RE.match(name)
+                    if m and int(m.group(1)) in backgrounds:
+                        urls.append(backgrounds[int(m.group(1))])
+                        break
+            pending = urls or pending
+            continue
+
+        title_el = module.select_one(".et_pb_toggle_title")
+        body = module.select_one(".et_pb_toggle_content")
+        if title_el is None or body is None:
+            continue
+        title = title_el.get_text(" ", strip=True)
+        urls, pending = pending, []
+        case_id = tcclinic_case_id(urls)
+        if case_id is None:
+            # A chart with no photo module before it: recorded as a case the
+            # page publishes without images rather than silently dropped, so
+            # the count still reconciles against the page.
+            case = CaseData(case_id=re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-"),
+                            source_url=source_url)
+            case.warnings.append(f"{title!r}: chart published with no photos")
+            cases.append(case)
+            continue
+
+        case = CaseData(case_id=case_id, source_url=source_url)
+        for url in urls:
+            key = Path(urlsplit(url).path).stem.rsplit("-", 1)[-1]
+            case.pairs.append(ImagePair(
+                key=key, before_url=url, after_url=url, split_composite=True,
+                crop_caption_band=True, seam_trim=TCCLINIC_SEAM_TRIM))
+
+        specs = CaseSpecs()
+        specs.fields["Case"] = title
+        for row in body.select("tr"):
+            cells = [td.get_text(" ", strip=True) for td in row.select("td")]
+            if len(cells) != 2 or not cells[1]:
+                continue
+            label, value = cells[0].rstrip(":").strip(), cells[1]
+            specs.fields[label] = value
+        size = specs.fields.get("Implant Size", "")
+        if size:
+            specs.left_cc, specs.right_cc = tcclinic_implant_volumes(size)
+        chart = tcclinic_normalise_chart(
+            " | ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+        classify_brand_shape_profile(specs, chart)
+        classify_placement_incision(specs, chart)
+        m = TCCLINIC_PHOTO_TAKEN_RE.search(body.get_text(" ", strip=True))
+        if m:
+            # Weeks and years convert; the verbatim wording is kept in the
+            # fields so the chart still reads as the clinic wrote it.
+            specs.fields["Photo Taken"] = m.group(0)
+            specs.months_post_op = round(
+                float(m.group(1)) * TCCLINIC_MONTHS_PER[m.group(2).lower()], 2)
+        case.specs = specs
+        cases.append(case)
+    return cases
+
+
 def split_composite_image(data: bytes, border: int = 0, gutter: int = 0,
-                          bottom_frac: float = 0.0) -> tuple[bytes, bytes]:
+                          bottom_frac: float = 0.0, bottom_crop: int = 0,
+                          seam_trim: int = 0) -> tuple[bytes, bytes]:
     """Split a side-by-side before|after composite into (before, after) JPEGs.
 
     The split is the exact horizontal midpoint. Raises ValueError for
@@ -5216,6 +5415,16 @@ def split_composite_image(data: bytes, border: int = 0, gutter: int = 0,
     `bottom_frac` trims that fraction of the composite's HEIGHT off its bottom
     before the split, so both halves lose exactly the same rows (see
     `ImagePair.composite_bottom_frac`). It composes with `border`/`gutter`.
+
+    `bottom_crop` drops that many rows off the BOTTOM of the composite before
+    splitting - a clinic's caption band and the logo burned into it (see
+    `caption_band_crop`). It is applied to the whole composite, so both halves
+    lose exactly the same rows and the pair stays dimensionally matched.
+
+    `seam_trim` drops that many columns on EACH side of the midpoint, for
+    composites that draw a divider strip between the two photos. A white
+    divider left in place is also a known false positive for
+    `censorship.py`'s bar detector.
     """
     import io
 
@@ -5226,6 +5435,9 @@ def split_composite_image(data: bytes, border: int = 0, gutter: int = 0,
         raise ValueError(
             f"composite image is not landscape ({img.width}x{img.height}); "
             "cannot assume a left|right before|after split")
+    if bottom_crop >= img.height:
+        raise ValueError(
+            f"bottom crop of {bottom_crop}px exceeds image height {img.height}")
     half = img.width // 2
     if border < 0 or gutter < 0:
         raise ValueError("composite border/gutter must not be negative")
@@ -5233,15 +5445,36 @@ def split_composite_image(data: bytes, border: int = 0, gutter: int = 0,
         raise ValueError(
             f"composite trim (border={border}, gutter={gutter}) leaves no image "
             f"in a {img.width}x{img.height} composite")
-    floor_y = img.height - math.ceil(img.height * bottom_frac)
+    # The two bottom trims compose: `bottom_crop` is a measured band in pixels,
+    # `bottom_frac` a mark that scales with the frame. Both cut the WHOLE
+    # composite, so the two halves always lose identical rows.
+    floor_y = (img.height - bottom_crop
+               - math.ceil(img.height * bottom_frac))
     top, bottom = border, floor_y - border
     if bottom <= top:
         raise ValueError(
-            f"composite trim (border={border}, bottom_frac={bottom_frac}) "
-            f"leaves nothing of a {img.width}x{img.height} composite")
+            f"composite trim (border={border}, bottom_crop={bottom_crop}, "
+            f"bottom_frac={bottom_frac}) leaves nothing of a "
+            f"{img.width}x{img.height} composite")
+    if seam_trim:
+        # Both halves are cut to the SAME width, so an odd-width composite
+        # cannot emit a before one pixel wider than its after.
+        width = min(half, img.width - half) - seam_trim - border
+        if width <= 0:
+            raise ValueError(
+                f"seam trim of {seam_trim}px leaves no image either side of "
+                f"the midpoint of a {img.width}px-wide composite")
+        boxes = ((half - seam_trim - width, top, half - seam_trim, bottom),
+                 (half + seam_trim, top, half + seam_trim + width, bottom))
+    else:
+        # Untrimmed, the split stays exactly what it has always been: an
+        # odd-width composite gives an after one pixel wider. Every clinic
+        # already in the corpus was emitted this way and emit_corpus.py treats
+        # a byte difference as a clash, so this path must not shift.
+        boxes = ((border, top, half - gutter, bottom),
+                 (half + gutter, top, img.width - border, bottom))
     out = []
-    for box in ((border, top, half - gutter, bottom),
-                (half + gutter, top, img.width - border, bottom)):
+    for box in boxes:
         buf = io.BytesIO()
         img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
         out.append(buf.getvalue())
@@ -5310,6 +5543,55 @@ def crop_bottom_frac(data: bytes, frac: float) -> bytes:
     img.crop((0, 0, img.width, keep)).convert("RGB").save(
         buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+
+# A caption band is a solid strip the clinic composites UNDER the photos to
+# carry its logo. It is an edge watermark, so the corpus rule is to crop it
+# (never mask it, never tolerate it) and to exclude what falls below the 400px
+# floor afterwards rather than shipping a shrunken pair.
+#
+# Measured, not assumed: the crop is read off each image's own pixels, because
+# a logo that overlaps the photo above the band (tcclinic's badge straddles the
+# seam and rises 44px into the frame) makes the band height alone the wrong
+# answer.
+BAND_WHITE = 245          # a band pixel is near-white on every channel
+BAND_ROW_FRACTION = 0.85  # ... and a band row is almost entirely such pixels
+LOGO_VALUE = 80           # the badge is near-black ...
+LOGO_NEUTRAL = 12         # ... and neutral (R, G and B within this of each other)
+LOGO_HALF_WIDTH = 90      # searched only this far either side of the midpoint
+LOGO_MAX_ROWS = 120       # ... and only this far above the band
+
+
+def caption_band_crop(data: bytes) -> int:
+    """Rows to drop off the bottom to remove a caption band and its logo.
+
+    Returns 0 when the image carries no band, so the same call is safe on a
+    gallery that mixes banded and unbanded images (tcclinic publishes both).
+    """
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    with Image.open(io.BytesIO(data)) as im:
+        arr = np.asarray(im.convert("RGB")).astype(int)
+    height, width, _ = arr.shape
+    near_white = (arr >= BAND_WHITE).all(axis=2).mean(axis=1)
+    band_top = height
+    while band_top > 0 and near_white[band_top - 1] >= BAND_ROW_FRACTION:
+        band_top -= 1
+    if band_top == height:
+        return 0
+    # Walk up from the band while the logo still intrudes into the photo.
+    mid = width // 2
+    lo, hi = max(0, mid - LOGO_HALF_WIDTH), min(width, mid + LOGO_HALF_WIDTH)
+    window = arr[:, lo:hi]
+    logo = ((window.max(axis=2) < LOGO_VALUE)
+            & (window.max(axis=2) - window.min(axis=2) < LOGO_NEUTRAL)).any(axis=1)
+    top = band_top
+    while top > 0 and band_top - top < LOGO_MAX_ROWS and logo[top - 1]:
+        top -= 1
+    return height - top
 
 
 def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int]) -> bytes:
@@ -5913,6 +6195,10 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 print(f"  {cfg.slug}: {len(numbers)} case(s), a contiguous "
                       f"1..{numbers[-1]} run; the gallery declares no total")
         return cases
+    if cfg.kind == "tcclinic":
+        url = cfg.base_url + cfg.gallery_paths[0]
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        return tcclinic_parse_listing(listing, url)
     if cfg.kind == "drgrover":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -6158,7 +6444,10 @@ def main() -> int:
                         before_data, after_data = split_composite_image(
                             data, border=pair.composite_border,
                             gutter=pair.composite_gutter,
-                            bottom_frac=pair.composite_bottom_frac)
+                            bottom_frac=pair.composite_bottom_frac,
+                            bottom_crop=(caption_band_crop(data)
+                                         if pair.crop_caption_band else 0),
+                            seam_trim=pair.seam_trim)
                     except ValueError as exc:
                         print(f"    SKIP {pair.key}: {exc}")
                         skipped += 1
