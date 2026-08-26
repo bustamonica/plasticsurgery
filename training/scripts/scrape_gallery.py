@@ -132,7 +132,13 @@ MOTIVA_PROFILE_PATTERNS = [
 # be the kind of inference AGENTS.md rules out.
 PLACEMENT_PATTERNS = [
     (re.compile(r"\bdual[- ]?plane\b", re.I), "dual-plane"),
-    (re.compile(r"\b(?:sub[- ]?muscular|subpectoral|retropectoral)\b", re.I), "submuscular"),
+    # 'Post Pectoral' is drbandy's chart word for the same placement as
+    # subpectoral/retropectoral - behind the pectoralis. Its opposite,
+    # 'Pre-Pectoral', is deliberately NOT listed: in front of the muscle is
+    # either subglandular or subfascial and the chart does not say which, so
+    # reading it as one of them would invent the value.
+    (re.compile(r"\b(?:sub[- ]?muscular|subpectoral|retropectoral"
+                r"|post[- ]?pectoral)\b", re.I), "submuscular"),
     (re.compile(r"\bsub[- ]?glandular\b", re.I), "subglandular"),
     (re.compile(r"\bsub[- ]?fascial\b", re.I), "subfascial"),
 ]
@@ -419,6 +425,14 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="sculpted", consent_ref="sculpted-agreement-2026-08-25",
         base_url="https://sculpted.com",
         gallery_paths=["/gallery/breast-implants/"], kind="sculpted"),
+    # -- 2026-08-25 batch: prospected clinics, consent executed 2026-08-25 --
+    # (CONSENT-2026-08-25-PROSPECTED-CLINICS.md). One clinic per collection
+    # task; the Page 1 Solutions family parser lives in page1solutions.py.
+    "bandy": ClinicConfig(
+        slug="bandy", consent_ref="bandy-agreement-2026-08-25",
+        base_url="https://www.drbandy.com",
+        gallery_paths=["/before-after-photos/breast-augmentation/"],
+        kind="page1solutions"),
 }
 
 
@@ -3576,6 +3590,42 @@ def split_composite_image(data: bytes, border: int = 0,
     return out[0], out[1]
 
 
+def crop_fraction(data: bytes, box: tuple[float, float, float, float]) -> bytes:
+    """Crop an image to a fractional (left, top, right, bottom) box.
+
+    Fractions rather than pixels because a gallery can serve the same framing
+    at several resolutions (drbandy publishes both a 655x491 export and the
+    2560x1920 original), and the same fraction crops both to the same picture.
+    """
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data))
+    left, top, right, bottom = box
+    pixels = (round(left * img.width), round(top * img.height),
+              round(right * img.width), round(bottom * img.height))
+    buf = io.BytesIO()
+    img.crop(pixels).convert("RGB").save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
+def postprocess_pair(cfg: ClinicConfig, before: bytes,
+                     after: bytes) -> tuple[bytes, bytes, bool]:
+    """Clinic-specific pixel work on a decoded pair; (before, after, applied).
+
+    This is where a burnt-in watermark is cropped away. Both halves always get
+    the identical transform: a crop applied to one half only would change the
+    pair's geometry, and a watermark left on one half only is a label the model
+    can read instead of the anatomy.
+    """
+    if cfg.kind == "page1solutions":
+        import page1solutions
+
+        return (*page1solutions.crop_watermark(before, after), True)
+    return before, after, False
+
+
 def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int]) -> bytes:
     """Crop one (row, col) cell out of a rows x cols grid composite image.
 
@@ -3715,6 +3765,22 @@ def _fetch_seed(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | None:
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                   gallery_endpoint: bool = False,
                   grant_root: Path | None = None) -> list[CaseData]:
+    if cfg.kind == "page1solutions":
+        # Imported here rather than at module scope: page1solutions imports
+        # this module for the shared data model, so a top-level import in both
+        # directions would be circular.
+        import page1solutions
+
+        gallery_path = cfg.gallery_paths[0]
+        listing = fetcher.get(cfg.base_url + gallery_path,
+                              f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = []
+        for case_id in page1solutions.page1_list_cases(listing):
+            url = f"{cfg.base_url}{gallery_path}{case_id}/"
+            html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
+                "utf-8", "replace")
+            cases.append(page1solutions.page1_parse_case(html, case_id, url))
+        return cases
     if cfg.kind == "drkolker":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -4250,6 +4316,8 @@ def main() -> int:
                     rows, cols = pair.grid_shape
                     before_data = crop_grid_cell(data, rows, cols, pair.before_cell)
                     after_data = crop_grid_cell(data, rows, cols, pair.after_cell)
+                    before_data, after_data, _ = postprocess_pair(
+                        cfg, before_data, after_data)
                     (pair_dir / "before.jpg").write_bytes(
                         crop_bottom(before_data, cfg.bottom_crop_px))
                     (pair_dir / "after.jpg").write_bytes(
@@ -4268,19 +4336,31 @@ def main() -> int:
                         print(f"    SKIP {pair.key}: {exc}")
                         skipped += 1
                         continue
+                    before_data, after_data, _ = postprocess_pair(
+                        cfg, before_data, after_data)
                     (pair_dir / "before.jpg").write_bytes(
                         crop_bottom(before_data, cfg.bottom_crop_px))
                     (pair_dir / "after.jpg").write_bytes(
                         crop_bottom(after_data, cfg.bottom_crop_px))
                 else:
+                    halves = {}
                     for stem, url in (("before", pair.before_url),
                                       ("after", pair.after_url)):
                         full_url = (url if url.startswith("http")
                                     else cfg.base_url + url)
                         data = fetcher.get(full_url,
                                            image_cache_key(cfg.slug, full_url))
-                        name = emitted_image_name(stem, full_url,
-                                                  cfg.bottom_crop_px)
+                        halves[stem] = (full_url, data)
+                    before_data, after_data, cropped = postprocess_pair(
+                        cfg, halves["before"][1], halves["after"][1])
+                    for stem, data in (("before", before_data),
+                                       ("after", after_data)):
+                        # A postprocessed half is re-encoded as JPEG, so it may
+                        # keep the source extension only when neither
+                        # postprocess_pair nor crop_bottom touched it.
+                        name = (f"{stem}.jpg" if cropped
+                                else emitted_image_name(stem, halves[stem][0],
+                                                        cfg.bottom_crop_px))
                         (pair_dir / name).write_bytes(
                             crop_bottom(data, cfg.bottom_crop_px))
             except requests.exceptions.HTTPError as exc:
