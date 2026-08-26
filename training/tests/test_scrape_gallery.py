@@ -3633,3 +3633,132 @@ def test_inches_to_cm(value, expected):
         assert result is None
     else:
         assert result == pytest.approx(expected)
+
+
+# ---------------------------------------------------------------------------
+# dsm: Kadence gallery, one inline listing, per-photo before/after captions
+# ---------------------------------------------------------------------------
+
+DSM_URL = "https://www.dsmplasticsurgery.com/gallery/breast-augmentation/"
+
+
+def dsm_cases():
+    return {c.case_id: c
+            for c in sg.dsm_parse_listing(load_fixture("dsm_listing_excerpt.html"),
+                                          DSM_URL)}
+
+
+def test_dsm_groups_photos_into_cases_by_patient_filter_class():
+    cases = dsm_cases()
+    assert sorted(cases) == ["01", "05", "09", "11", "12", "13", "58"]
+    # Patient 1 publishes three views (six photos), the rest two.
+    assert len(cases["01"].pairs) == 3
+    assert len(cases["09"].pairs) == 2
+
+
+def test_dsm_declared_patient_count_comes_from_the_gallery_filter_list():
+    """The filter list is the gallery's own declaration of what it published,
+    and is what a run reconciles its case count against."""
+    assert sg.dsm_declared_patients(load_fixture("dsm_listing_excerpt.html")) == 7
+
+
+def test_dsm_before_after_comes_from_the_caption_not_the_filename():
+    """Every one of patient 58's six files is named '...-After-Photo-...';
+    only the captions alternate BEFORE/AFTER. Reading the slug would label
+    all six as afters and lose the whole case."""
+    case = dsm_cases()["58"]
+    assert len(case.pairs) == 3
+    for pair in case.pairs:
+        assert "After-Photo" in pair.before_url and "After-Photo" in pair.after_url
+        assert pair.before_url != pair.after_url
+
+
+def test_dsm_reads_the_full_size_href_not_a_thumbnail():
+    pair = dsm_cases()["01"].pairs[0]
+    assert pair.before_url.endswith("01-35958-1-Breast-Augmentation.jpg")
+    assert "-300x300" not in pair.before_url
+
+
+def test_dsm_view_is_unlabelled_except_where_the_filename_spells_it_out():
+    """Patient 5 is the gallery's only page-documented view labelling; every
+    other patient needs a visual-annotation pass and must not be guessed."""
+    assert [p.view_hint for p in dsm_cases()["05"].pairs] == ["front", "side-left"]
+    assert [p.view_hint for p in dsm_cases()["01"].pairs] == [None, None, None]
+    assert [p.key for p in dsm_cases()["01"].pairs] == ["pair1", "pair2", "pair3"]
+
+
+def test_dsm_resolves_only_the_page_documented_views():
+    pairs = dsm_cases()["05"].pairs
+    assert sg.resolve_view(pairs[0], {}) == ("front", None)
+    assert sg.resolve_view(pairs[1], {}) == ("side-left", None)
+    assert sg.resolve_view(dsm_cases()["01"].pairs[0], {}) == (None, None)
+
+
+def test_dsm_parses_the_labelled_chart():
+    specs = dsm_cases()["01"].specs
+    assert specs.age == 37
+    assert specs.height == "5’9"
+    assert specs.height_cm == 175.3
+    assert specs.profile == "moderate"
+    assert sg.volume_cc(specs) == 405
+    assert specs.summary == "Silicone moderate profile 405CC"
+
+
+def test_dsm_cup_size_after_label_carries_the_implant_spec():
+    """The clinic prints the implant description under two different labels;
+    'Cup Size After:' never carries a cup size."""
+    specs = dsm_cases()["13"].specs
+    assert specs.summary == "Silicone High Profile-350cc"
+    assert specs.profile == "high"
+    assert sg.volume_cc(specs) == 350
+
+
+def test_dsm_weight_without_a_documented_unit_stays_verbatim():
+    """Patient 1's weight is the bare number '140'; patient 5's says '145 lbs'.
+    Only the second is a measurement this pipeline can convert."""
+    assert dsm_cases()["01"].specs.weight_kg is None
+    assert dsm_cases()["01"].specs.fields["Patient Weight"] == "140"
+    assert dsm_cases()["05"].specs.weight_kg == 65.8
+
+
+def test_dsm_unparseable_implant_code_yields_a_volume_but_no_profile():
+    """Patient 11 reads 'Silicone 410-375cc'. 410 sits where every sibling
+    caption puts the profile, but it is not one - a manufacturer model code
+    stays unparsed rather than being read as a profile or a second volume."""
+    specs = dsm_cases()["11"].specs
+    assert specs.profile is None
+    assert specs.shape == "unknown" or specs.shape is None
+    assert sg.volume_cc(specs) == 375
+
+
+def test_dsm_case_without_a_published_chart_still_yields_pairs():
+    case = dsm_cases()["12"]
+    assert len(case.pairs) == 2
+    assert case.specs.summary == ""
+    assert sg.volume_cc(case.specs) is None
+
+
+def test_dsm_non_alternating_couple_is_dropped_with_a_warning():
+    """Photos come in BEFORE, AFTER couples; anything else is reported rather
+    than paired up by position."""
+    html = (
+        '<div class="kt-gallery-item patient-3">'
+        '<a href="https://x.test/a.jpg" data-size="900x600"></a>'
+        '<div class="kt-gallery-caption-text"><b>BEFORE PHOTO</b></div></div>'
+        '<div class="kt-gallery-item patient-3">'
+        '<a href="https://x.test/b.jpg" data-size="900x600"></a>'
+        '<div class="kt-gallery-caption-text"><b>BEFORE PHOTO</b></div></div>'
+    )
+    cases = sg.dsm_parse_listing(html, DSM_URL)
+    assert cases == []
+
+
+def test_dsm_odd_photo_count_warns_and_keeps_the_complete_couples():
+    html = "".join(
+        f'<div class="kt-gallery-item patient-4">'
+        f'<a href="https://x.test/{i}.jpg" data-size="900x600"></a>'
+        f'<div class="kt-gallery-caption-text"><b>{m} PHOTO</b></div></div>'
+        for i, m in enumerate(["BEFORE", "AFTER", "BEFORE"]))
+    case = sg.dsm_parse_listing(html, DSM_URL)[0]
+    assert len(case.pairs) == 1
+    assert any("odd photo count" in w for w in case.warnings)
