@@ -2548,6 +2548,36 @@ class _RmgDuplicateSession:
         return R()
 
 
+def _dup_case(case_id: str, *urls: str) -> "sg.CaseData":
+    return sg.CaseData(case_id=case_id, source_url="x", pairs=[
+        sg.ImagePair(key=f"pair{i}", before_url=url,
+                     after_url=f"{url}-{case_id}-after")
+        for i, url in enumerate(urls, 1)])
+
+
+def test_one_patient_in_three_categories_is_one_patient_not_three():
+    """Collisions arrive pairwise; a patient does not.
+
+    A clinic with three overlapping categories collides the same person three
+    ways. Reporting that as three patients overstates the problem, and a
+    consumer building the by-patient split would have to close the transitivity
+    itself to learn which case keys are one person.
+    """
+    log = sg.DuplicatePatientLog()
+    log.record_shared_sources([
+        _dup_case("silicone-1", "/img/a.jpg"),
+        _dup_case("saline-2", "/img/a.jpg", "/img/b.jpg"),
+        _dup_case("dual-plane-3", "/img/b.jpg"),
+        _dup_case("silicone-9", "/img/z.jpg"),
+    ])
+    assert log.patient_groups() == [
+        (["dual-plane-3", "saline-2", "silicone-1"],
+         ["/img/a.jpg", "/img/b.jpg"])]
+    report = "\n".join(log.report_lines())
+    assert "1 patient(s)" in report and "2 colliding case-key pair(s)" in report
+    assert "dual-plane-3 == saline-2 == silicone-1" in report
+
+
 def test_one_patient_is_reported_even_when_only_one_copy_emits(
         tmp_path, monkeypatch, capsys):
     """The duplicate must not depend on both copies reaching the corpus.
@@ -6108,6 +6138,42 @@ def test_gallatin_notes_quote_the_pairs_own_caption_not_its_siblings():
     assert "18 months post-op" not in front_notes
     assert "18 months post-op" in side_notes
     assert "6 months post-op" not in side_notes
+
+
+def test_gallatin_pair_with_no_caption_of_its_own_describes_nothing():
+    """The clinic publishes an empty caption on some items.
+
+    Falling back to the case summary there hands the pair a SIBLING's caption -
+    the same provenance error, reached from the other side. A pair the clinic
+    described nowhere is described nowhere.
+    """
+    case = sg.gallatin_parse_listing(_gallatin_listing(
+        ("Patient-902-Before-Front.jpg", ""),
+        ("Patient-902-Front-After.jpg", ""),
+        ("Patient-902-Before-Side.jpg", "31 year old patient before bilateral "
+         "breast augmentation"),
+        ("Patient-902-Side-After.jpg",
+         "2 months post-op with 395cc extra high profile silicone gel implants"),
+    ), GALLATIN_URL)[0]
+    front, side = case.pairs
+    assert front.caption == ""
+    assert sg.volume_cc(case.specs) == 395   # the case still reads its specs
+    front_notes = sg.build_meta("gallatin-902-front", "front", case.specs, {},
+                                {}, None, "ref", front.caption).get("notes", "")
+    assert "Clinic description" not in front_notes
+    assert "395cc" not in front_notes
+    side_notes = sg.build_meta("gallatin-902-side-left", "side-left",
+                               case.specs, {}, {}, None, "ref",
+                               side.caption)["notes"]
+    assert "Clinic description: 31 year old patient" in side_notes
+
+
+def test_a_parser_with_no_per_pair_caption_still_describes_the_case():
+    """None and '' are different answers, and only '' means 'none published'."""
+    specs = sg.CaseSpecs()
+    specs.summary = "36 year old, 300cc round silicone implants"
+    assert "Clinic description: 36 year old" in sg.build_notes(specs, None)
+    assert "Clinic description" not in sg.build_notes(specs, None, "")
 
 
 def test_gallatin_screens_a_combined_term_stated_on_a_later_pair():

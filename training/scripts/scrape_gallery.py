@@ -796,7 +796,13 @@ class ImagePair:
     # The clinic's own text for THESE two photographs, where it publishes one
     # per pair rather than one per case. It is what the pair's notes quote; the
     # case's specs stay the merge of every pair's.
-    caption: str = ""
+    #
+    # None and '' are different answers. None is "this gallery has no per-pair
+    # text", and the case's own summary describes the pair as well as anything
+    # can. '' is "the clinic published none for THIS pair", and there the case
+    # summary is a SIBLING pair's caption - a note describing another
+    # photograph, which is the provenance error the field exists to prevent.
+    caption: str | None = None
 
 
 @dataclass
@@ -7159,9 +7165,9 @@ def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int],
 
 
 def build_notes(specs: CaseSpecs, laterality_source: str | None,
-                pair_caption: str = "") -> str:
+                pair_caption: str | None = None) -> str:
     parts = []
-    description = pair_caption or specs.summary
+    description = specs.summary if pair_caption is None else pair_caption
     if description:
         parts.append(f"Clinic description: {description}")
     details = []
@@ -7326,16 +7332,49 @@ class DuplicatePatientLog:
         self._add(first_case, case_id, pair_id)
         return first_pair
 
+    def patient_groups(self) -> list[tuple[list[str], list[str]]]:
+        """(case keys, shared evidence) per PATIENT, not per colliding pair.
+
+        Collisions are observed pairwise, but a patient published in three of a
+        clinic's categories produces three of those pairs and is still one
+        person. Counting the pairs over-reports patients, and a consumer
+        building the by-patient split would have to close the transitivity
+        itself to get the grouping the split actually needs.
+        """
+        parent: dict[str, str] = {}
+
+        def find(case_id: str) -> str:
+            parent.setdefault(case_id, case_id)
+            while parent[case_id] != case_id:
+                parent[case_id] = parent[parent[case_id]]
+                case_id = parent[case_id]
+            return case_id
+
+        for first, second in self.groups:
+            root_first, root_second = find(first), find(second)
+            if root_first != root_second:
+                parent[root_second] = root_first
+        members: dict[str, set[str]] = {}
+        evidence: dict[str, list[str]] = {}
+        for (first, second), shared in self.groups.items():
+            root = find(first)
+            members.setdefault(root, set()).update((first, second))
+            bucket = evidence.setdefault(root, [])
+            bucket.extend(item for item in shared if item not in bucket)
+        return sorted((sorted(members[root]), evidence[root]) for root in members)
+
     def report_lines(self) -> list[str]:
         if not self.groups:
             return []
-        lines = [f"WARN {len(self.groups)} patient(s) collected under more than "
-                 f"one case key (the same images published twice):"]
-        for (first, second), evidence in sorted(self.groups.items()):
+        groups = self.patient_groups()
+        lines = [f"WARN {len(groups)} patient(s) collected under more than one "
+                 f"case key, over {len(self.groups)} colliding case-key pair(s) "
+                 f"(the same images published twice):"]
+        for case_ids, evidence in groups:
             shown = ", ".join(evidence[:2]) + (" ..." if len(evidence) > 2 else "")
-            lines.append(
-                f"  {first} == {second} ({len(evidence)} shared: {shown})")
-        lines.append("  A by-patient train/val split must treat each group as ONE "
+            lines.append(f"  {' == '.join(case_ids)} "
+                         f"({len(evidence)} shared: {shown})")
+        lines.append("  A by-patient train/val split must treat each line as ONE "
                      "patient; nothing was merged or renamed here.")
         return lines
 
@@ -7351,7 +7390,7 @@ def emitted_pair_digest(pair_dir: Path) -> str:
 
 def build_meta(pair_id: str, view: str, specs: CaseSpecs, annotations: dict,
                pair_annotations: dict, view_source: str | None,
-               consent_ref: str, pair_caption: str = "") -> dict:
+               consent_ref: str, pair_caption: str | None = None) -> dict:
     meta: dict = {"pair_id": pair_id, "view": view, "consent_ref": consent_ref}
     vol = volume_cc(specs)
     if vol is not None:
