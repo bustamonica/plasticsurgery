@@ -19,6 +19,14 @@ Two rendering modes:
   asymmetry) visible in BOTH images of the pair, which can only be checked
   with the two side by side.
 
+Two layouts:
+
+- flat grid (default): tiles in enumeration order, ``--cols`` x ``--rows``.
+- ``--group-by-case``: one case per ROW, its pairs left to right. Which of a
+  case's photographs is its front view is a comparison between that case's own
+  views; a flat grid interleaves cases and forces the call to be made on one
+  tile in isolation, which is where it goes wrong.
+
 Composites are decoded and cropped through the same two seams the emit path
 uses (``decode_pair_halves`` then ``finish_pair_halves``), so every clinic's
 measured crop - the composite border/gutter, the caption band and seam trim,
@@ -116,6 +124,20 @@ def collect_tiles(cfg: sg.ClinicConfig, cache_dir: Path, cases: set[str] | None,
     return tiles
 
 
+def group_tiles_by_case(tiles: list[tuple[str, list[bytes]]]
+                        ) -> list[tuple[str, list[tuple[str, list[bytes]]]]]:
+    """Regroup flat '<case>:<pair>' tiles into one entry per case."""
+    grouped: dict[str, list[tuple[str, list[bytes]]]] = {}
+    order: list[str] = []
+    for label, images in tiles:
+        case_id, _, pair_key = label.partition(":")
+        if case_id not in grouped:
+            grouped[case_id] = []
+            order.append(case_id)
+        grouped[case_id].append((pair_key, images))
+    return [(case_id, grouped[case_id]) for case_id in order]
+
+
 def _paste(sheet: Image.Image, data: bytes, box_x: int, box_y: int,
            tile: int) -> None:
     with Image.open(io.BytesIO(data)) as im:
@@ -156,6 +178,55 @@ def render_sheets(tiles: list[tuple[str, list[bytes]]], out_dir: Path, tile: int
     return count
 
 
+def render_case_sheets(grouped: list[tuple[str, list[tuple[str, list[bytes]]]]],
+                       out_dir: Path, tile: int, cases_per_sheet: int) -> int:
+    """One case per ROW, its pairs left to right in published order.
+
+    Which of a case's photographs is the front is a comparison BETWEEN that
+    case's own views, so putting them on one row is what makes the call
+    reliable - a flat grid interleaves cases and forces the judgement to be
+    made per tile, in isolation. The row label carries the case id and each
+    tile its pair key, which is what the annotations JSON is keyed on.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    per_cell = max((len(images) for _, pairs in grouped for _, images in pairs),
+                   default=1)
+    cell_w = tile * per_cell
+    count = 0
+    for start in range(0, len(grouped), cases_per_sheet):
+        batch = grouped[start : start + cases_per_sheet]
+        cols = max(len(pairs) for _, pairs in batch)
+        # Two label lines, not one: a long case id ('silicone-breast-
+        # augmentation-patient-1') overruns the next column's pair key and the
+        # two become unreadable - and the pair key is exactly what the
+        # annotations file is keyed on, so it has to stay legible per tile.
+        band = LABEL_H * 2
+        sheet = Image.new("RGB", (cols * cell_w, len(batch) * (tile + band)),
+                          TILE_BG)
+        draw = ImageDraw.Draw(sheet)
+        for row, (case_id, pairs) in enumerate(batch):
+            y = row * (tile + band)
+            draw.text((4, y + tile + 3), case_id, fill=(255, 220, 0))
+            for col, (pair_key, images) in enumerate(pairs):
+                x = col * cell_w
+                for j, data in enumerate(images):
+                    try:
+                        _paste(sheet, data, x + j * tile, y, tile)
+                    except Exception as e:  # unreadable tile: keep the label
+                        print(f"WARN cannot render {case_id}:{pair_key}[{j}]: {e}")
+                if len(images) > 1:
+                    draw.line([(x + tile, y), (x + tile, y + tile)], fill=DIVIDER)
+                draw.text((x + 4, y + tile + LABEL_H + 1), pair_key,
+                          fill=(180, 220, 255))
+            draw.line([(0, y + tile + band - 1),
+                       (cols * cell_w, y + tile + band - 1)], fill=(70, 70, 70))
+        count += 1
+        out = out_dir / f"case_sheet_{count:03d}.jpg"
+        sheet.save(out, "JPEG", quality=90)
+        print(out)
+    return count
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--clinic", required=True, choices=sorted(sg.CLINICS))
@@ -170,6 +241,12 @@ def main() -> int:
                              "laterality calls")
     parser.add_argument("--cases", default=None,
                         help="Comma-separated case ids to restrict to")
+    parser.add_argument("--group-by-case", action="store_true",
+                        help="One case per row instead of a flat grid, so the "
+                             "front/oblique/side call is made by comparing a "
+                             "case's own views against each other")
+    parser.add_argument("--cases-per-sheet", type=int, default=8,
+                        help="Rows per sheet in --group-by-case mode")
     parser.add_argument("--min-dim", type=int, default=0,
                         help="Skip pairs whose smaller image side is under this "
                              "(use ingest.py's MIN_DIMENSION to skip pairs that "
@@ -180,7 +257,13 @@ def main() -> int:
     tiles = collect_tiles(sg.CLINICS[args.clinic], args.cache_dir, cases,
                           args.side == "both", args.min_dim)
     print(f"{len(tiles)} pair(s) with cached images")
-    if tiles:
+    if not tiles:
+        return 0
+    if args.group_by_case:
+        grouped = group_tiles_by_case(tiles)
+        print(f"{len(grouped)} case(s) with at least one renderable pair")
+        render_case_sheets(grouped, args.out_dir, args.tile, args.cases_per_sheet)
+    else:
         render_sheets(tiles, args.out_dir, args.tile, args.cols,
                       args.rows or max(1, 30 // args.cols))
     return 0
