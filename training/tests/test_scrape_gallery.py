@@ -6084,6 +6084,25 @@ def _gallatin_listing(*items: tuple[str, str]) -> str:
             + "</ul></body></html>")
 
 
+def test_gallatin_holds_a_couple_whose_filenames_name_different_views(capsys):
+    """A before of one pose and an after of another is not a pair.
+
+    Taking the view off whichever filename names one first would emit a front
+    pair whose after is a side view, and nothing downstream compares poses.
+    """
+    cases = {c.case_id: c for c in sg.gallatin_parse_listing(_gallatin_listing(
+        ("Patient-7-Before-Front.jpg", "before bilateral breast augmentation"),
+        ("Patient-7-After-Side.jpg", "6 months post-op with 350cc implants"),
+        ("Patient-8-Before-Front.jpg", "before bilateral breast augmentation"),
+        ("Patient-8-After-Front.jpg", "6 months post-op with 375cc implants"),
+    ), GALLATIN_URL)}
+    assert set(cases) == {"8"}
+    assert [(p.key, p.view_hint) for p in cases["8"].pairs] == [("front1", "front")]
+    out = capsys.readouterr().out
+    assert "2 item(s) unresolved" in out
+    assert "Patient-7-Before-Front.jpg" in out
+
+
 def test_gallatin_takes_the_specs_from_the_first_caption_that_states_them():
     """Not every caption of a case repeats every field.
 

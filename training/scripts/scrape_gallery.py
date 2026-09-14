@@ -5085,11 +5085,11 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
     """Every case on the gallery, paired by document order.
 
     Items arrive as consecutive before/after couples. A couple that does not
-    hold exactly one of each, or whose two filenames do not both name the same
-    patient, is not silently dropped as a unit: the walk advances by ONE item
-    and retries, so a single stray item shifts the pairing by one rather than
-    mis-pairing every case after it. Whatever is still unresolvable is counted
-    and reported.
+    hold exactly one of each, whose two filenames do not both name the same
+    patient, or whose filenames name two different views, is not silently
+    dropped as a unit: the walk advances by ONE item and retries, so a single
+    stray item shifts the pairing by one rather than mis-pairing every case
+    after it. Whatever is still unresolvable is counted and reported.
     """
     items = gallatin_list_items(listing_html)
     by_case: dict[str, CaseData] = {}
@@ -5105,6 +5105,7 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         halves = [_gallatin_half(n, cap) for n, (_, cap) in zip(names, couple)]
         case_ids = [m.group(1) for m in
                     (GALLATIN_PATIENT_RE.search(n) for n in names) if m]
+        views = [v for v in (_gallatin_view(n) for n in names) if v]
         # One before and one after is not enough to pair on. A stray item makes
         # the couple straddle two patients, so BOTH filenames have to name the
         # same Patient-N: two that disagree are a fabricated cross-patient pair
@@ -5114,7 +5115,8 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         # held rather than paired, per the standing rule that a WRONG pair is
         # worse than a MISSING one (captain ruling, 2026-08-26).
         if (sorted(h or "?" for h in halves) != ["after", "before"]
-                or len(case_ids) != 2 or len(set(case_ids)) != 1):
+                or len(case_ids) != 2 or len(set(case_ids)) != 1
+                or len(set(views)) > 1):
             unresolved.append(names[0])
             i += 1
             continue
@@ -5122,7 +5124,6 @@ def gallatin_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         after_src, after_cap = couple[halves.index("after")]
         i += 2
         case_id = case_ids[0]
-        views = [v for v in (_gallatin_view(n) for n in names) if v]
         view_hint = views[0] if views else None
 
         case = by_case.get(case_id)
