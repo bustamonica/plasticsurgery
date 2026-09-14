@@ -81,6 +81,11 @@ A bare number is read ONLY out of a labelled implant field (`Implant Size:
 421`), never out of prose - the mwps precedent. A published RANGE is not a
 measurement and is not read (the sixsurgery precedent): drbottger's
 "400-425 cc" and najera's "Weight: 151-160 lbs" both stay unrecorded.
+
+Nor are two figures that do not say which one is the implant: a saline implant
+published with its fill ("325 cc filled to 350 cc") and an unsided slash pair
+("325/375 cc") both record no volume, rather than one of the figures or their
+average.
 """
 
 from __future__ import annotations
@@ -302,7 +307,7 @@ def rm_case_number(case_html: str) -> str | None:
 # these galleries file by category, and drbottger's patient-1 is filed under
 # breast augmentation while its own text says "with breast lift".
 RM_IMPURE_PATTERNS = [
-    (re.compile(r"\bmastopexy\b", re.I), "mastopexy"),
+    (re.compile(r"\bmastopex\w*", re.I), "mastopexy"),
     (re.compile(r"\blift(s|ed|ing)?\b", re.I), "breast lift"),
     (re.compile(r"\breduction\b", re.I), "reduction"),
     (re.compile(r"\brevision\b", re.I), "revision"),
@@ -314,7 +319,7 @@ RM_IMPURE_PATTERNS = [
     (re.compile(r"\bimplants?\b[^.]{0,60}\breplac\w*", re.I), "implant exchange"),
     (re.compile(r"\bexchange\b", re.I), "implant exchange"),
     (re.compile(r"\bmommy makeover\b", re.I), "mommy makeover"),
-    (re.compile(r"\bfat (transfer|graft\w*)\b", re.I), "fat transfer"),
+    (re.compile(r"\bfat\s+(?:transfer|graft\w*|inject\w*)", re.I), "fat transfer"),
     (re.compile(r"\breconstruction\b", re.I), "breast reconstruction"),
     (re.compile(r"\babdominoplasty\b|\btummy tuck\b", re.I), "abdominoplasty"),
     (re.compile(r"\bliposuction\b|\blipo\b", re.I), "liposuction"),
@@ -363,18 +368,35 @@ def rm_impure_reason(case_text: str) -> str | None:
 # appears beside an implant.
 _RM_VOLUME_UNIT = r"(?:ccs?|mls?|cc\.|m\.?l\.?)\b"
 RM_VOLUME_RE = re.compile(rf"(\d{{2,4}}(?:\.\d+)?)\s*{_RM_VOLUME_UNIT}", re.I)
-RM_SIDE_RE = re.compile(r"\b(left|right)\b|\b([LR])\s*[):.]", re.I)
+# A bare L/R counts as a side only when punctuated ("R) 457cc") or leading
+# straight into a volume ("R 450 cc"); leber's breast widths ("L 12.5cm")
+# are not side markers. The third group is always the side of the figure
+# that FOLLOWS it.
+RM_SIDE_RE = re.compile(
+    rf"\b(left|right)\b|\b([LR])\s*[):.]|\b([LR])\s+(?=\d{{2,4}}\s*{_RM_VOLUME_UNIT})", re.I)
+# "Right Breast Implant: Smooth Round Moderate Plus Profile 450 cc Silicone" -
+# a side label whose figure can sit far along its own field.
+RM_SIDE_LABEL_RE = re.compile(r"\b(left|right)(?:\s+(?:breast|implant|side))*\s*:", re.I)
 # A published range is not a measurement (the sixsurgery precedent):
 # drbottger's "400-425 cc" and najera's "151-160 lbs" both stay unrecorded.
 RM_RANGE_RE = re.compile(
     rf"\d{{2,4}}\s*(?:{_RM_VOLUME_UNIT})?\s*(?:-|\u2013|\u2014|\bto\b)\s*\d{{2,4}}\s*{_RM_VOLUME_UNIT}",
     re.I)
+# Two figures without saying which is the implant: a saline fill
+# ("325 cc filled to 350 cc", "overfilled 425 cc") or an unsided slash pair
+# ("325/375 cc", "300/340 c").
+RM_FILL_RE = re.compile(r"\bover[- ]?fill(?:ed)?\b|\bfill(?:ed)?\s+to\b", re.I)
+RM_SLASH_PAIR_RE = re.compile(
+    rf"\d{{2,4}}\s*(?:{_RM_VOLUME_UNIT})?\s*/\s*\d{{2,4}}\s*(?:{_RM_VOLUME_UNIT}|c\b)", re.I)
 # A bare number counts only under a labelled implant field (the mwps rule);
-# a bare number in prose does not.
-RM_LABELLED_BARE_RE = re.compile(
-    r"\b(?:implant|implants)\s*(?:size|sizes|volume|details?)?\s*[:\-]\s*(\d{2,4})\b"
-    r"(?!\s*(?:-|\u2013|\u2014|\bto\b|\s*\d))", re.I)
-RM_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:months?|mos?\.?|mo\b)", re.I)
+# a bare number in prose does not. The field runs to the end of its line.
+RM_LABELLED_FIELD_RE = re.compile(
+    r"\b(?:implant|implants)\s*(?:size|sizes|volume|details?)?\s*[:\-]\s*(\d{2,4}(?![\d.])[^\n]*)",
+    re.I)
+_RM_BARE_FIGURE_RE = re.compile(
+    r"(?<![\d.])(\d{2,4})(?![\d.])(?!\s*(?:cm|mm|lbs?|pounds?|%|\"|'|\u2019|\u201d))", re.I)
+_RM_WORD_SIDE_RE = re.compile(r"\b(left|right)\b", re.I)
+RM_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:months?|mos?\b\.?)", re.I)
 RM_YEARS_POSTOP_RE = re.compile(r"(\d+(?:\.\d+)?)\s*years?\s+(?:post|after)", re.I)
 # Age: a single documented figure only. najera publishes buckets ("Age: 30 - 39"),
 # and reading the floor of a bucket would invent a value the clinic never stated.
@@ -412,6 +434,10 @@ def _rm_profile_re(word: str) -> re.Pattern:
 
 
 RM_PROFILE_PATTERNS = [
+    # Mentor's in-between "moderate-high" has no schema value, and is not
+    # rounded to either neighbour (the Natrelle style-code rule). Checked first
+    # so the "high profile" inside it never reads as a high one.
+    (re.compile(r"\bmoderate[- ]high\b", re.I), None),
     # A labelled chart field states the projection outright and needs no
     # adjacency test: jkplasticsurgery publishes "Profile: Moderate", where the
     # value FOLLOWS the word rather than preceding it.
@@ -419,8 +445,10 @@ RM_PROFILE_PATTERNS = [
     (re.compile(r"\bprofile\s*[:\-]\s*moderate[- ]plus\b", re.I), "moderate-plus"),
     (re.compile(r"\bprofile\s*[:\-]\s*high\b", re.I), "high"),
     (re.compile(r"\bprofile\s*[:\-]\s*moderate\b(?!\s*plus)", re.I), "moderate"),
-    # Spelled out, unambiguous with or without the word "profile".
-    (re.compile(r"\b(?:extra|ultra)[- ]high\b|\bextra[- ]full\b", re.I), "extra-high"),
+    # Spelled out, unambiguous with or without the word "profile". Natrelle
+    # Inspira's fill names ("extra full", "full") are not profiles and are not
+    # decoded into one.
+    (re.compile(r"\b(?:extra|ultra)[- ]high\b", re.I), "extra-high"),
     (re.compile(r"\bmoderate[- ](?:profile[- ])?plus\b|\bmod\.?\s*plus\b", re.I),
      "moderate-plus"),
     (re.compile(r"\bhigh\s+(?:profile|projection)\b", re.I), "high"),
@@ -458,7 +486,9 @@ def _rm_assign_sides(text: str, volumes: list[tuple[int, int, float]],
     for start, end, value in volumes:
         best, best_gap = None, None
         for match in RM_SIDE_RE.finditer(text):
-            side = (match.group(1) or match.group(2)).lower()[0]
+            if after and match.group(3):
+                continue
+            side = (match.group(1) or match.group(2) or match.group(3)).lower()[0]
             side = "left" if side == "l" else "right"
             if after and match.start() >= end:
                 gap, lo, hi = match.start() - end, end, match.start()
@@ -489,10 +519,21 @@ def rm_parse_volumes(case_text: str) -> tuple[float | None, float | None]:
     The orientation that assigns more figures wins, and a two-sided assignment
     beats a one-sided one.
 
-    A sided figure wins over a bilateral one, a range is never read, and a bare
+    A side label on its own field ("Right Breast Implant: ... 450 cc") decides
+    its figure outright. A sided figure wins over a bilateral one, a range is
+    never read, a fill or an unsided slash pair records nothing, and a bare
     number is read only from a labelled implant field.
     """
     text = " ".join(case_text.split())
+    if RM_FILL_RE.search(text) or RM_SLASH_PAIR_RE.search(text):
+        return None, None
+
+    labelled = _rm_labelled_sides(case_text)
+    if labelled is None:
+        return None, None
+    if labelled:
+        return labelled.get("left"), labelled.get("right")
+
     volumes = []
     for match in RM_VOLUME_RE.finditer(text):
         window = text[max(0, match.start() - 14):match.end() + 14]
@@ -503,20 +544,63 @@ def rm_parse_volumes(case_text: str) -> tuple[float | None, float | None]:
     if volumes:
         following = _rm_assign_sides(text, volumes, after=True)
         preceding = _rm_assign_sides(text, volumes, after=False)
-        sides = max((following, preceding), key=lambda s: (len(s), -len(s) == 0))
-        if len(following) == len(preceding) and preceding:
-            # A tie means both readings explain the text; the labelled-chart
-            # form ("Left: 400cc") is the one that states the side outright.
-            sides = preceding
+        # A tie means both readings explain the text; the labelled-chart form
+        # ("Left: 400cc") is the one that states the side outright.
+        sides = preceding if len(preceding) >= len(following) else following
         if sides:
             return sides.get("left"), sides.get("right")
         value = volumes[0][2]
         return value, value
 
-    match = RM_LABELLED_BARE_RE.search(text)
-    if match:
-        value = float(match.group(1))
-        return value, value
+    return _rm_labelled_bare(case_text)
+
+
+def _rm_labelled_sides(case_text: str) -> dict[str, float] | None:
+    """{side: cc} from side-labelled fields; None when one holds two figures.
+
+    Each label's field runs to the next label or the end of its line, so the
+    figure is read wherever along the field the practice printed it. A field
+    carrying two figures or a range does not say which is the implant.
+    """
+    sides: dict[str, float] = {}
+    for line in case_text.split("\n"):
+        labels = list(RM_SIDE_LABEL_RE.finditer(line))
+        for index, label in enumerate(labels):
+            end = labels[index + 1].start() if index + 1 < len(labels) else len(line)
+            field = line[label.end():end]
+            figures = [float(m.group(1)) for m in RM_VOLUME_RE.finditer(field)]
+            if len(figures) > 1 or (figures and RM_RANGE_RE.search(field)):
+                return None
+            if figures:
+                sides.setdefault(label.group(1).lower(), figures[0])
+    return sides
+
+
+def _rm_labelled_bare(case_text: str) -> tuple[float | None, float | None]:
+    """(left_cc, right_cc) from the bare figures of a labelled implant field.
+
+    One unsided figure is bilateral ("Implant Size: 421"). Several figures are
+    read only when each names its own side ("350 ... on Right//325 ... on
+    Left"); otherwise none of them is kept.
+    """
+    match = RM_LABELLED_FIELD_RE.search(case_text)
+    if not match:
+        return None, None
+    value = match.group(1)
+    if re.search(r"\d\s*(?:-|–|—|\bto\b|/)\s*\d", value, re.I):
+        return None, None
+    figures = list(_RM_BARE_FIGURE_RE.finditer(value))
+    sides: dict[str, float] = {}
+    for index, figure in enumerate(figures):
+        end = figures[index + 1].start() if index + 1 < len(figures) else len(value)
+        side = _RM_WORD_SIDE_RE.search(value, figure.end(), end)
+        if side:
+            sides.setdefault(side.group(1).lower(), float(figure.group(1)))
+    if sides and len(sides) == len(figures):
+        return sides.get("left"), sides.get("right")
+    if len(figures) == 1 and not sides:
+        figure = float(figures[0].group(1))
+        return figure, figure
     return None, None
 
 

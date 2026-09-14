@@ -15,6 +15,7 @@ Cases kept and why:
   21 a case publishing no implant text at all
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -116,6 +117,22 @@ def test_a_published_range_is_not_a_volume(text):
     assert fg.folk_parse_volumes(text) == (None, None)
 
 
+def test_side_written_before_the_volume_keeps_both_breasts():
+    """Patient 14: 'Right side 325cc, Left side 350cc' once read as 325/325."""
+    assert fg.folk_parse_volumes(
+        "Mentor Implants: Right side 325cc, Left side 350cc Female C A") == (350.0, 325.0)
+
+
+@pytest.mark.parametrize("text", [
+    "Smooth round moderate profile saline implants (300cc filled to 325cc)",
+    "Smooth, round, saline 300 cc implants filled to 325cc each",
+])
+def test_a_saline_fill_records_no_volume(text):
+    """Patients 23 and 27 publish two figures without saying which is the
+    implant, so neither one is kept."""
+    assert fg.folk_parse_volumes(text) == (None, None)
+
+
 def test_range_case_publishes_no_volume(cases):
     """Under the captain's 2026-08-26 ruling such a case is skipped rather
     than emitted on the midpoint of a range."""
@@ -170,6 +187,8 @@ def test_different_implant_per_breast_is_warned_not_silently_resolved(cases):
     ("Breast augmentation with mastopexy", "mastopexy"),
     ("Breast implant exchange", "implant exchange"),
     ("Breast augmentation and tummy tuck", "abdominoplasty"),
+    ("Breast augmentation with bilateral mastopexies", "mastopexy"),
+    ("Breast augmentation with fat injections", "fat transfer"),
 ])
 def test_purity_is_screened_on_the_case_text(text, reason):
     """Never on the asset name - every photograph in this gallery is named
@@ -189,3 +208,44 @@ def test_folk_is_registered_with_its_own_kind_and_measured_crop():
     # Measured on this clinic and never transferred: the mark needs 0.096 of
     # half width at worst and is cropped at 0.105.
     assert cfg.bottom_crop_frac == 0.105
+
+
+def _composite(before_seed, after_seed):
+    """A landscape before|after composite whose halves are seeded noise."""
+    import io
+
+    import numpy as np
+    from PIL import Image
+    halves = [np.random.default_rng(seed).integers(0, 256, (64, 64), dtype=np.uint8)
+              for seed in (before_seed, after_seed)]
+    buf = io.BytesIO()
+    Image.fromarray(np.hstack(halves)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _folk_block(patient, url):
+    manifest = json.dumps({"items": [{"url": url, "type": "image"}]})
+    return ('<div class="case-display w-dyn-item"><div>Patient #</div>'
+            f'<div>{patient}</div><div>300cc smooth round silicone implants</div>'
+            f'<script type="application/json" class="w-json">{manifest}</script></div>')
+
+
+def test_collect_cases_drops_a_republished_patient_on_the_before_half(tmp_path):
+    """A duplicate patient would sit on both sides of the by-patient split.
+    Patient 2 republishes patient 1's before-half beside a different after;
+    patient 3 shares only an after-half and is a different woman; patient 4's
+    composite cannot be fetched and is kept rather than dropped."""
+    cfg = sg.CLINICS["folk"]
+    urls = {n: f"https://cdn.example.com/case-{n}_highres.webp" for n in (1, 2, 3, 4)}
+    (tmp_path / "folk_listing.html").write_text(
+        "".join(_folk_block(n, urls[n]) for n in (1, 2, 3, 4)))
+    for patient, seeds in ((1, (1, 5)), (2, (1, 6)), (3, (2, 5))):
+        path = tmp_path / sg.image_cache_key("folk", urls[patient])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(_composite(*seeds))
+
+    cases = sg.collect_cases(cfg, sg.PoliteFetcher(tmp_path, delay=0, offline=True))
+
+    assert [c.case_id for c in cases] == ["1", "2", "3", "4"]
+    assert [bool(c.pairs) for c in cases] == [True, False, True, True]
+    assert any("photographs of case 1" in w for w in cases[1].warnings)

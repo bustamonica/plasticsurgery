@@ -128,7 +128,7 @@ def folk_composites(block: str) -> list[str]:
 # every photograph in this gallery is named `breast-augmentation-...` regardless
 # of what the case says.
 FOLK_IMPURE_PATTERNS = [
-    (re.compile(r"\bmastopexy\b", re.I), "mastopexy"),
+    (re.compile(r"\bmastopex\w*", re.I), "mastopexy"),
     (re.compile(r"\blift(s|ed|ing)?\b", re.I), "breast lift"),
     (re.compile(r"\breduction\b", re.I), "reduction"),
     (re.compile(r"\brevision\b", re.I), "revision"),
@@ -137,7 +137,7 @@ FOLK_IMPURE_PATTERNS = [
      "implant exchange"),
     (re.compile(r"\bexchange\b", re.I), "implant exchange"),
     (re.compile(r"\bmommy makeover\b", re.I), "mommy makeover"),
-    (re.compile(r"\bfat (transfer|graft\w*)\b", re.I), "fat transfer"),
+    (re.compile(r"\bfat\s+(?:transfer|graft\w*|inject\w*)", re.I), "fat transfer"),
     (re.compile(r"\breconstruction\b", re.I), "breast reconstruction"),
     (re.compile(r"\babdominoplasty\b|\btummy tuck\b", re.I), "abdominoplasty"),
     (re.compile(r"\bliposuction\b", re.I), "liposuction"),
@@ -165,22 +165,28 @@ FOLK_RANGE_RE = re.compile(
     re.I)
 FOLK_VOLUME_RE = re.compile(r"(\d{2,4})\s*(?:cc|ml)\b", re.I)
 FOLK_SIDE_RE = re.compile(r"\b(left|right)\b", re.I)
+# A saline implant published with its fill ('300cc filled to 325cc') states two
+# figures without saying which is the implant, so it records no volume.
+FOLK_FILL_RE = re.compile(r"\bover[- ]?fill(?:ed)?\b|\bfill(?:ed)?\s+to\b", re.I)
 
 
 def folk_parse_volumes(case_text: str) -> tuple[float | None, float | None]:
     """(left_cc, right_cc) for a case, or (None, None) when it publishes none.
 
-    This clinic writes the volume BEFORE the side - '300 cc (right side), 250cc
-    (left side)' - which is the ordering the shared narrative reader gets
-    backwards (AGENTS.md), so the side is taken from the text that FOLLOWS each
-    figure, within its own comma-delimited segment.
+    This clinic mostly writes the volume BEFORE the side - '300 cc (right
+    side), 250cc (left side)' - which is the ordering the shared narrative
+    reader gets backwards (AGENTS.md), so the side is taken from the text that
+    FOLLOWS each figure, within its own comma-delimited segment. Patient 14
+    writes it the other way round ('Right side 325cc, Left side 350cc'), so a
+    figure with no side after it takes the one just before it instead.
     """
     text = " ".join(case_text.split())
-    if FOLK_RANGE_RE.search(text):
+    if FOLK_RANGE_RE.search(text) or FOLK_FILL_RE.search(text):
         return None, None
     sides: dict[str, float] = {}
     plain: float | None = None
-    for match in FOLK_VOLUME_RE.finditer(text):
+    matches = list(FOLK_VOLUME_RE.finditer(text))
+    for index, match in enumerate(matches):
         value = float(match.group(1))
         # The side can sit several words after its figure - patient 10 writes
         # "250cc moderate classic (right), 300cc moderate profile plus (left)"
@@ -189,6 +195,11 @@ def folk_parse_volumes(case_text: str) -> tuple[float | None, float | None]:
         # that case as one-sided and lost the left breast entirely.
         segment = text[match.end():match.end() + 60].split(",")[0]
         side_match = FOLK_SIDE_RE.search(segment)
+        if side_match is None:
+            floor = matches[index - 1].end() if index else 0
+            leading = text[max(floor, match.start() - 60):match.start()].split(",")[-1]
+            leading_sides = list(FOLK_SIDE_RE.finditer(leading))
+            side_match = leading_sides[-1] if leading_sides else None
         if side_match:
             sides.setdefault(side_match.group(1).lower(), value)
         elif plain is None:

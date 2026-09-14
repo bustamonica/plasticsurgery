@@ -721,8 +721,9 @@ CLINICS: dict[str, ClinicConfig] = {
     # -- the sixteen clinics consented 2026-08-25, delivered and archived
     #    2026-08-26 (CONSENT-2026-08-26-ROSEMONT-16.md) --
     #
-    # Fifteen of the sixteen run RM Gallery 2 (Rosemont Media) and share ONE
-    # parser, `rm_gallery2`, configured fifteen times: the family's plugin
+    # Fifteen of the sixteen run RM Gallery 2 (Rosemont Media); the fourteen
+    # registered here share ONE parser, `rm_gallery2`, configured fourteen
+    # times (drtabbal is withheld, see its note below): the family's plugin
     # markup is identical across them and only the surrounding theme differs,
     # which the parser handles. The sixteenth, folk, is BRAG book assets on
     # Webflow. None of these galleries paginates, none needs an endpoint grant,
@@ -800,10 +801,12 @@ CLINICS: dict[str, ClinicConfig] = {
         # one signed form covers both - so it is one clinic here, not two. The
         # second gallery is given as an absolute URL because it is on another
         # host; `gallery_url()` accepts either form. The two listings share ZERO
-        # asset ids, so an id-set diff calls them independent galleries; the
-        # overlap is only visible in the case TEXT, and `rm_gallery2` dedupes on
-        # it. Counting them separately would put one patient in both the train
-        # and the val half of a by-patient split.
+        # asset ids, so an id-set diff calls them independent galleries, and
+        # the republished cases' text differs by a word or a full stop; the
+        # overlap is certain only in the PIXELS, so `collect_cases` drops a
+        # republished patient by a perceptual hash of its before-halves (see
+        # rm_gallery2). Counting them separately would put one patient in both
+        # the train and the val half of a by-patient split.
         gallery_paths=[
             "/gallery/breast/breast-augmentation/",
             "https://www.santabarbarabreast.com/gallery/breast-augmentation/",
@@ -7707,14 +7710,17 @@ def gallery_url(cfg: ClinicConfig, gallery_path: str) -> str:
     return cfg.base_url + gallery_path
 
 
-def _rm_duplicate_of(rm_gallery2, fetcher: PoliteFetcher, cfg: ClinicConfig,
-                     case: CaseData, seen_hashes: list) -> str | None:
+def _duplicate_patient_of(fetcher: PoliteFetcher, cfg: ClinicConfig,
+                          case: CaseData, seen_hashes: list) -> str | None:
     """The earlier case whose photographs this one republishes, or None.
 
     Hashes every pair's before-half, so a case republished with its views in a
-    different order is still caught. A fetch failure leaves the case in rather
-    than dropping it on missing evidence.
+    different order is still caught; a composite pair is hashed on the left
+    half of its split. A fetch failure leaves the case in rather than dropping
+    it on missing evidence.
     """
+    import rm_gallery2
+
     hashes = []
     for pair in case.pairs:
         url = pair.before_url
@@ -7722,8 +7728,10 @@ def _rm_duplicate_of(rm_gallery2, fetcher: PoliteFetcher, cfg: ClinicConfig,
         # fetch every photograph a second time and leave two copies of the
         # clinic in the cache under different names.
         try:
-            hashes.append(rm_gallery2.rm_image_hash(
-                fetcher.get(url, image_cache_key(cfg.slug, url))))
+            data = fetcher.get(url, image_cache_key(cfg.slug, url))
+            if pair.split_composite:
+                data = split_composite_image(data)[0]
+            hashes.append(rm_gallery2.rm_image_hash(data))
         except Exception:
             continue
     for digest in hashes:
@@ -7735,6 +7743,19 @@ def _rm_duplicate_of(rm_gallery2, fetcher: PoliteFetcher, cfg: ClinicConfig,
     return None
 
 
+def _drop_duplicate_patient(fetcher: PoliteFetcher, cfg: ClinicConfig,
+                            case: CaseData, seen_hashes: list) -> None:
+    """Empty `case.pairs`, with a warning, when it republishes an earlier case."""
+    if not case.pairs:
+        return
+    duplicate_of = _duplicate_patient_of(fetcher, cfg, case, seen_hashes)
+    if duplicate_of is not None:
+        case.warnings.append(
+            f"duplicate patient: republishes the photographs of "
+            f"case {duplicate_of}; not emitted twice")
+        case.pairs = []
+
+
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                   gallery_endpoint: bool = False,
                   grant_root: Path | None = None) -> list[CaseData]:
@@ -7743,7 +7764,13 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
 
         url = gallery_url(cfg, cfg.gallery_paths[0])
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
-        return folk_gallery.folk_parse_listing(listing, url)
+        cases = folk_gallery.folk_parse_listing(listing, url)
+        # Duplicate patients are dropped on every gallery, as in the
+        # rm_gallery2 branch below, which records why.
+        seen_hashes: list[tuple[str, object]] = []
+        for case in cases:
+            _drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
+        return cases
     if cfg.kind == "rm_gallery2":
         # Imported here rather than at module scope, like page1solutions: the
         # module imports this one for the shared data model.
@@ -7772,7 +7799,6 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         # anyway; when the image cannot be fetched the case is kept rather than
         # dropped on missing evidence.
         seen_hashes: list[tuple[str, object]] = []
-        dedupe_by_image = True
         # The cache key is indexed by GALLERY, not derived from the path's last
         # segment. sbschooler's two galleries both end in "breast-augmentation"
         # on different hosts, so a path-derived key made the second listing
@@ -7800,14 +7826,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                     cases.append(case)
                     continue
                 seen_case_ids.add(case.case_id)
-                if dedupe_by_image and case.pairs:
-                    duplicate_of = _rm_duplicate_of(
-                        rm_gallery2, fetcher, cfg, case, seen_hashes)
-                    if duplicate_of is not None:
-                        case.warnings.append(
-                            f"duplicate patient: republishes the photographs of "
-                            f"case {duplicate_of}; not emitted twice")
-                        case.pairs = []
+                _drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
                 cases.append(case)
         return cases
     if cfg.kind == "page1solutions":

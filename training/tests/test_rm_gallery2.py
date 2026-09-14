@@ -21,8 +21,10 @@ assumption a single-clinic parser would have made:
 - `bottger`/`sbbreast` are impure cases filed in the augmentation category.
 """
 
+import io
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -185,6 +187,58 @@ def test_bare_number_only_counts_under_a_labelled_implant_field():
     assert rm.rm_parse_volumes("Smooth round 385 implants") == (None, None)
 
 
+@pytest.mark.parametrize("text,volumes", [
+    # leber 1390: a bare R/L leading into each figure, after a bilateral
+    # headline that the sided figures override.
+    ("500 cc Moderate Plus Silicone\n"
+     "5ft 6 - 130 lbs, R14, L 13.5, R 450 cc MPP Silicone, L 500cc MPP Silicone",
+     (500.0, 450.0)),
+    # pscarolina 10985 and 11014: bare figures sided inside the labelled field.
+    ("Implant Size: 350 Moderate Plus Profile on Right//325 Moderate Plus Profile on Left",
+     (325.0, 350.0)),
+    ("Implant Size: 400 Moderate Plus Profile on the right, "
+     "375 Moderate Plus Profile on the left", (375.0, 400.0)),
+    # leber 2280: each side labelled, its figure far along its own field.
+    ("Right Breast Implant: Smooth Round Moderate Plus Profile 450 cc Silicone\n"
+     "Left Breast Implant: Smooth Round Moderate Plus Profile 450 cc Silicone",
+     (450.0, 450.0)),
+    ("Right implant: 295 cc\nLeft implant: 240 cc", (240.0, 295.0)),
+])
+def test_sided_layouts_keep_each_breast_on_its_own_side(text, volumes):
+    assert rm.rm_parse_volumes(text) == volumes
+
+
+def test_a_breast_width_is_not_a_side_marker():
+    """leber 1288: 'L 12.5cm R 13.5cm' measures the breasts; it sides nothing."""
+    assert rm.rm_parse_volumes("BL 350cc MP Silicone, L 12.5cm R 13.5cm, 32 A") == (350.0, 350.0)
+
+
+@pytest.mark.parametrize("text", [
+    # Unsided slash pairs: boynton 7575/7594/7580 and bottger 633.
+    "IMPLANT SIZE: 325/375cc",
+    "IMPLANT SIZE: 300/325 cc",
+    "IMPLANT SIZE: 300/340 c",
+    "Bilateral Breast Augmentation with 275/300 CC smooth round moderate plus gel implants",
+    # Saline fills: leber 2266, 2267 and 1243, and coberly's single-figure form.
+    "Right Breast: Smooth Round Moderate Profile Saline 425cc Overfilled to 450cc\n"
+    "Left Breast: Smooth Round Moderate Profile Saline 425cc Overfilled to 450cc",
+    "Right Breast Implant: Smooth Round Moderate Profile 425 cc Saline over filled to 475 cc\n"
+    "Left Breast Implant: Smooth Round Moderate Profile 425 cc Saline over filled to 450 cc",
+    "Right Breast Width: 12.5 cm - Left Breast Width: 13 cm - "
+    "325 cc Moderate profile overfilled to 350 cc Original Bra Size: 32 a",
+    "after breast augmentation with smooth round saline implants filled to 400 mL",
+])
+def test_two_figures_that_do_not_say_which_is_the_implant_record_no_volume(text):
+    """Neither one of the figures nor their average is a published volume."""
+    assert rm.rm_parse_volumes(text) == (None, None)
+
+
+def test_a_bare_implant_figure_before_moderate_is_not_months_post_op():
+    """'450 Moderate' once read as 450 months post-op on 20 emitted pairs."""
+    assert rm.rm_parse_specs("Implant Size: 450 Moderate Plus Profile").months_post_op is None
+    assert rm.rm_parse_specs("After photos taken at 6 mos. post-op").months_post_op == 6.0
+
+
 # ---------------------------------------------------------------------------
 # Profile
 # ---------------------------------------------------------------------------
@@ -196,7 +250,6 @@ def test_bare_number_only_counts_under_a_labelled_implant_field():
     ("Implant Size: 325cc MP", "moderate"),
     ("Implant Size: 430 Ultra High Profile", "extra-high"),
     ("400 cc smooth round high profile gel implant", "high"),
-    ("Allergan Inspira 340 cc extra full gel implants", "extra-high"),
     ("Profile: Moderate", "moderate"),
     ("Implants: Silicone Profile: Moderate Plus", "moderate-plus"),
 ])
@@ -213,6 +266,11 @@ def test_profile_vocabulary_this_family_actually_publishes(text, profile):
     "Smooth Round Low Plus 280 cc (Right) 265 cc (Left)",
     # A Natrelle style code is NOT decoded (captain's confirmation).
     "650cc SRF",
+    # Nor is an Inspira fill name (coberly 3576).
+    "Allergan Inspira 340 cc extra full gel Inspira implants",
+    # Mentor's moderate-high has no schema value (boynton 8644, 7289).
+    "310 cc smooth round moderate-high profile silicone gel Mentor XTRA breast implant",
+    "Mentor MH (moderate High) smooth round silicone gel XTRA breast implants",
 ])
 def test_profile_is_omitted_rather_than_guessed(text):
     assert rm.rm_profile(text) is None
@@ -307,6 +365,13 @@ def test_a_declined_or_hypothetical_second_procedure_is_not_a_combined_case(text
     ("implant exchange for larger implants", "implant exchange"),
     ("revision of a previous augmentation", "revision"),
     ("breast augmentation with fat transfer", "fat transfer"),
+    # bottger 2097: the plural, emitted as pure before the screen read it.
+    ("Bilateral Breast Augmentation\n"
+     "225 cc smooth round moderate plus gel implants with bilateral mastopexies",
+     "mastopexy"),
+    # coberly 2270.
+    ("60 year old woman before and 6 months after Breast Augmentation with fat injections.",
+     "fat transfer"),
 ])
 def test_named_second_procedure_is_screened_out(text, reason):
     assert rm.rm_impure_reason(text) == reason
@@ -372,6 +437,10 @@ def test_tabbal_is_deliberately_not_registered():
     contradicts the gallery's own slots. Deferred to the crop-spec
     consolidation, not abandoned - see DECISION-2026-08-26-tabbal.md."""
     assert "tabbal" not in sg.CLINICS
+    assert "drtabbal" not in sg.CLINICS
+    for cfg in sg.CLINICS.values():
+        urls = [cfg.base_url] + [sg.gallery_url(cfg, p) for p in cfg.gallery_paths or []]
+        assert not any("tabbal" in urlsplit(url).netloc for url in urls), cfg.slug
 
 
 def test_santa_barbara_is_one_clinic_across_two_domains():
@@ -390,3 +459,70 @@ def test_listing_enumerates_case_slugs_in_numeric_order():
                '<a href="/gallery/breast/breast-augmentation/patient-2/">dup</a>')
     assert rm.rm_list_cases(listing, "/gallery/breast/breast-augmentation/") == [
         "patient-2", "patient-10"]
+
+
+# ---------------------------------------------------------------------------
+# collect_cases: two domains, one practice
+# ---------------------------------------------------------------------------
+
+
+SB_FIRST = "https://www.sbplasticsurgery.com"
+SB_SECOND = "https://www.santabarbarabreast.com"
+
+
+def _noise_png(seed):
+    import numpy as np
+    from PIL import Image
+    pixels = np.random.default_rng(seed).integers(0, 256, (64, 64), dtype=np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(pixels).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _asset(host, case_number, slot):
+    return f"{host}/wp-content/uploads/rmgallery2/RMG9{case_number}-{case_number}-{slot}"
+
+
+def _rm_case_page(host, case_number):
+    return ('<div class="single-case-content"><div class="img-wrap">'
+            f'<div class="before-img"><img src="{_asset(host, case_number, "b")}/medium.jpg"></div>'
+            f'<div class="after-img"><img src="{_asset(host, case_number, "a")}/medium.jpg"></div>'
+            '</div><p>Breast augmentation with 350cc smooth round silicone implants.</p></div>')
+
+
+def test_collect_cases_reads_both_domains_and_drops_republished_patients(tmp_path):
+    """sbschooler's two galleries both end in 'breast-augmentation/' on
+    different hosts, so a listing key derived from the path replayed the first
+    listing as the second. A patient republished under a new case number is
+    caught on the pixels, a repeated case number on the number, and a case
+    whose photograph cannot be fetched is kept rather than dropped."""
+    cfg = sg.CLINICS["sbschooler"]
+    first, second = (sg.gallery_url(cfg, path) for path in cfg.gallery_paths)
+
+    def put(key, data):
+        path = tmp_path / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data.encode() if isinstance(data, str) else data)
+
+    put("sbschooler_listing_g0.html",
+        f'<a href="{first}patient-1/">1</a><a href="{first}patient-2/">2</a>')
+    put("sbschooler_listing_g1.html",
+        "".join(f'<a href="/gallery/breast-augmentation/patient-{n}/">{n}</a>'
+                for n in (1, 2, 3)))
+    pages = {("g0", 1): (SB_FIRST, 100), ("g0", 2): (SB_FIRST, 200),
+             ("g1", 1): (SB_SECOND, 300), ("g1", 2): (SB_SECOND, 200),
+             ("g1", 3): (SB_SECOND, 400)}
+    for (gallery, slug), (host, number) in pages.items():
+        put(f"sbschooler_case_{gallery}_patient-{slug}.html", _rm_case_page(host, number))
+    # 300 republishes 100's photograph; 400's is never cached.
+    for host, number, seed in ((SB_FIRST, 100, 1), (SB_FIRST, 200, 2), (SB_SECOND, 300, 1)):
+        url = f"{_asset(host, number, 'b')}/original.jpg"
+        put(sg.image_cache_key("sbschooler", url), _noise_png(seed))
+
+    cases = sg.collect_cases(cfg, sg.PoliteFetcher(tmp_path, delay=0, offline=True))
+
+    assert [c.case_id for c in cases] == ["100", "200", "300", "200", "400"]
+    assert [bool(c.pairs) for c in cases] == [True, True, False, False, True]
+    assert cases[2].source_url.startswith(SB_SECOND)
+    assert any("photographs of case 100" in w for w in cases[2].warnings)
+    assert any("duplicate case number 200" in w for w in cases[3].warnings)
