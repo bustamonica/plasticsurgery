@@ -395,6 +395,8 @@ RM_LABELLED_FIELD_RE = re.compile(
     re.I)
 _RM_BARE_FIGURE_RE = re.compile(
     r"(?<![\d.])(\d{2,4})(?![\d.])(?!\s*(?:cm|mm|lbs?|pounds?|%|\"|'|\u2019|\u201d))", re.I)
+# A manufacturer style or model number ("457 style 15") is not a volume.
+_RM_STYLE_PREFIX_RE = re.compile(r"(?:\bstyle|\bmodel|#)\s*#?\s*$", re.I)
 _RM_WORD_SIDE_RE = re.compile(r"\b(left|right)\b", re.I)
 RM_MONTHS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:months?|mos?\b\.?)", re.I)
 RM_YEARS_POSTOP_RE = re.compile(r"(\d+(?:\.\d+)?)\s*years?\s+(?:post|after)", re.I)
@@ -589,7 +591,8 @@ def _rm_labelled_bare(case_text: str) -> tuple[float | None, float | None]:
     value = match.group(1)
     if re.search(r"\d\s*(?:-|–|—|\bto\b|/)\s*\d", value, re.I):
         return None, None
-    figures = list(_RM_BARE_FIGURE_RE.finditer(value))
+    figures = [figure for figure in _RM_BARE_FIGURE_RE.finditer(value)
+               if not _RM_STYLE_PREFIX_RE.search(value, 0, figure.start())]
     sides: dict[str, float] = {}
     for index, figure in enumerate(figures):
         end = figures[index + 1].start() if index + 1 < len(figures) else len(value)

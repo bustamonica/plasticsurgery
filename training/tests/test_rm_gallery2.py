@@ -187,6 +187,16 @@ def test_bare_number_only_counts_under_a_labelled_implant_field():
     assert rm.rm_parse_volumes("Smooth round 385 implants") == (None, None)
 
 
+@pytest.mark.parametrize("text", [
+    # weston 1994: the style number is not a second volume.
+    "Implant Size: 457 style 15 silicone gel",
+    "Implant Size: 457 Style #15 silicone gel",
+    "Implant Size: 457 model 20",
+])
+def test_a_style_or_model_number_is_not_a_second_volume(text):
+    assert rm.rm_parse_volumes(text) == (457.0, 457.0)
+
+
 @pytest.mark.parametrize("text,volumes", [
     # leber 1390: a bare R/L leading into each figure, after a bilateral
     # headline that the sided figures override.
