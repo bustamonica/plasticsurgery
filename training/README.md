@@ -46,6 +46,11 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   `emit_corpus.py` reads it and copies each withheld pair into the quarantine
   tree so its images and consent metadata survive. Nothing under `raw/` or
   `staging/` is ever removed.
+- A mosaic hold at emit is released only through `mosaic_false_positives.json`
+  (`emit_corpus.py --mosaic-cleared`): enumerated per pair id, never a rule or a
+  pattern, and every entry must carry its clinic, ruling and evidence. It releases
+  a mosaic hold and nothing else, and it is read at emit only - a mosaic reject
+  at ingest is a one-way drop.
 
 ## Pipeline
 
@@ -55,7 +60,8 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
         ▼                         ├── after.jpg
 1. scripts/ingest.py              └── meta.json   (see dataset_schema.json)
    validates pairs + metadata, strips EXIF, dedupes, min-resolution check,
-   rejects censored/annotated images (scripts/censorship.py)
+   rejects censored/annotated images (scripts/censorship.py) and burned-in
+   mosaic (scripts/mosaic.py)
         │
         ▼                       training/data/staging/
         │

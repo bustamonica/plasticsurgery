@@ -53,17 +53,26 @@ a pair the gate did not flag, and a run's holds and releases are both countable
 from the summary. It releases a mosaic hold and nothing else - a listed pair
 that also trips censorship, the size floor, the EXIF check or the duplicate
 check is still held on that ground, under that disposition, because those are
-decided before the mosaic branch is reached.
+decided before the mosaic branch is reached. The same ordering puts retirement
+ahead of it, so a clearance can never re-admit a retired pair.
+
+That is why the file's first and only entry, `drdanielbarrett-9122-side-right`, is
+INERT today. It is a hand-checked false positive and is recorded as one, but the
+pair is also retired under `retired_laterality` in `retired_pairs.json`
+(2026-08-15), and retirement is decided before any image is opened. The entry
+takes effect only if that retirement is lifted; until then no pair on disk is
+released by this file, and the mechanism has not been exercised on a real pair.
 
 Measured over every staging tree on disk before this shipped - 1,053 pairs across
 aips 70, arps 55, drdanielbarrett 298, drkolker 240, sanantonio 207 and swan 183
 (`~/firstmate/data/ba-viz-mosaic-detector-adopt/staging-sweep.jsonl`): the gate
-holds 8 pairs, all drdanielbarrett and all the watermark family. Seven of the
-eight are already in the finished tree, which this stage never overwrites, so the
-real cost on today's staging is one pair, `drdanielbarrett-9122-side-right`, and
-it is a false positive. Every other clinic holds zero - sanantonio's 207 staged
-pairs included, which contain the eight mosaicked cases and corroborate
-`mosaic.py`'s LIMITS from the other direction.
+holds 8 pairs, all drdanielbarrett and all the watermark family. Its real cost on
+today's staging is ZERO pairs. Seven of the eight are already in the finished
+tree, which this stage never overwrites, and the eighth,
+`drdanielbarrett-9122-side-right`, is retired regardless of what this gate
+decides. Every other clinic holds zero - sanantonio's 207 staged pairs included,
+which contain the eight mosaicked cases and corroborate `mosaic.py`'s LIMITS from
+the other direction.
 
 Like every other gate here this governs the staging -> finished carry-through and
 nothing else. It never reads the finished tree looking for pairs to withdraw, so

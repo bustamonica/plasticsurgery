@@ -11,6 +11,13 @@ Output layout: <staging>/<pair_id>/{before,after}.jpg + meta.json
 - Rejects burned-in mosaic pixelation (see mosaic.py) - a separate gate because
   censorship.py provably does not see it (0 of 182 on aips while 22 mosaicked
   pairs were accepted), and because each gate has to be re-measured on its own.
+  A mosaic reject here is a ONE-WAY drop, which is the standing rule's literal
+  shape (dropped at ingest). The mosaic allow-list, `mosaic_false_positives.json`,
+  is read at the emit boundary only (`emit_corpus.py --mosaic-cleared`) and never
+  here, so a false positive rejected at ingest never reaches staging/ and is
+  released only by a code change. Whether ingest should get a release path of
+  its own is an open captain decision:
+  ba-viz-mosaic-detector-adopt-decision-ingest-mosaic-release-path.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -170,7 +177,10 @@ def main() -> int:
             # gates keep separate measured tables, so a run log has to be
             # countable per gate or neither can be re-measured from it; the
             # short-circuit also spares the grid search on an image already
-            # rejected.
+            # rejected. There is no allow-list here: mosaic_false_positives.json
+            # is an emit-boundary release only, so a false positive dropped at
+            # this line is recoverable only by a code change (open decision
+            # ba-viz-mosaic-detector-adopt-decision-ingest-mosaic-release-path).
             blocks = detect_mosaic(pixels)
             if blocks:
                 print(

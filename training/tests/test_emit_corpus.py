@@ -1132,6 +1132,24 @@ class TestMosaicRelease:
         assert "drdanielbarrett-9122-side-right" in releases
         assert "watermark" in releases["drdanielbarrett-9122-side-right"].lower()
 
+    def test_the_shipped_entry_is_inert_while_its_retirement_stands(
+        self, tmp_path, make_staged
+    ):
+        """The committed entry releases nothing today, and the docs say so.
+
+        `drdanielbarrett-9122-side-right` is also retired under
+        `retired_laterality`, and retirement is decided before the mosaic
+        branch. Run through the real registry and the real allow-list, a
+        mosaicked copy of that pair reads as retired, not released. If this
+        goes red the retirement was lifted and the entry has become live -
+        update emit_corpus.py's docstring and the file's `_comment` with it.
+        """
+        pair_id = "drdanielbarrett-9122-side-right"
+        make_staged(pair_id, view=view_of(pair_id), images=(make_torso(seed=31), mosaicked_torso()))
+        run(tmp_path, clinic="drdanielbarrett", cleared=emit_corpus.DEFAULT_MOSAIC_CLEARED)
+        assert dispositions(tmp_path)[pair_id] == "retired-laterality"
+        assert not (tmp_path / "corpus" / "drdanielbarrett" / pair_id).exists()
+
     def test_a_released_pair_is_counted_apart_from_a_plain_emit(self, tmp_path, make_staged, capsys):
         """A run's holds and releases both have to be countable from the summary."""
         make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
