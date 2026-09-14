@@ -123,6 +123,13 @@ platform in this group publishes a procedure slug to screen on. None of the
 three documents laterality anywhere, so they emit front views only and their
 lateral pairs are held by view type pending the captain's laterality ruling
 (key=laterality-rule-2026-08-25).
+
+15 more (the Rosemont 16, consent in clinic-corpus/CONSENT-2026-08-26-ROSEMONT-16.md)
+add two modules: fourteen clinics share kind='rm_gallery2' (rm_gallery2.py,
+RM Gallery 2 by Rosemont Media - a second parser for the platform, separate
+from kind='rmgallery2' above) and folk is kind='folk' (folk_gallery.py). The
+sixteenth, drtabbal, is consented but deliberately not registered; its note in
+CLINICS says why.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
