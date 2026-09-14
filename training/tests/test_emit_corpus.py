@@ -42,8 +42,25 @@ from PIL import Image
 import emit_corpus
 from conftest import CORPUS, QUARANTINE, make_torso, needs_corpus, needs_quarantine
 from ingest import MIN_DIMENSION, VALID_VIEWS
+from test_mosaic import mosaic_only_box, pixelate, tattoo
 
 REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
+
+MOSAIC_BOX = mosaic_only_box(make_torso())
+
+
+def mosaicked_torso(seed=32):
+    """A torso only the mosaic gate objects to (see `mosaic_only_box`)."""
+    return pixelate(tattoo(make_torso(seed=seed), MOSAIC_BOX), MOSAIC_BOX, 12)
+
+
+def write_cleared(tmp_path, entries, name="mosaic_false_positives.json") -> Path:
+    """Write an allow-list file in the shape emit_corpus.load_mosaic_cleared reads."""
+    path = tmp_path / name
+    path.write_text(json.dumps({"_comment": "test fixture", "cleared": entries}))
+    return path
+
+
 CALIBRATED = {
     "sanantonio-23999-oblique-right",
     "sanantonio-24007-oblique-right",
@@ -97,7 +114,15 @@ def make_staged(tmp_path):
     return _make
 
 
-def run(tmp_path, clinic="clinic01", quarantine=None, extra=(), staging=None, report=None):
+def run(
+    tmp_path,
+    clinic="clinic01",
+    quarantine=None,
+    extra=(),
+    staging=None,
+    report=None,
+    cleared=None,
+):
     argv = [
         str(staging or tmp_path / "staging"),
         str(tmp_path / "corpus"),
@@ -108,6 +133,8 @@ def run(tmp_path, clinic="clinic01", quarantine=None, extra=(), staging=None, re
     ]
     if quarantine is not None:
         argv += ["--quarantine", str(quarantine)]
+    if cleared is not None:
+        argv += ["--mosaic-cleared", str(cleared)]
     return emit_corpus.main(argv + list(extra))
 
 
@@ -846,6 +873,56 @@ class TestGates:
         run(tmp_path)
         assert dispositions(tmp_path)["clinic01-0001-front"] == "censored"
 
+    def test_a_mosaicked_pair_is_held_reported_and_left_in_staging(
+        self, tmp_path, make_staged, capsys
+    ):
+        """The other half of "dropped at ingest AND never emitted".
+
+        Every staging tree on disk was ingested before the mosaic gate landed,
+        so `ingest.py` alone does not carry the 2026-08-14 rule through to the
+        finished corpus. The hold must be visible and reversible rather than a
+        silent drop: half the corpus sweep's flags are drdanielbarrett's
+        burned-in watermark lettering, so what stops here is consented data
+        awaiting a human's eye, and `staging/` has to survive intact.
+        """
+        staged = make_staged(
+            "clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso())
+        )
+        make_staged("clinic01-0002-front", seed=3)
+        quarantine = tmp_path / "quarantine"
+        quarantine.mkdir()
+
+        run(tmp_path, quarantine=quarantine)
+
+        row = {r["pair_id"]: r for r in report_rows(tmp_path)}["clinic01-0001-front"]
+        # its own disposition, never folded into `censored`
+        assert row["disposition"] == "mosaic"
+        # the detail names the half and carries the detector's own evidence, so
+        # the region is findable without re-running anything
+        assert row["detail"].startswith("after: ")
+        assert "mosaic pixelation at x=" in row["detail"]
+        assert "grid alignment" in row["detail"]
+        # visible in the run's stdout, not just the CSV
+        assert "HOLD clinic01-0001-front: mosaic" in capsys.readouterr().out
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
+        # holds and reports: staging untouched, and nothing copied to quarantine
+        assert visible(staged) == {"before.jpg", "after.jpg", "meta.json"}
+        assert visible(quarantine) == set()
+        # and the gate costs the clinic nothing else
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+
+    def test_ink_without_a_mosaic_over_it_still_emits(self, tmp_path, make_staged):
+        """The gate keys on the tiling, not on the mark it hides.
+
+        Same torso and the same ink as the pair above, unpixelated. A gate that
+        held this would be holding every tattooed patient in the corpus.
+        """
+        marked = tattoo(make_torso(seed=32), MOSAIC_BOX)
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), marked))
+        run(tmp_path)
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "emit"
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
+
     def test_a_pair_below_the_size_floor_is_not_emitted(self, tmp_path, make_staged):
         make_staged("clinic01-0001-front", size=(399, 500))
         make_staged("clinic01-0002-front")
@@ -904,3 +981,197 @@ class TestGates:
         assert np.array_equal(
             cv2.imread(str(dest / "before.jpg")), cv2.imread(str(staged / "before.jpg"))
         )
+
+
+class TestMosaicRelease:
+    """The mosaic gate's release path (`mosaic_false_positives.json`).
+
+    The gate is measured wrong about half the times it fires - 8 of the 16
+    corpus-sweep flags are drdanielbarrett's burned-in watermark lettering - so
+    without a release it is a one-way ratchet that loses consented data every
+    time it is wrong. What is under test is that the release exists, that it is
+    as loud as the hold, and above all that it releases a mosaic hold and
+    nothing else.
+    """
+
+    def test_a_cleared_flag_emits_and_says_so(self, tmp_path, make_staged, capsys):
+        staged = make_staged(
+            "clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso())
+        )
+        cleared = write_cleared(tmp_path, {
+            "clinic01-0001-front": {
+                "clinic": "clinic01",
+                "ruling": "captain, 2026-08-26",
+                "evidence": "watermark lettering, opened at 4x with the box drawn",
+            }
+        })
+        run(tmp_path, cleared=cleared)
+
+        row = {r["pair_id"]: r for r in report_rows(tmp_path)}["clinic01-0001-front"]
+        # released, and never mistakable for a pair the gate did not flag
+        assert row["disposition"] == "mosaic-released"
+        assert "mosaic pixelation at x=" in row["detail"]
+        assert "watermark lettering, opened at 4x" in row["detail"]
+        assert "RELEASE clinic01-0001-front" in capsys.readouterr().out
+        # and it really is carried through, byte for byte
+        dest = tmp_path / "corpus" / "clinic01" / "clinic01-0001-front"
+        assert (dest / "after.jpg").read_bytes() == (staged / "after.jpg").read_bytes()
+
+    def test_without_an_entry_the_same_pair_is_held(self, tmp_path, make_staged):
+        """The control for the test above: the fixture is genuinely flagged.
+
+        An empty allow-list must leave the gate exactly as it was, or the test
+        above would pass on a pair the detector never objected to.
+        """
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
+        run(tmp_path, cleared=write_cleared(tmp_path, {}))
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "mosaic"
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
+
+    def test_a_missing_allow_list_releases_nothing(self, tmp_path, make_staged):
+        # Fail closed: absent means no releases, which is the direction that
+        # cannot lose data.
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
+        run(tmp_path, cleared=tmp_path / "does-not-exist.json")
+        assert dispositions(tmp_path)["clinic01-0001-front"] == "mosaic"
+
+    def test_a_clearance_does_not_bypass_any_other_gate(self, tmp_path, make_staged):
+        """The release must never become a general override.
+
+        Each pair is cleared for mosaic and independently fails one other gate;
+        every one must still be held, under that other gate's own disposition.
+        """
+        entries = {}
+        censored = make_torso(seed=41)
+        h, w = censored.shape[:2]
+        cv2.circle(censored, (int(w * 0.40), int(h * 0.40)), int(min(h, w) * 0.09), (0, 0, 0), -1)
+        make_staged("clinic01-0001-front", images=(censored, mosaicked_torso()))
+        make_staged("clinic01-0002-front", size=(399, 500))
+        make_staged("clinic01-0003-front", exif=True)
+        make_staged("clinic01-0004-front", meta_overrides={"consent_ref": ""})
+        for n in ("0001", "0002", "0003", "0004"):
+            entries[f"clinic01-{n}-front"] = {
+                "clinic": "clinic01",
+                "ruling": "captain, 2026-08-26",
+                "evidence": "cleared for mosaic only",
+            }
+
+        run(tmp_path, cleared=write_cleared(tmp_path, entries))
+
+        rows = dispositions(tmp_path)
+        assert rows["clinic01-0001-front"] == "censored"
+        assert rows["clinic01-0002-front"] == "too-small"
+        assert rows["clinic01-0003-front"] == "carries-exif"
+        assert rows["clinic01-0004-front"] == "invalid-meta"
+        for n in ("0001", "0002", "0003", "0004"):
+            assert not (tmp_path / "corpus" / "clinic01" / f"clinic01-{n}-front").exists()
+
+    def test_a_clearance_does_not_re_admit_a_retired_pair(self, tmp_path, make_staged):
+        # Retirement is decided before any technical gate, so a clearance cannot
+        # reach it. Uses a real id from the captain's 2026-08-15 ruling.
+        pair_id = "drdanielbarrett-90631-side-right"
+        make_staged(pair_id, view=view_of(pair_id), images=(make_torso(seed=31), mosaicked_torso()))
+        cleared = write_cleared(tmp_path, {
+            pair_id: {
+                "clinic": "drdanielbarrett",
+                "ruling": "captain, 2026-08-26",
+                "evidence": "cleared for mosaic only",
+            }
+        })
+        run(tmp_path, clinic="drdanielbarrett", cleared=cleared)
+        assert dispositions(tmp_path)[pair_id] == "retired-laterality"
+        assert not (tmp_path / "corpus" / "drdanielbarrett" / pair_id).exists()
+
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            {"clinic": "clinic01", "ruling": "captain, 2026-08-26"},          # no evidence
+            {"clinic": "clinic01", "evidence": "looked at it"},                # no ruling
+            {"ruling": "captain", "evidence": "looked at it"},                 # no clinic
+            {"clinic": "clinic01", "ruling": "captain", "evidence": "   "},    # blank evidence
+            {"clinic": "clinic99", "ruling": "captain", "evidence": "x"},      # wrong clinic
+        ],
+    )
+    def test_an_unreviewable_entry_refuses_the_run(self, tmp_path, make_staged, entry):
+        """Evidence is required by the schema, not by convention.
+
+        An entry nobody can review is the same failure as no entry at all, and
+        it must stop the run rather than quietly releasing or quietly not.
+        """
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
+        cleared = write_cleared(tmp_path, {"clinic01-0001-front": entry})
+        with pytest.raises(ValueError):
+            run(tmp_path, cleared=cleared)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "{not json",
+            json.dumps({"cleared": {}, "released_anything": {}}),
+            json.dumps({"_comment": "no section at all"}),
+            json.dumps({"cleared": ["clinic01-0001-front"]}),
+        ],
+    )
+    def test_a_malformed_allow_list_refuses_the_run(self, tmp_path, make_staged, text):
+        # Same discipline load_registry applies in the other direction: a file
+        # someone edited is never read as "nothing is cleared".
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
+        path = tmp_path / "cleared.json"
+        path.write_text(text)
+        with pytest.raises(ValueError):
+            run(tmp_path, cleared=path)
+
+    def test_the_committed_allow_list_is_loadable_and_carries_its_evidence(self):
+        """The shipped enumeration, read through its only consumer.
+
+        `mosaic_false_positives.json` is an owned data contract this stage is the
+        sole reader of, so it is asserted through the loader rather than as text.
+        """
+        path = Path(emit_corpus.DEFAULT_MOSAIC_CLEARED)
+        releases = emit_corpus.load_mosaic_cleared(path)
+        assert "drdanielbarrett-9122-side-right" in releases
+        assert "watermark" in releases["drdanielbarrett-9122-side-right"].lower()
+
+    def test_the_shipped_entry_is_inert_while_its_retirement_stands(
+        self, tmp_path, make_staged
+    ):
+        """The committed entry releases nothing today, and the docs say so.
+
+        `drdanielbarrett-9122-side-right` is also retired under
+        `retired_laterality`, and retirement is decided before the mosaic
+        branch. Run through the real registry and the real allow-list, a
+        mosaicked copy of that pair reads as retired, not released. If this
+        goes red the retirement was lifted and the entry has become live -
+        update emit_corpus.py's docstring and the file's `_comment` with it.
+        """
+        pair_id = "drdanielbarrett-9122-side-right"
+        make_staged(pair_id, view=view_of(pair_id), images=(make_torso(seed=31), mosaicked_torso()))
+        run(tmp_path, clinic="drdanielbarrett", cleared=emit_corpus.DEFAULT_MOSAIC_CLEARED)
+        assert dispositions(tmp_path)[pair_id] == "retired-laterality"
+        assert not (tmp_path / "corpus" / "drdanielbarrett" / pair_id).exists()
+
+    def test_a_released_pair_is_counted_apart_from_a_plain_emit(self, tmp_path, make_staged, capsys):
+        """A run's holds and releases both have to be countable from the summary."""
+        make_staged("clinic01-0001-front", images=(make_torso(seed=31), mosaicked_torso()))
+        make_staged("clinic01-0002-front", seed=3)
+        make_staged("clinic01-0003-front", images=(make_torso(seed=51), mosaicked_torso(seed=52)))
+        cleared = write_cleared(tmp_path, {
+            "clinic01-0001-front": {
+                "clinic": "clinic01",
+                "ruling": "captain, 2026-08-26",
+                "evidence": "watermark lettering, box opened",
+            }
+        })
+        run(tmp_path, cleared=cleared)
+
+        out = capsys.readouterr().out
+        counts = {}
+        for row in report_rows(tmp_path):
+            counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
+        assert counts == {"mosaic-released": 1, "emit": 1, "mosaic": 1}
+        assert "1  mosaic-released" in out
+        assert "1  mosaic" in out
+        # both carried pairs land; only the held one does not
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0001-front").exists()
+        assert (tmp_path / "corpus" / "clinic01" / "clinic01-0002-front").exists()
+        assert not (tmp_path / "corpus" / "clinic01" / "clinic01-0003-front").exists()

@@ -31,7 +31,8 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   36 carrying EXIF, including `harrington-177-front`, whose images carry the
   camera make and model and 2020 capture timestamps.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
-- Censored and annotated photos are rejected, not repaired (`censorship.py`).
+- Censored and annotated photos are rejected, not repaired (`censorship.py`,
+  and `mosaic.py` for burned-in mosaic).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
   a clinic's blur bands. A clinic watermark clear of breast tissue is kept
   unmasked *only* when it appears on both halves of the pair: a mark burned into
@@ -46,6 +47,11 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   `emit_corpus.py` reads it and copies each withheld pair into the quarantine
   tree so its images and consent metadata survive. Nothing under `raw/` or
   `staging/` is ever removed.
+- A mosaic hold at emit is released only through `mosaic_false_positives.json`
+  (`emit_corpus.py --mosaic-cleared`): enumerated per pair id, never a rule or a
+  pattern, and every entry must carry its clinic, ruling and evidence. It releases
+  a mosaic hold and nothing else, and it is read at emit only - a mosaic reject
+  at ingest is a one-way drop.
 
 ## Pipeline
 
@@ -55,7 +61,8 @@ raw photos from clinic          training/data/raw/<clinic>/<pair-id>/
         ▼                         ├── after.jpg
 1. scripts/ingest.py              └── meta.json   (see dataset_schema.json)
    validates pairs + metadata, strips EXIF, dedupes, min-resolution check,
-   rejects censored/annotated images (scripts/censorship.py)
+   rejects censored/annotated images (scripts/censorship.py) and burned-in
+   mosaic (scripts/mosaic.py)
         │
         ▼                       training/data/staging/
         │
@@ -158,7 +165,7 @@ python -m pytest tests -q
 
 Covers ingest validation/rejection paths, `dataset_schema.json` (including the
 guarantee that the optional chart/frame fields never reach a caption), caption
-assembly with its `clothing` variants, the censorship detector, the emit stage
+assembly with its `clothing` variants, the censorship and mosaic detectors, the emit stage
 and its retirements (`retired_pairs.json` is asserted directly - count, shape
 and named exceptions - and again through the only code that can put a pair in
 the corpus), the gallery parsers against pinned per-clinic fixtures (including

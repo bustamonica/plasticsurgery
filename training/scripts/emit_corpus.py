@@ -21,6 +21,78 @@ faces appear in what they publish and the captain holds that assurance (ruling
 2026-08-14). See `deidentify.py`'s docstring for what that stage cost when it
 existed.
 
+## The mosaic gate
+
+`mosaic.py` runs here as well as in `ingest.py`, for exactly the reason the EXIF
+check does: a staging tree need not have come from the current `ingest.py`, and
+every one on disk was ingested before the gate landed on 2026-08-26. The standing
+rule (captain, 2026-08-14) is that mosaic is dropped at ingest AND never emitted,
+and this is the second half of it. It keeps its own disposition, `mosaic`, and is
+never folded into `censored`: the two gates carry separate measured tables and
+have to stay separable in a report and in a future re-measure.
+
+It HOLDS AND REPORTS. Nothing is moved, copied or deleted, `staging/` is left
+exactly as it was found, and there is no `QUARANTINE_DIRS` entry. That is
+deliberate: of the 16 flags the corpus sweep produced, 8 are real mosaic and 8
+are drdanielbarrett's burned-in watermark lettering, so a silent drop here would
+destroy consented data through an already-measured false-positive family. The
+detail names the half and carries the detector's own box, cell size, cell count
+and grid alignment, so the region can be found without re-running anything.
+
+Re-running does NOT undo a hold: `detect_mosaic` runs again and re-holds
+identically. The release is `mosaic_false_positives.json` (`--mosaic-cleared`),
+an enumeration of pair ids a human opened and judged false, each carrying the
+clinic, the ruling and the evidence it was judged on - see `load_mosaic_cleared`
+for the schema, which is required rather than conventional because an entry
+without evidence is not reviewable. A missing file means no releases, which is
+the safe direction; a malformed one refuses the run, exactly as `load_registry`
+refuses rather than reading a broken registry as "no retirements". The release
+is as loud as the hold: a released pair reads `mosaic-released` in `--report`
+and prints a `RELEASE` line naming the evidence, so it can never be mistaken for
+a pair the gate did not flag, and a run's holds and releases are both countable
+from the summary. It releases a mosaic hold and nothing else - a listed pair
+that also trips censorship, the size floor, the EXIF check or the duplicate
+check is still held on that ground, under that disposition, because those are
+decided before the mosaic branch is reached. The same ordering puts retirement
+ahead of it, so a clearance can never re-admit a retired pair.
+
+That is why the file's first and only entry, `drdanielbarrett-9122-side-right`, is
+INERT today. It is a hand-checked false positive and is recorded as one, but the
+pair is also retired under `retired_laterality` in `retired_pairs.json`
+(2026-08-15), and retirement is decided before any image is opened. The entry
+takes effect only if that retirement is lifted; until then no pair on disk is
+released by this file, and the mechanism has not been exercised on a real pair.
+
+Measured over every staging tree on disk before this shipped - 1,053 pairs across
+aips 70, arps 55, drdanielbarrett 298, drkolker 240, sanantonio 207 and swan 183
+(`~/firstmate/data/ba-viz-mosaic-detector-adopt/staging-sweep.jsonl`): the gate
+holds 8 pairs, all drdanielbarrett and all the watermark family. Its real cost on
+today's staging is ZERO pairs. Seven of the eight are already in the finished
+tree, which this stage never overwrites, and the eighth,
+`drdanielbarrett-9122-side-right`, is retired regardless of what this gate
+decides. Every other clinic holds zero - sanantonio's 207 staged pairs included,
+which contain the eight mosaicked cases and corroborate `mosaic.py`'s LIMITS from
+the other direction. That zero-real-cost figure measures false positives only,
+not misses.
+
+This gate's recall is measurably LOWER than `ingest.py`'s, and that is a
+measured bound (`mosaic.py` LIMITS item 6). `ingest.py` checks the originally
+published pixels, but this stage checks the quality-95 JPEG re-encode that
+`ingest.py` wrote to `staging/`, and that re-encode can erase a small-cell
+mosaic. Worked example: aips `PA015103_2`, clinic mosaic over the arm.
+`detect_mosaic` flags the raw published image (5px cells, 15 of them, grid
+alignment 2.46x, box x=632 y=68 25x25px) and finds nothing on the same image
+after the re-encode. In an E2E run over base-commit staging, 2 mosaicked aips
+pairs gave 1 held and 1 emitted here, while the current `ingest.py` rejects
+both. So a clean emit is NOT evidence that a pre-gate staging tree is
+mosaic-free. Measuring that exposure is the follow-up
+`ba-viz-mosaic-pregate-raw-sweep`, a measure-only sweep of the raw intake of
+every clinic whose staging predates the gate, which has not been run.
+
+Like every other gate here this governs the staging -> finished carry-through and
+nothing else. It never reads the finished tree looking for pairs to withdraw, so
+it cannot retire, re-admit or alter a pair that is already emitted.
+
 Every pair is admitted or refused for one recorded reason, and `--report` writes
 the full enumeration - one row per staged pair, emitted or not. A row reads
 `emit` only once that pair is complete in the finished tree; one still reading
@@ -110,8 +182,17 @@ from PIL import Image
 
 from censorship import detect_censorship
 from ingest import MIN_DIMENSION, validate_meta
+from mosaic import detect_mosaic
 
 DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "retired_pairs.json"
+DEFAULT_MOSAIC_CLEARED = (
+    Path(__file__).resolve().parent.parent / "mosaic_false_positives.json"
+)
+
+# Dispositions that mean "this pair is carried into the finished tree". A
+# released mosaic flag emits like any admitted pair but keeps its own name all
+# the way to the report, so a release never reads as a pair the gate passed.
+EMITTABLE = ("emit", "mosaic-released")
 
 # Quarantine subdirectory per retirement class, matching the existing tree at
 # ~/firstmate/data/ba-viz-emit-backlog/quarantine/ (deidentify-blur-damage/,
@@ -188,6 +269,81 @@ def load_registry(path: Path) -> dict[str, str]:
     return withheld
 
 
+MOSAIC_CLEARED_FIELDS = ("clinic", "ruling", "evidence")
+
+
+def load_mosaic_cleared(path: Path) -> dict[str, str]:
+    """Map pair_id -> evidence for every mosaic flag a human judged false.
+
+    The mosaic gate is measured wrong about half the times it fires, so it needs
+    a release or it is a one-way ratchet that loses consented data every time it
+    is wrong. This is that release, and it is deliberately the narrowest thing
+    that works: an enumeration of pair ids, never a rule or a pattern, for the
+    same reason `retired_pairs.json` is enumerated - a rule is a live query over
+    a staging tree, so a later re-annotation could widen a judgement made over a
+    fixed set of pairs. It releases a `mosaic` hold and nothing else; every other
+    gate is decided before the mosaic branch and still binds.
+
+    Every entry must carry all of `MOSAIC_CLEARED_FIELDS`, and the pair id must
+    agree with the entry's own clinic. An entry without evidence is not
+    reviewable, so the schema requires it rather than trusting convention.
+
+    The two failure modes are deliberately different. A MISSING file means no
+    releases: the gate holds, which is the direction that cannot lose data. A
+    MALFORMED file REFUSES the run rather than being read as an empty allow-list
+    - the same discipline `load_registry` applies in the opposite direction,
+    because silently ignoring a file someone edited is how a judgement goes
+    missing.
+    """
+    if not path.exists():
+        return {}
+
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"{path}: not valid JSON ({e}). Refusing to run rather than read an "
+            "unreadable allow-list as 'nothing is cleared', which would hold "
+            "pairs a human has already judged."
+        ) from e
+
+    unknown = sorted(set(data) - {"cleared"} - set(REGISTRY_PREAMBLE))
+    if unknown:
+        raise ValueError(
+            f"{path}: unrecognised section(s) {', '.join(unknown)}. This file holds "
+            "one section, 'cleared'; it is not a general override and must not grow "
+            "one by accident."
+        )
+
+    cleared = data.get("cleared")
+    if not isinstance(cleared, dict):
+        raise ValueError(
+            f"{path}: section 'cleared' is missing or is not a mapping of pair id to "
+            "entry. Delete the file to mean 'nothing is cleared'; an unreadable one "
+            "stops the run."
+        )
+
+    releases: dict[str, str] = {}
+    for pair_id, entry in cleared.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"{path}: {pair_id} is not an entry object")
+        missing = [f for f in MOSAIC_CLEARED_FIELDS if not str(entry.get(f, "")).strip()]
+        if missing:
+            raise ValueError(
+                f"{path}: {pair_id} is missing {', '.join(missing)}. Every release "
+                "records the clinic, the ruling and what was actually looked at - an "
+                "entry without those cannot be reviewed and is not honoured."
+            )
+        if not pair_id.startswith(f"{entry['clinic']}-"):
+            raise ValueError(
+                f"{path}: {pair_id} does not belong to clinic '{entry['clinic']}'. "
+                "The id is the key, so a mismatch is a typo in one of the two and "
+                "could release a pair nobody judged."
+            )
+        releases[pair_id] = entry["evidence"]
+    return releases
+
+
 def quarantined_ids(quarantine: Path | None) -> dict[str, str]:
     """Map pair_id -> quarantine reason for everything already in the tree.
 
@@ -231,14 +387,22 @@ def check_pair(
     withheld: dict[str, str],
     quarantine_held: dict[str, str],
     seen_hashes: dict[str, str],
+    mosaic_cleared: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     """Decide one staged pair. Returns (disposition, detail).
 
-    Disposition is "emit", or the reason it is not emitted. Ordered so that a
-    ruling is reported as a ruling: a retired pair reads as retired even if it
-    would also have failed a technical gate.
+    Disposition is "emit", "mosaic-released", or the reason it is not emitted.
+    Ordered so that a ruling is reported as a ruling: a retired pair reads as
+    retired even if it would also have failed a technical gate.
+
+    `mosaic_cleared` releases a mosaic flag a human has judged false, and only
+    that: it is consulted at the mosaic branch alone, which every other gate is
+    decided before, so a cleared pair that is censored, undersized, EXIF-bearing
+    or a duplicate is still held on that ground under that disposition.
     """
     pair_id = folder.name
+    cleared_evidence = (mosaic_cleared or {}).get(pair_id)
+    released: list[str] = []
 
     reason = withheld.get(pair_id)
     if reason:
@@ -276,9 +440,19 @@ def check_pair(
         marks = detect_censorship(pixels)
         if marks:
             return "censored", f"{stem}: " + "; ".join(marks)
+        blocks = detect_mosaic(pixels)
+        if blocks:
+            if cleared_evidence is None:
+                return "mosaic", f"{stem}: " + "; ".join(blocks)
+            released.append(f"{stem}: " + "; ".join(blocks))
         pending[digest] = f"{pair_id}/{stem}"
 
     seen_hashes.update(pending)
+    if released:
+        return "mosaic-released", (
+            "; ".join(released)
+            + f" - released as a false positive: {cleared_evidence}"
+        )
     return "emit", ""
 
 
@@ -365,7 +539,7 @@ def write_pairs(
     """
     archive_failures = 0
     for (folder, disposition, _), row in zip(decisions, rows):
-        if disposition == "emit":
+        if disposition in EMITTABLE:
             try:
                 copy_pair(folder, args.corpus / args.clinic / folder.name)
             except OSError as e:
@@ -373,7 +547,7 @@ def write_pairs(
                 row["detail"] = str(e)
                 print(f"FAIL {folder.name}: not emitted - {e}")
             else:
-                row["disposition"] = "emit"
+                row["disposition"] = disposition
             continue
 
         sub = QUARANTINE_DIRS.get(disposition)
@@ -408,6 +582,13 @@ def main(argv: list[str] | None = None) -> int:
         help="retired_pairs.json (default: beside dataset_schema.json)",
     )
     parser.add_argument(
+        "--mosaic-cleared",
+        type=Path,
+        default=DEFAULT_MOSAIC_CLEARED,
+        help="mosaic_false_positives.json: mosaic flags a human judged false. "
+        "Releases a mosaic hold and nothing else (default: beside dataset_schema.json)",
+    )
+    parser.add_argument(
         "--quarantine",
         type=Path,
         default=None,
@@ -421,6 +602,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     withheld = load_registry(args.registry)
+    mosaic_cleared = load_mosaic_cleared(args.mosaic_cleared)
     quarantine_held = quarantined_ids(args.quarantine)
     # Every pair directory, not just the ones carrying meta.json: ingest.py
     # copies meta.json last, so an interrupted ingest leaves a pair without one,
@@ -458,18 +640,30 @@ def main(argv: list[str] | None = None) -> int:
         if not folder.name.startswith(prefix):
             disposition, detail = "other-clinic", f"not a {args.clinic} pair id"
         else:
-            disposition, detail = check_pair(folder, withheld, quarantine_held, seen_hashes)
-            if disposition == "emit":
-                disposition, detail = emit_state(
+            disposition, detail = check_pair(
+                folder, withheld, quarantine_held, seen_hashes, mosaic_cleared
+            )
+            if disposition in EMITTABLE:
+                # The destination has the last word, but only when it has one to
+                # say: a clash or a byte-identical re-run replaces the
+                # disposition, while a clean emit leaves `mosaic-released`
+                # standing so the release survives into the report.
+                state, state_detail = emit_state(
                     folder, args.corpus / args.clinic / folder.name
                 )
+                if state != "emit":
+                    disposition, detail = state, state_detail
 
         decisions.append((folder, disposition, detail))
-        reported = "pending" if disposition == "emit" and not args.dry_run else disposition
+        reported = (
+            "pending" if disposition in EMITTABLE and not args.dry_run else disposition
+        )
         rows.append({"pair_id": folder.name, "disposition": reported, "detail": detail})
         if disposition == "emit-failed":
             print(f"FAIL {folder.name}: {detail}")
-        elif disposition not in ("emit", "other-clinic"):
+        elif disposition == "mosaic-released":
+            print(f"RELEASE {folder.name}: mosaic flag judged false - {detail}")
+        elif disposition not in EMITTABLE + ("other-clinic",):
             print(f"HOLD {folder.name}: {disposition} - {detail}")
 
     # The corpus tree is the audit surface, so whatever this run writes must be
@@ -491,7 +685,7 @@ def main(argv: list[str] | None = None) -> int:
         counts: dict[str, int] = {}
         for row in rows:
             counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
-        emitted = counts.get("emit", 0)
+        emitted = sum(counts.get(d, 0) for d in EMITTABLE)
         skipped = counts.get("other-clinic", 0)
         failed = counts.get("emit-failed", 0) + archive_failures
         print(f"\n{args.clinic}: {len(pair_folders)} staged")
