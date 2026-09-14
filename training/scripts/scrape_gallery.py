@@ -8478,9 +8478,9 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         for gallery_path in cfg.gallery_paths:
             tag = gallery_path.strip("/").rsplit("/", 1)[-1]
             short = re.sub(r"^breast-augmentation-|-implants$", "", tag) or tag
-            gallery_url = cfg.base_url + gallery_path
+            paged_url = cfg.base_url + gallery_path
             first = fetcher.get(
-                gallery_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
+                paged_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
                     "utf-8", "replace")
             declared_pages = page1solutions_page_count(first)
             if not page1solutions_has_pager(first):
@@ -8488,7 +8488,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                       f"ul.pager markup, so a one-page sweep is this parser's "
                       f"result rather than the gallery's own statement")
             page_cases = page1solutions_parse_listing_page(
-                first, gallery_url, short)
+                first, paged_url, short)
             cases.extend(page_cases)
             rendered_blocks = page1solutions_listing_case_count(first)
             collected_cases = len(page_cases)
@@ -8499,7 +8499,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             page = 2
             while declared_pages is not None and page <= declared_pages:
                 html = _fetch_optional(
-                    fetcher, f"{gallery_url}?page={page}",
+                    fetcher, f"{paged_url}?page={page}",
                     f"{cfg.slug}_listing_{tag}_p{page}.html")
                 if html is None:
                     print(f"  WARN {cfg.slug}/{tag}: page {page} unavailable")
@@ -8513,7 +8513,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                     print(f"  WARN {cfg.slug}/{tag}: page {page} renders no "
                           f"case block(s)")
                     break
-                more = page1solutions_parse_listing_page(html, gallery_url, short)
+                more = page1solutions_parse_listing_page(html, paged_url, short)
                 cases.extend(more)
                 rendered_blocks += rendered
                 collected_cases += len(more)
