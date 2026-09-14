@@ -4,7 +4,7 @@
   "pairs": {
    "pair2": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-01-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-01-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "oblique-left",
@@ -21,7 +21,7 @@
   "pairs": {
    "pair2": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-02-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-02-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "side-left",
@@ -37,7 +37,7 @@
   "pairs": {
    "pair2": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-03-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-03-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "side",
@@ -56,7 +56,7 @@
   "pairs": {
    "pair2": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-04-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-04-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
@@ -71,7 +71,7 @@
   "pairs": {
    "pair2": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-05-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-05-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "oblique",
@@ -90,7 +90,7 @@
   "pairs": {
    "pair3": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-06-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-06-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "side",
@@ -109,7 +109,7 @@
   "pairs": {
    "pair3": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-07-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-07-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair1": {
     "view": "oblique-left",
@@ -136,7 +136,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-09-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-09-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -153,7 +153,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-10-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-10-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "view mismatch: BEFORE is a 45-degree oblique (both breasts), AFTER is a true profile"
@@ -169,7 +169,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-11-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-11-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -186,7 +186,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-12-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-12-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -204,7 +204,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-13-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-13-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -223,7 +223,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-14-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-14-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -242,7 +242,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-15-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-15-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -261,7 +261,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-16-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-16-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -279,7 +279,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-17-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-17-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -298,7 +298,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-18-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-18-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -315,7 +315,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-19-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-19-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -334,7 +334,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-20-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-20-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -353,7 +353,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-21-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-21-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -372,7 +372,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-22-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-22-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -389,7 +389,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-23-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-23-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -408,7 +408,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-24-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-24-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -427,7 +427,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-25-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-25-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -444,7 +444,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-26-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-26-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -461,7 +461,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-27-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-27-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -480,7 +480,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-28-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-28-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -499,7 +499,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-29-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-29-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side-right",
@@ -516,11 +516,12 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-30-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-30-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side-right",
-    "evidence": "two independent passes agree on the view and facing; landmark: A full sleeve tattoo on the viewer-LEFT arm in both front halves (patient's RIGHT arm); the NEAR arm carries it in pair2 before and after. Confirms right"
+    "evidence": "two independent passes agree on the view and facing; landmark: A full sleeve tattoo on the viewer-LEFT arm in both front halves (patient's RIGHT arm); the NEAR arm carries it in pair2 before and after. Confirms right",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
    },
    "pair3": {
     "view": "side-left",
@@ -533,7 +534,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-31-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-31-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
@@ -548,7 +549,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-33-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-33-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -565,7 +566,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-34-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-34-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "large new tattoos across both breasts and the sternum in the AFTER only - a before/after difference unrelated to the surgery (label-leak class); the emitted front carries the same difference"
@@ -580,7 +581,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-35-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-35-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -599,7 +600,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-36-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-36-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -618,7 +619,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-37-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-37-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -635,7 +636,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-38-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-38-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -643,7 +644,8 @@
    },
    "pair3": {
     "view": "side-left",
-    "evidence": "two independent passes agree on the view and facing; landmark: The prominent right-flank tattoo is absent from the clearly visible near flank in pair3 before and after, where it would be if mirrored. Consistent with left"
+    "evidence": "two independent passes agree on the view and facing; landmark: The prominent right-flank tattoo is absent from the clearly visible near flank in pair3 before and after, where it would be if mirrored. Consistent with left",
+    "ingest_stopped": "stopped by emit_corpus.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
    }
   }
  },
@@ -652,7 +654,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-39-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-39-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -669,7 +671,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-40-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-40-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -688,7 +690,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-41-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-41-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -707,7 +709,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-43-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-43-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "duplicate patient: case 43 republishes case 12 (front and this pair are pixel-identical to case 12); dropped so one patient is not split across two keys"
@@ -722,7 +724,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-44-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-44-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-left",
@@ -739,7 +741,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-45-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-45-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "corrupt pairing: the BEFORE is case 52 pair2 BEFORE (pixel-identical) and faces the other way from the AFTER"
@@ -754,7 +756,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-46-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-46-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -773,7 +775,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-47-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-47-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -790,7 +792,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-48-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-48-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "corrupt pairing: halves are different views (oblique vs profile); the page publishes before-oblique, before-side, after-oblique, after-side so positional pairing mis-pairs this case"
@@ -805,7 +807,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-49-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-49-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -813,7 +815,8 @@
    },
    "pair3": {
     "view": "side-right",
-    "evidence": "two independent passes agree on the view and facing; landmark: The same right-arm flower tattoo is the NEAR shoulder in both halves. Confirms right"
+    "evidence": "two independent passes agree on the view and facing; landmark: The same right-arm flower tattoo is the NEAR shoulder in both halves. Confirms right",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
    }
   }
  },
@@ -822,7 +825,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-50-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-50-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -841,7 +844,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-51-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-51-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -859,12 +862,13 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-52-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-52-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
     "pose_laterality": "right",
-    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right; its BEFORE is pixel-identical to case 45 pair2's BEFORE, which is why that pair is withheld",
+    "identity_check": "this pair's BEFORE is pixel-identical to case 45 pair2's BEFORE, so cases 45 and 52 may be one patient; settle that before releasing this pair, because both fronts are already in the corpus and build_dataset.py splits train/val by patient"
    },
    "pair3": {
     "view": "side",
@@ -878,7 +882,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-53-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-53-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side-left",
@@ -895,7 +899,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-54-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-54-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique",
@@ -914,7 +918,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-55-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-55-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -939,7 +943,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-56-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-56-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -958,7 +962,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-57-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-57-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "the two passes disagree on the AFTER view (oblique vs near-frontal)"
@@ -980,7 +984,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-58-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-58-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
@@ -997,11 +1001,12 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-59-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-59-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side-left",
-    "evidence": "two independent passes agree on the view and facing; landmark: Mandala forearm tattoo on the viewer's-right forearm in the front (both halves; watch on the same wrist in the before) = patient's LEFT forearm. It is the NEAR forearm at the bottom of both halves. Confirms left"
+    "evidence": "two independent passes agree on the view and facing; landmark: Mandala forearm tattoo on the viewer's-right forearm in the front (both halves; watch on the same wrist in the before) = patient's LEFT forearm. It is the NEAR forearm at the bottom of both halves. Confirms left",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
    },
    "pair3": {
     "view": "side-right",
@@ -1014,7 +1019,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-60-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-60-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -1033,7 +1038,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-61-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-61-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "side",
@@ -1052,7 +1057,7 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-93-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-93-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "withheld": "direction mismatch: BEFORE faces viewer-left, AFTER faces viewer-right"
@@ -1064,11 +1069,12 @@
   "pairs": {
    "pair1": {
     "view": "front",
-    "evidence": "already in the corpus as lakeshore-94-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+    "key_source": "already in the corpus as lakeshore-94-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
    },
    "pair2": {
     "view": "oblique-right",
-    "evidence": "two independent passes agree on the view and facing; landmark: Small dark mole on the upper abdomen just to the viewer's LEFT of midline in the front (both halves) = patient's RIGHT. In both halves it sits below the NEAR breast (zoomed 1.5x). Moderate strength (the mole is close to midline). An outline tattoo on the near lateral chest wall is visible in both halves but not in the front. Gold watch on the far wrist in both"
+    "evidence": "two independent passes agree on the view and facing; landmark: Small dark mole on the upper abdomen just to the viewer's LEFT of midline in the front (both halves) = patient's RIGHT. In both halves it sits below the NEAR breast (zoomed 1.5x). Moderate strength (the mole is close to midline). An outline tattoo on the near lateral chest wall is visible in both halves but not in the front. Gold watch on the far wrist in both",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
    },
    "pair3": {
     "withheld": "different patient: the case front and pair2 show a different woman (skin tone, hair)"
