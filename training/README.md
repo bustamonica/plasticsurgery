@@ -31,7 +31,8 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   36 carrying EXIF, including `harrington-177-front`, whose images carry the
   camera make and model and 2020 capture timestamps.
 - Keep the raw originals on an encrypted drive; treat them as medical records.
-- Censored and annotated photos are rejected, not repaired (`censorship.py`).
+- Censored and annotated photos are rejected, not repaired (`censorship.py`,
+  and `mosaic.py` for burned-in mosaic).
   A censored pair is worse than a missing one - the v1 LoRA learned to reproduce
   a clinic's blur bands. A clinic watermark clear of breast tissue is kept
   unmasked *only* when it appears on both halves of the pair: a mark burned into
@@ -164,7 +165,7 @@ python -m pytest tests -q
 
 Covers ingest validation/rejection paths, `dataset_schema.json` (including the
 guarantee that the optional chart/frame fields never reach a caption), caption
-assembly with its `clothing` variants, the censorship detector, the emit stage
+assembly with its `clothing` variants, the censorship and mosaic detectors, the emit stage
 and its retirements (`retired_pairs.json` is asserted directly - count, shape
 and named exceptions - and again through the only code that can put a pair in
 the corpus), the gallery parsers against pinned per-clinic fixtures (including

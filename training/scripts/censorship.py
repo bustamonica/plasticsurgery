@@ -18,7 +18,8 @@ construction:
                      bars, solid arrowheads.
   detail-suppressed  a patch of body whose texture has collapsed relative to the
                      rest of the body, bounded by a hard detail edge: blur bands
-                     and mosaic pixelation.
+                     and mosaic pixelation. Real clinic mosaic is NOT caught in
+                     practice (0 of 182 on aips); that is `mosaic.py`'s gate.
   burned-in-graphic  ink in a colour photography does not produce on a lit
                      torso: arrows, measurement rules, date stamps and captions
                      drawn in a saturated colour over the body.
