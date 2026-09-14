@@ -72,7 +72,22 @@ tree, which this stage never overwrites, and the eighth,
 `drdanielbarrett-9122-side-right`, is retired regardless of what this gate
 decides. Every other clinic holds zero - sanantonio's 207 staged pairs included,
 which contain the eight mosaicked cases and corroborate `mosaic.py`'s LIMITS from
-the other direction.
+the other direction. That zero-real-cost figure measures false positives only,
+not misses.
+
+This gate's recall is measurably LOWER than `ingest.py`'s, and that is a
+measured bound (`mosaic.py` LIMITS item 6). `ingest.py` checks the originally
+published pixels, but this stage checks the quality-95 JPEG re-encode that
+`ingest.py` wrote to `staging/`, and that re-encode can erase a small-cell
+mosaic. Worked example: aips `PA015103_2`, clinic mosaic over the arm.
+`detect_mosaic` flags the raw published image (5px cells, 15 of them, grid
+alignment 2.46x, box x=632 y=68 25x25px) and finds nothing on the same image
+after the re-encode. In an E2E run over base-commit staging, 2 mosaicked aips
+pairs gave 1 held and 1 emitted here, while the current `ingest.py` rejects
+both. So a clean emit is NOT evidence that a pre-gate staging tree is
+mosaic-free. Measuring that exposure is the follow-up
+`ba-viz-mosaic-pregate-raw-sweep`, a measure-only sweep of the raw intake of
+every clinic whose staging predates the gate, which has not been run.
 
 Like every other gate here this governs the staging -> finished carry-through and
 nothing else. It never reads the finished tree looking for pairs to withdraw, so

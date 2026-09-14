@@ -245,6 +245,26 @@ def test_does_not_flag_the_aips_uncensored_halves():
     assert flagged == []
 
 
+AIPS_PA015103_2 = AIPS_CACHE / "www.aiplasticsurgery.com_7f321336_bna_braug_26_PA015103_2.jpg"
+
+
+def test_ingest_catches_mosaic_its_own_staging_re_encode_hides(tmp_path):
+    """`mosaic.py` LIMITS item 6: `ingest.py` gates the published pixels, while
+    `emit_corpus.py` gates the quality-95 copy `ingest.reencode()` writes to
+    staging, so the emit gate can miss what ingest drops. Measured 2026-09-14
+    on aips PA015103_2 (5px mosaic over the arm)."""
+    from ingest import reencode
+
+    if not AIPS_PA015103_2.exists():
+        pytest.skip("aips PA015103_2 not in the mounted scrape cache")
+    staged = tmp_path / "after.jpg"
+    _, _, published = reencode(AIPS_PA015103_2, staged)
+    assert detect_mosaic(published), "ingest no longer flags PA015103_2"
+    assert detect_mosaic(cv2.imread(str(staged))) == [], (
+        "the staged re-encode is flagged again - LIMITS item 6 and the "
+        "emit_corpus.py docstring are out of date")
+
+
 @needs_bayside
 def test_does_not_flag_the_bayside_pairs_censorship_holds():
     """77 pairs `censorship.py` rejects as texture-free skin, every reported box

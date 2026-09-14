@@ -68,7 +68,7 @@ neighbours and keeping company with at least `MIN_NEIGHBOURS` (4) of its own 3x3
 neighbourhood counting itself, with the cluster's own cell means spread between
 `SPREAD_MIN` (3) and `SPREAD_MAX` (20), and grid-aligned at
 `SMALL_MIN_ALIGN`/`LARGE_MIN_ALIGN`. Anything that fails one of those is
-invisible to this gate, and five families measurably do:
+invisible to this gate, and six families measurably do:
 
   1. The sanantonio/marina family - a few dozen cells of skin-tone-on-skin-tone
      mosaic over a tattoo at the clinic's published 450px - is NOT caught, and
@@ -114,6 +114,21 @@ invisible to this gate, and five families measurably do:
      mosaic and is still caught 18 of 22 pairs, so this is a degradation rather
      than a wall - but it is why cell size 8 is deliberately absent from the
      parametrized positives in `tests/test_mosaic.py`.
+  6. A quality-95 JPEG re-encode can also erase a SMALL-cell mosaic this gate
+     finds on the published pixels, so recall at `emit_corpus.py` is
+     measurably lower than at `ingest.py`. `ingest.py` checks the originally
+     published pixels, while `emit_corpus.py` checks the quality-95 re-encode
+     that `ingest.py` writes to `staging/`. Worked example: aips `PA015103_2`,
+     clinic mosaic over the arm. On the raw published image this gate flags it
+     (5px cells, 15 of them, grid alignment 2.46x, box x=632 y=68 25x25px). On
+     the same image after `ingest.reencode()` it finds nothing. In an E2E run
+     over base-commit staging, 2 mosaicked aips pairs gave 1 held and 1 emitted
+     at the emit boundary, while the current `ingest.py` rejects both. This is
+     5px cells, not item 5's 8px DCT phase effect, so it is a separate limit.
+     A clean emit is therefore NOT evidence that a pre-gate staging tree is
+     mosaic-free. Measuring that exposure is the follow-up
+     `ba-viz-mosaic-pregate-raw-sweep` (a measure-only sweep of the raw intake
+     of every clinic whose staging predates the gate), which has not been run.
 
 So a clean run from this module is NOT evidence that a clinic is uncensored.
 Opening the images is still the only complete screen, exactly as
