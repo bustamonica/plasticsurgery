@@ -302,6 +302,14 @@ def test_arps_is_registered_with_its_measured_crop():
     assert cfg.bottom_crop_frac == 0.10
 
 
+# Every clinic carrying a fractional crop must have had its own mark measured
+# on its own images; a number is never transferred between clinics. `folk`
+# joined arps on 2026-08-26 with a mark measured at 0.078-0.096 of half width
+# across its export sizes and cropped at 0.105 (see folk_gallery.py).
+CLINICS_WITH_A_MEASURED_FRACTIONAL_MARK = {"arps": 0.10, "folk": 0.105}
+
+
 def test_clinics_without_a_measured_mark_are_not_cropped():
-    assert all(cfg.bottom_crop_frac == 0
-               for slug, cfg in sg.CLINICS.items() if slug != "arps")
+    for slug, cfg in sg.CLINICS.items():
+        expected = CLINICS_WITH_A_MEASURED_FRACTIONAL_MARK.get(slug, 0)
+        assert cfg.bottom_crop_frac == expected, slug
