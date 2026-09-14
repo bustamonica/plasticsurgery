@@ -2500,9 +2500,45 @@ def drrohrich_parse_listing(listing_html: str, source_url: str) -> list[CaseData
 # ---------------------------------------------------------------------------
 # wny parser (Etna Interactive; case chain walked via prev/next links)
 # ---------------------------------------------------------------------------
-
+#
+# Two filename families publish on this gallery, and only accepting both
+# recovers the clinic: the older, numbered '<slug>-<case>-view-<n>-detail.jpg'
+# and a newer one that names the view instead of numbering it
+# ('<slug>-<case>-left-oblique-detail.jpg'), which left 9 of 13 cases - 60 of
+# 72 published composites - invisible to the shipped parser (logged as a
+# benign 'no usable image pairs' WARN). Some cases in the newer family also
+# publish '-upper'/'-lower' crop variants of a view they already publish
+# whole; those collide on pair_id once annotated and the generic emit-path
+# dedup ('duplicate view label') already handles it, so no parser-side
+# handling is needed here. See data/ba-viz-emit-wny/report.md sections 4-5.
+#
+# The slug prefix is the case's OWN primary procedure and is read for two
+# purposes: screening out Mommy Makeover cases outright (captain ruling,
+# 2026-09-13 - the after photograph also shows an abdominoplasty the implants
+# did not cause), and anchoring the match to the requested case so a filename
+# elsewhere on the page cannot be misfiled under this one. A pure
+# 'breast-augmentation' slug is necessary but not sufficient: two cases (194,
+# 235) publish that slug while the case's OWN text names a mastopexy, so every
+# case still runs through the shared combined_procedure_term() text screen
+# before its pairs are kept - the slug filter alone would have let both
+# through.
+#
+# The view-angle word in the newer family is not trustworthy (report section
+# 3.2: wny's own filenames call two ~35-40 degree obliques 'left-side'/
+# 'right-side'), so only the LATERALITY half of it is kept, as pair.view_hint;
+# front/oblique/side must still be judged from the downloaded images, same as
+# the older family. A bare laterality ('left'/'right') matches neither
+# SCHEMA_VIEWS nor LATERAL_VIEW_TYPES, so it cannot auto-resolve a pair on its
+# own - it is a cross-check for the annotator, confirmed 6/6 against the
+# corpus convention in section 3.2.
+WNY_PURE_SLUG = "breast-augmentation"
 WNY_IMAGE_RE = re.compile(
-    r'(?:https?:)?//images\.wnyplasticsurgery\.com/content/images/[\w-]+-view-(\d+)-detail\.jpg')
+    r'(?:https?:)?//images\.wnyplasticsurgery\.com/content/images/'
+    r'(?P<slug>[a-z]+(?:-[a-z]+)*)-(?P<case_id>\d+)-'
+    r'(?:view-(?P<view_num>\d+)'
+    r'|(?P<view_name>(?:front|left-oblique|right-oblique|left-side|right-side)'
+    r'(?:-upper|-lower)?))'
+    r'-detail\.jpg', re.I)
 WNY_CASE_LINK_RE = re.compile(r"/gallery/breast/breast-augmentation/(\d+)/")
 
 
@@ -2510,24 +2546,51 @@ def wny_seed_cases(listing_html: str) -> list[str]:
     return sorted(set(WNY_CASE_LINK_RE.findall(listing_html)), key=int)
 
 
+def _wny_laterality(view_name: str) -> str | None:
+    if view_name.startswith("left-") or view_name == "left":
+        return "left"
+    if view_name.startswith("right-") or view_name == "right":
+        return "right"
+    return None
+
+
 def wny_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
-    """3 side-by-side before|after composites (one per view), matched by
-    the Etna 'view-N-detail' filename convention; view is not labeled."""
+    """Composites in either of two filename families: the older numbered
+    '-view-N-detail' and the newer named '-<view>-detail', which also uses
+    the case's own primary procedure (not always 'breast-augmentation') as
+    the slug prefix. Only a pure breast-augmentation case is kept; the view
+    is not labeled beyond the newer family's (untrusted) laterality."""
     case = CaseData(case_id=case_id, source_url=source_url)
     seen = set()
     ordered = []
+    other_slugs = set()
     for m in WNY_IMAGE_RE.finditer(case_html):
+        if m.group("case_id") != case_id:
+            continue
         url = m.group(0)
         if url in seen:
             continue
         seen.add(url)
-        ordered.append((int(m.group(1)), url))
-    for view_num, url in sorted(ordered):
+        slug = m.group("slug").lower()
+        if slug != WNY_PURE_SLUG:
+            other_slugs.add(slug)
+            continue
+        if m.group("view_num") is not None:
+            ordered.append((f"view{m.group('view_num')}", url, None))
+        else:
+            view_name = m.group("view_name").lower()
+            ordered.append((view_name, url, _wny_laterality(view_name)))
+    for key, url, laterality in ordered:
         full = url if url.startswith("http") else f"https:{url}"
-        case.pairs.append(ImagePair(key=f"view{view_num}", before_url=full, after_url=full,
-                                    split_composite=True))
+        case.pairs.append(ImagePair(key=key, before_url=full, after_url=full,
+                                    view_hint=laterality, split_composite=True))
     if not case.pairs:
-        case.warnings.append("no usable image pairs")
+        if other_slugs:
+            case.warnings.append(
+                "not pure breast augmentation (published under "
+                f"{'/'.join(sorted(other_slugs))!r}); excluded by captain ruling")
+        else:
+            case.warnings.append("no usable image pairs")
 
     specs = CaseSpecs()
     soup = BeautifulSoup(case_html, "html.parser")
@@ -2537,6 +2600,19 @@ def wny_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
         specs.left_cc, specs.right_cc = parse_fill_volumes(specs.summary)
         classify_brand_shape_profile(specs, specs.summary)
     case.specs = specs
+
+    # Purity: a pure slug is necessary but not sufficient - see the module
+    # comment above. Screen the case's own text before keeping any pairs
+    # already surviving the slug filter (a case the slug filter already
+    # emptied has nothing left to screen, and would otherwise log a second,
+    # redundant exclusion reason).
+    if case.pairs:
+        term = combined_procedure_term(specs.summary)
+        if term is not None:
+            case.warnings.append(
+                f"not pure breast augmentation (case text names '{term}'); "
+                "excluded by captain ruling")
+            case.pairs = []
     return case
 
 
