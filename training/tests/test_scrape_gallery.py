@@ -3826,8 +3826,10 @@ def test_crop_bottom_is_a_no_op_for_every_other_clinic():
     """
     payload = b"not-an-image"
     assert sg.crop_bottom(payload, 0) is payload
+    # coberly joined on 2026-08-26: an opaque script wordmark on the lower
+    # abdomen, measured at 355 rows over its uniform 1005x1000 exports.
     assert sorted(c.slug for c in sg.CLINICS.values() if c.bottom_crop_px) == [
-        "camp", "choice", "roth", "tccs", "wny"]
+        "camp", "choice", "coberly", "roth", "tccs", "wny"]
 
 
 # ---------------------------------------------------------------------------

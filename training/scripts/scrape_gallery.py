@@ -123,6 +123,13 @@ platform in this group publishes a procedure slug to screen on. None of the
 three documents laterality anywhere, so they emit front views only and their
 lateral pairs are held by view type pending the captain's laterality ruling
 (key=laterality-rule-2026-08-25).
+
+15 more (the Rosemont 16, consent in clinic-corpus/CONSENT-2026-08-26-ROSEMONT-16.md)
+add two modules: fourteen clinics share kind='rm_gallery2' (rm_gallery2.py,
+RM Gallery 2 by Rosemont Media - a second parser for the platform, separate
+from kind='rmgallery2' above) and folk is kind='folk' (folk_gallery.py). The
+sixteenth, drtabbal, is consented but deliberately not registered; its note in
+CLINICS says why.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -717,6 +724,170 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="gallatin", consent_ref="gallatin-agreement-2026-08-25",
         base_url="https://gallatinplasticsurgery.com",
         gallery_paths=["/gallery/breast-augmentation/"], kind="gallatin"),
+
+    # -- the sixteen clinics consented 2026-08-25, delivered and archived
+    #    2026-08-26 (CONSENT-2026-08-26-ROSEMONT-16.md) --
+    #
+    # Fifteen of the sixteen run RM Gallery 2 (Rosemont Media); the fourteen
+    # registered here share ONE parser, `rm_gallery2`, configured fourteen
+    # times (drtabbal is withheld, see its note below): the family's plugin
+    # markup is identical across them and only the surrounding theme differs,
+    # which the parser handles. The sixteenth, folk, is BRAG book assets on
+    # Webflow. None of these galleries paginates, none needs an endpoint grant,
+    # and every host's robots.txt was re-checked at collection time - the only
+    # Disallow rules across the seventeen hosts cover /responder, /autoresponder,
+    # /wp-admin/ and folk's cart/checkout paths, none of which is a gallery.
+    #
+    # Views are page-documented NOWHERE in this cohort, so every clinic needs a
+    # visual annotation pass (training/annotations/<slug>.json).
+    "weston": ClinicConfig(
+        slug="weston", consent_ref="weston-consent-2026-08-25-rosemont-16",
+        base_url="https://www.westonplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "pscarolina": ClinicConfig(
+        slug="pscarolina", consent_ref="pscarolina-consent-2026-08-25-rosemont-16",
+        base_url="https://www.plasticsurgerycarolina.com",
+        # /breast/augmentation/, NOT /breast/breast-augmentation/ - the
+        # prospecting run had this subtly wrong and read the gallery as empty.
+        gallery_paths=["/gallery/breast/augmentation/"],
+        kind="rm_gallery2"),
+    "leber": ClinicConfig(
+        slug="leber", consent_ref="leber-consent-2026-08-25-rosemont-16",
+        base_url="https://www.doctorleber.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "jkps": ClinicConfig(
+        slug="jkps", consent_ref="jkps-consent-2026-08-25-rosemont-16",
+        base_url="https://www.jkplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "boynton": ClinicConfig(
+        slug="boynton", consent_ref="boynton-consent-2026-08-25-rosemont-16",
+        base_url="https://www.boyntonplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "coberly": ClinicConfig(
+        slug="coberly", consent_ref="coberly-consent-2026-08-25-rosemont-16",
+        base_url="https://www.drcoberly.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2",
+        # An opaque white "Coberly Plastic Surgery & Med Spa" script wordmark
+        # centred on the LOWER ABDOMEN, well below the inframammary fold. It is
+        # in the same place on both halves of every pair - measured by meaning
+        # 27 before-halves against 27 after-halves separately - so it is not a
+        # label leak; it is cropped anyway because it is burned-in text, and
+        # the crop costs nothing here.
+        #
+        # An absolute pixel count rather than a fraction because this clinic is
+        # uniform: every one of its 264 images is exactly 1005x1000.
+        #
+        # 355 rows, and every smaller number here came from measuring too few
+        # images. The mark's VERTICAL POSITION VARIES BY CASE - the practice
+        # frames each patient differently, so the wordmark lands between 167
+        # and 339 rows above the bottom across the 216 images that carry it.
+        # A median high-pass over the mean said 215; a crop ladder over six
+        # images said 265; both were checked by eye and both looked clean,
+        # because the sample happened to hold only cases where the mark sits
+        # low. Cases 1728/1729/1730 still showed the script at 275.
+        #
+        # So the crop is the WORST case over every image, not a typical one:
+        # 339 plus margin, leaving 1000x645, still far above the 400px floor.
+        # The clinic's other size family (379x377) is under the floor already
+        # and is rejected at ingest rather than cropped.
+        bottom_crop_px=355),
+    "bottger": ClinicConfig(
+        slug="bottger", consent_ref="bottger-consent-2026-08-25-rosemont-16",
+        base_url="https://www.drbottger.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "sbschooler": ClinicConfig(
+        slug="sbschooler", consent_ref="sbschooler-consent-2026-08-25-rosemont-16",
+        base_url="https://www.sbplasticsurgery.com",
+        # ONE practice (Dr Wesley Schooler) publishing across TWO domains, and
+        # one signed form covers both - so it is one clinic here, not two. The
+        # second gallery is given as an absolute URL because it is on another
+        # host; `gallery_url()` accepts either form. The two listings share ZERO
+        # asset ids, so an id-set diff calls them independent galleries, and
+        # the republished cases' text differs by a word or a full stop; the
+        # overlap is certain only in the PIXELS, so `collect_cases` drops a
+        # republished patient by a perceptual hash of its before-halves (see
+        # rm_gallery2). Counting them separately would put one patient in both
+        # the train and the val half of a by-patient split.
+        gallery_paths=[
+            "/gallery/breast/breast-augmentation/",
+            "https://www.santabarbarabreast.com/gallery/breast-augmentation/",
+        ],
+        kind="rm_gallery2"),
+    "najera": ClinicConfig(
+        slug="najera", consent_ref="najera-consent-2026-08-25-rosemont-16",
+        base_url="https://www.najeraplasticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "goldberg": ClinicConfig(
+        slug="goldberg", consent_ref="goldberg-consent-2026-08-25-rosemont-16",
+        base_url="https://www.doctorgoldberg.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "copeland": ClinicConfig(
+        slug="copeland", consent_ref="copeland-consent-2026-08-25-rosemont-16",
+        base_url="https://www.copelandcosmeticsurgery.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "lintner": ClinicConfig(
+        slug="lintner", consent_ref="lintner-consent-2026-08-25-rosemont-16",
+        base_url="https://www.tomlintnermd.com",
+        gallery_paths=["/gallery/breast/augmentation/"],
+        kind="rm_gallery2"),
+    "savetsky": ClinicConfig(
+        slug="savetsky", consent_ref="savetsky-consent-2026-08-25-rosemont-16",
+        base_url="https://www.irasavetskymd.com",
+        gallery_paths=["/gallery/breast/breast-augmentation/"],
+        kind="rm_gallery2"),
+    "teleos": ClinicConfig(
+        slug="teleos", consent_ref="teleos-consent-2026-08-25-rosemont-16",
+        base_url="https://www.teleosplasticsurgery.com",
+        gallery_paths=["/gallery/breast/augmentation/"],
+        kind="rm_gallery2"),
+    # drtabbal (row 16 of the consent record) is CONSENTED but deliberately NOT
+    # registered, so no run can collect it. It burns a "Before"/"After" word
+    # into the top-left of every photo and that word CONTRADICTS the gallery's
+    # own before-img/after-img slots on most pairs; the slot is the truthful
+    # signal (verified against the anatomy), so the stamp is an actively wrong
+    # label on the one axis this corpus teaches. It also publishes some photos
+    # that are themselves vertical before/after composites, and removing the
+    # stamp needs a TOP crop, which is a fifth crop mechanism.
+    #
+    # Withheld by captain ruling 2026-08-26 as a DEFERRAL, not an abandonment:
+    # it is attached to `ba-viz-post-integration-consolidation`, which owns
+    # unifying the four crop mechanisms into one ClinicConfig crop spec, after
+    # which a top crop is a configuration value rather than new machinery. The
+    # measured evidence a later pass needs - which pairs invert, which images
+    # are composites, and the stamp's pixel geometry - is in
+    # ~/firstmate/data/ba-viz-collect-rosemont-16/report.md and the ruling at
+    # DECISION-2026-08-26-tabbal.md beside it.
+    "folk": ClinicConfig(
+        slug="folk", consent_ref="folk-consent-2026-08-25-rosemont-16",
+        base_url="https://www.folkplasticsurgery.com",
+        # The one non-RM clinic of the cohort: a Webflow CMS gallery whose
+        # assets are NAMED like BRAG book exports but whose page is nothing of
+        # the sort (see folk_gallery.py). Everything is inline on one page.
+        gallery_paths=["/gallery/breast-implant-augmentation"],
+        kind="folk",
+        # "Stacey Folk, MD" script wordmark, bottom-right of EACH half over the
+        # lower abdomen - present on both halves, so not a label leak, but
+        # cropped rather than tolerated (captain, 2026-08-19). As a fraction of
+        # WIDTH because this gallery serves the same framing at several export
+        # sizes; measured per this clinic and never transferred (arps).
+        #
+        # Measured by averaging every same-sized half and high-passing the mean
+        # (bodies cancel, a fixed mark survives): the mark needs 0.078 of half
+        # width on the 1800-wide exports and 0.096 on the 1194-wide one, so it
+        # is cropped at 0.105 and CONFIRMED GONE by eye on both halves of every
+        # surviving size family. The one 1194x450 composite falls under the
+        # 400px floor after the crop and is rejected at ingest rather than
+        # shipped shrunken.
+        bottom_crop_frac=0.105),
 }
 
 
@@ -7533,9 +7704,138 @@ def _fetch_seed(fetcher: PoliteFetcher, url: str, cache_key: str) -> str | None:
         return None
 
 
+def gallery_url(cfg: ClinicConfig, gallery_path: str) -> str:
+    """A gallery path resolved against the clinic, absolute or relative.
+
+    A `gallery_paths` entry is normally a path on `base_url`, but a practice
+    that publishes across two hosts under ONE consent form gives the second
+    gallery as an absolute URL (sbschooler). Returning it unchanged keeps that
+    a config detail rather than a parser special case.
+    """
+    if gallery_path.startswith(("http://", "https://")):
+        return gallery_path
+    return cfg.base_url + gallery_path
+
+
+def _duplicate_patient_of(fetcher: PoliteFetcher, cfg: ClinicConfig,
+                          case: CaseData, seen_hashes: list) -> str | None:
+    """The earlier case whose photographs this one republishes, or None.
+
+    Hashes every pair's before-half, so a case republished with its views in a
+    different order is still caught; a composite pair is hashed on the left
+    half of its split. A fetch failure leaves the case in rather than dropping
+    it on missing evidence.
+    """
+    import rm_gallery2
+
+    hashes = []
+    for pair in case.pairs:
+        url = pair.before_url
+        # The SAME cache key the emit path uses. A key of its own here would
+        # fetch every photograph a second time and leave two copies of the
+        # clinic in the cache under different names.
+        try:
+            data = fetcher.get(url, image_cache_key(cfg.slug, url))
+            if pair.split_composite:
+                data = split_composite_image(data)[0]
+            hashes.append(rm_gallery2.rm_image_hash(data))
+        except Exception:
+            continue
+    for digest in hashes:
+        for other_id, other in seen_hashes:
+            if rm_gallery2.rm_hash_distance(digest, other) <= \
+                    rm_gallery2.DUPLICATE_HAMMING_MAX:
+                return other_id
+    seen_hashes.extend((case.case_id, h) for h in hashes)
+    return None
+
+
+def _drop_duplicate_patient(fetcher: PoliteFetcher, cfg: ClinicConfig,
+                            case: CaseData, seen_hashes: list) -> None:
+    """Empty `case.pairs`, with a warning, when it republishes an earlier case."""
+    if not case.pairs:
+        return
+    duplicate_of = _duplicate_patient_of(fetcher, cfg, case, seen_hashes)
+    if duplicate_of is not None:
+        case.warnings.append(
+            f"duplicate patient: republishes the photographs of "
+            f"case {duplicate_of}; not emitted twice")
+        case.pairs = []
+
+
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                   gallery_endpoint: bool = False,
                   grant_root: Path | None = None) -> list[CaseData]:
+    if cfg.kind == "folk":
+        import folk_gallery
+
+        url = gallery_url(cfg, cfg.gallery_paths[0])
+        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
+        cases = folk_gallery.folk_parse_listing(listing, url)
+        # Duplicate patients are dropped on every gallery, as in the
+        # rm_gallery2 branch below, which records why.
+        seen_hashes: list[tuple[str, object]] = []
+        for case in cases:
+            _drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
+        return cases
+    if cfg.kind == "rm_gallery2":
+        # Imported here rather than at module scope, like page1solutions: the
+        # module imports this one for the shared data model.
+        import rm_gallery2
+
+        cases: list[CaseData] = []
+        seen_case_ids: set[str] = set()
+        # Image hash -> the case that published that photograph first.
+        #
+        # A duplicate patient must be dropped rather than emitted, because
+        # build_dataset.py splits train/val BY PATIENT and would otherwise put
+        # the same woman in both halves.
+        #
+        # Run on EVERY gallery, not only on a practice publishing across two
+        # domains. Cross-domain republication is the obvious case (sbschooler
+        # republishes 33 of its 39 second-domain cases), but a single gallery
+        # does it too: doctorleber publishes one patient - the same photographs,
+        # the same tattoos - as both case 1389 and case 2287. Scoping this to
+        # multi-gallery clinics let that pair through to ingest.py, which
+        # happened to catch it on a byte-identical file; a re-encode between the
+        # two uploads would have defeated that and put one woman in both halves
+        # of the split.
+        #
+        # The check is by pixels rather than by text for the reason rm_gallery2
+        # records. It costs one image fetch per case, which the emit makes
+        # anyway; when the image cannot be fetched the case is kept rather than
+        # dropped on missing evidence.
+        seen_hashes: list[tuple[str, object]] = []
+        # The cache key is indexed by GALLERY, not derived from the path's last
+        # segment. sbschooler's two galleries both end in "breast-augmentation"
+        # on different hosts, so a path-derived key made the second listing
+        # replay the first from cache and report zero cases - and would have
+        # served one domain's patient-1 as the other's.
+        for gallery_index, gallery_path in enumerate(cfg.gallery_paths):
+            listing_url = gallery_url(cfg, gallery_path)
+            listing_key = f"g{gallery_index}"
+            listing = fetcher.get(
+                listing_url,
+                f"{cfg.slug}_listing_{listing_key}.html").decode("utf-8", "replace")
+            path_only = listing_url.split("/", 3)[-1]
+            slugs = rm_gallery2.rm_list_cases(listing, "/" + path_only)
+            print(f"  {listing_url}: {len(slugs)} cases listed")
+            for case_slug in slugs:
+                url = f"{listing_url.rstrip('/')}/{case_slug}"
+                html = fetcher.get(
+                    url, f"{cfg.slug}_case_{listing_key}_{case_slug}.html"
+                ).decode("utf-8", "replace")
+                case = rm_gallery2.rm_parse_case(html, case_slug, url)
+                if case.case_id in seen_case_ids:
+                    case.warnings.append(
+                        f"duplicate case number {case.case_id}; not emitted twice")
+                    case.pairs = []
+                    cases.append(case)
+                    continue
+                seen_case_ids.add(case.case_id)
+                _drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
+                cases.append(case)
+        return cases
     if cfg.kind == "page1solutions":
         # Imported here rather than at module scope: page1solutions imports
         # this module for the shared data model, so a top-level import in both
@@ -8178,9 +8478,9 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         for gallery_path in cfg.gallery_paths:
             tag = gallery_path.strip("/").rsplit("/", 1)[-1]
             short = re.sub(r"^breast-augmentation-|-implants$", "", tag) or tag
-            gallery_url = cfg.base_url + gallery_path
+            paged_url = cfg.base_url + gallery_path
             first = fetcher.get(
-                gallery_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
+                paged_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
                     "utf-8", "replace")
             declared_pages = page1solutions_page_count(first)
             if not page1solutions_has_pager(first):
@@ -8188,7 +8488,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                       f"ul.pager markup, so a one-page sweep is this parser's "
                       f"result rather than the gallery's own statement")
             page_cases = page1solutions_parse_listing_page(
-                first, gallery_url, short)
+                first, paged_url, short)
             cases.extend(page_cases)
             rendered_blocks = page1solutions_listing_case_count(first)
             collected_cases = len(page_cases)
@@ -8199,7 +8499,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             page = 2
             while declared_pages is not None and page <= declared_pages:
                 html = _fetch_optional(
-                    fetcher, f"{gallery_url}?page={page}",
+                    fetcher, f"{paged_url}?page={page}",
                     f"{cfg.slug}_listing_{tag}_p{page}.html")
                 if html is None:
                     print(f"  WARN {cfg.slug}/{tag}: page {page} unavailable")
@@ -8213,7 +8513,7 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                     print(f"  WARN {cfg.slug}/{tag}: page {page} renders no "
                           f"case block(s)")
                     break
-                more = page1solutions_parse_listing_page(html, gallery_url, short)
+                more = page1solutions_parse_listing_page(html, paged_url, short)
                 cases.extend(more)
                 rendered_blocks += rendered
                 collected_cases += len(more)
