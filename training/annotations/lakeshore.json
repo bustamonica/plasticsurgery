@@ -1,0 +1,1087 @@
+{
+ "lakeshore:01": {
+  "clothing": "nude",
+  "pairs": {
+   "pair2": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-01-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "oblique-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front BEFORE: a small notch/scar at the inframammary fold under the viewer-RIGHT breast (patient's LEFT). Pair1 BEFORE: the same notch sits under the NEAR breast. So the near side is the patient's left, which confirms 'left'. AFTER half: the front shows a curved scar line and striae across the upper outer viewer-left breast (patient's right). In pair1 AFTER that line is not on the near breast. Consistent, but that half's evidence is weaker (absence only)"
+   },
+   "pair3": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front AFTER: a curved scar line plus striae cross the upper outer breast on the viewer-LEFT (patient's RIGHT). Pair3 AFTER: the same curved line and striae lie across the upper part of the NEAR breast. So the near breast is the patient's right, which confirms 'right'. Pair3 BEFORE: the inframammary notch (patient's left) is not on the near breast. Consistent"
+   }
+  }
+ },
+ "lakeshore:02": {
+  "clothing": "nude",
+  "pairs": {
+   "pair2": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-02-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front (both halves): a barbell nipple piercing on the viewer-RIGHT breast (patient's LEFT) and a triangle tattoo on the viewer-left lateral chest (patient's right). Pair1 BEFORE and AFTER: the pierced nipple is on the NEAR (only visible) breast, and the triangle is not visible. That confirms 'left'"
+   },
+   "pair3": {
+    "withheld": "view mismatch: BEFORE oblique, AFTER true profile"
+   }
+  }
+ },
+ "lakeshore:03": {
+  "clothing": "nude",
+  "pairs": {
+   "pair2": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-03-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   },
+   "pair3": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   }
+  }
+ },
+ "lakeshore:04": {
+  "clothing": "nude",
+  "pairs": {
+   "pair2": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-04-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
+   },
+   "pair3": {
+    "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
+   }
+  }
+ },
+ "lakeshore:05": {
+  "clothing": "nude",
+  "pairs": {
+   "pair2": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-05-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "oblique",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:06": {
+  "clothing": "nude",
+  "pairs": {
+   "pair3": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-06-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:07": {
+  "clothing": "nude",
+  "pairs": {
+   "pair3": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-07-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair1": {
+    "view": "oblique-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front (both halves): a small dark mole on the lower-lateral rim of the viewer-LEFT areola (patient's RIGHT). The viewer-right areola is clean. In pair4 (opposite pose), that mole sits on the near areola. Pair1 BEFORE and AFTER: the NEAR areola is fully visible and has no mole. So the near breast is the patient's left, which confirms 'left'"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "anchored on the AFTER half only (near-arm dot line); no landmark resolvable in the BEFORE profile; both passes read the pose as left"
+   },
+   "pair4": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The dark mole on the lower-lateral rim of the patient's RIGHT areola (viewer-left in the front) is on the NEAR areola in both pair4 BEFORE and AFTER. Confirms 'right'"
+   },
+   "pair5": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "anchored on the AFTER half only (near-arm dot line); no landmark resolvable in the BEFORE profile; both passes read the pose as right"
+   }
+  }
+ },
+ "lakeshore:09": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-09-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "withheld": "view mismatch: BEFORE oblique, AFTER true profile"
+   }
+  }
+ },
+ "lakeshore:10": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-10-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "view mismatch: BEFORE is a 45-degree oblique (both breasts), AFTER is a true profile"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Anchored through the mirrored lateral, stated explicitly. Pair2 (chest facing viewer-right, clearly opposite) is anchored as right by the right-flank portrait tattoo. In pair3 that large tattoo is NOT visible in either half. It would sit on the near flank if this were a right-side view (it is plainly visible there in pair2), so its absence places the patient's right on the far side"
+   }
+  }
+ },
+ "lakeshore:11": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-11-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: A lion-head tattoo on the lateral chest below the breast is on the viewer-LEFT in the front AFTER, and faint at the viewer-left edge in the front BEFORE (patient's RIGHT). Pair2 BEFORE and AFTER: the lion is on the NEAR side below the near breast. Confirms 'right'"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Anchored through the mirrored lateral, stated explicitly. Pair2 (opposite facing) is anchored as right by the right-side lion tattoo. In pair3 BEFORE and AFTER the lion tattoo is absent. It would sit on the near lateral chest if this were a right-side view, so the patient's right is on the far side"
+   }
+  }
+ },
+ "lakeshore:12": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-12-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front BEFORE: two moles in a short vertical line on the lower lateral chest on the viewer-LEFT (patient's RIGHT), and one mole under the medial viewer-right breast (patient's LEFT). Pair2 BEFORE: the vertical mole pair is on the NEAR lower chest and the single mole is under the FAR breast. Front AFTER and pair2 AFTER show the same near-side pair of moles. Confirms 'right'"
+   },
+   "pair3": {
+    "view": "oblique",
+    "pose_laterality": "left",
+    "held": "anchored on the BEFORE half only; the mole is shadowed under the enlarged breast in the AFTER; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:13": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-13-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:14": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-14-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:15": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-15-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:16": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-16-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front (both halves): a mole on the upper-outer viewer-LEFT breast (patient's RIGHT). Pair2 BEFORE and AFTER: a mole in the same upper-outer position on the NEAR breast. Confirms 'right'"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:17": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-17-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:18": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-18-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front (both halves): a bird/flower sleeve tattoo on the viewer-LEFT upper arm and a star tattoo on the viewer-LEFT hip, both on the patient's RIGHT. Pair2 BEFORE and AFTER: both tattoos are on the NEAR side. Confirms 'right'"
+   },
+   "pair3": {
+    "view": "oblique-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front (both halves): a rose tattoo on the lateral chest/flank below the viewer-RIGHT breast (patient's LEFT). Pair3 BEFORE and AFTER: the rose is on the NEAR side below the near breast, and the arm and star tattoos are not visible. Confirms 'left'"
+   }
+  }
+ },
+ "lakeshore:19": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-19-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:20": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-20-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:21": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-21-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "anchored on the BEFORE half only (bracelet); the bracelet changes wrist between sessions; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:22": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-22-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Small dark mole on the lower-outer quadrant of the viewer-LEFT breast in the front view (patient's RIGHT breast), seen in both front halves; the same mole sits on the lower-outer quadrant of the NEAR breast in pair2 before and after. Confirms pose reading (right)"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Absence-based: the patient's-right lower-outer breast mole (front view, viewer-left breast, both halves) is absent from the clearly visible lower-outer near breast in pair3 before and after, where it would appear if this were a mirrored right view. Consistent with left"
+   }
+  }
+ },
+ "lakeshore:23": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-23-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:24": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-24-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:25": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-25-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Reddish-brown mark directly above the nipple of the viewer-LEFT breast in the front view (patient's RIGHT), plus a faint dot upper-outer, in both front halves; the same mark sits above the NEAR breast's nipple in pair2 before and after. Confirms right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Absence-based: the prominent red mark above the patient's-right nipple is absent from the near breast in pair3 before and after (checked at 2x), where it would appear if mirrored. Consistent with left"
+   }
+  }
+ },
+ "lakeshore:26": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-26-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The patient's-LEFT shoulder tattoo (see pair3) does not appear on the top of the near shoulder or the far shoulder in pair2 before/after (checked at 2x). A mirrored image would show it on the near shoulder top. Also anchored from pair3, stated explicitly: the pose there is clearly opposite"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Front AFTER shows tattoo ink on the top of the viewer-RIGHT shoulder (patient's LEFT); the front before is too dim/angled to show it. pair3 before and after both show the large tattoo on the NEAR shoulder/upper back. Confirms left"
+   }
+  }
+ },
+ "lakeshore:27": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-27-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:28": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-28-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:29": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-29-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Absence-based: the patient's-LEFT upper-arm moles (see pair3) are absent from the clearly visible near upper arm in pair2 before (checked at zoom) and after (at sheet resolution). The viewer-left arm in the front view is also clean. Consistent with right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Two moles in a vertical line on the lateral upper arm of the viewer-RIGHT arm in the front view (patient's LEFT): one clear in before, both in after. The same vertical pair sits on the NEAR upper arm in pair3 before (checked at 2.5x). Confirms left. The same mole pair is visible, fainter, on the near upper arm in the AFTER as well"
+   }
+  }
+ },
+ "lakeshore:30": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-30-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: A full sleeve tattoo on the viewer-LEFT arm in both front halves (patient's RIGHT arm); the NEAR arm carries it in pair2 before and after. Confirms right",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: The near arm is untattooed in pair3 before and after, matching the untattooed viewer-RIGHT arm (patient's LEFT) in the front view; a mirrored image would show the sleeve. Confirms left"
+   }
+  }
+ },
+ "lakeshore:31": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-31-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
+   },
+   "pair3": {
+    "withheld": "view mismatch: BEFORE true profile, AFTER oblique"
+   }
+  }
+ },
+ "lakeshore:33": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-33-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The patient's-LEFT rib script tattoo (see pair3) is absent from the visible near flank/ribs in pair2 before and after, where it would sit if mirrored. Poses are clearly opposite to pair3. Consistent with right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Two-word script tattoo on the ribs below the viewer-RIGHT breast in the front AFTER (patient's LEFT; checked at 2x). It is not discernible in the front before because of the angle. pair3 before and after both show the same two-word tattoo on the NEAR ribs. Confirms left"
+   }
+  }
+ },
+ "lakeshore:34": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-34-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "large new tattoos across both breasts and the sternum in the AFTER only - a before/after difference unrelated to the surgery (label-leak class); the emitted front carries the same difference"
+   },
+   "pair3": {
+    "withheld": "large new tattoos across both breasts and the sternum in the AFTER only - a before/after difference unrelated to the surgery (label-leak class)"
+   }
+  }
+ },
+ "lakeshore:35": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-35-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:36": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-36-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "anchored on the BEFORE half only (bluish mark under the right clavicle); both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:37": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-37-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The 'Love/Pain' script tattoo on the viewer-RIGHT upper chest (patient's LEFT) and a script tattoo on the viewer-RIGHT forearm (patient's LEFT) appear in both front halves. In pair2 before, both are on the FAR side (far upper chest, far forearm). Confirms right. In the after the chest tattoo is out of view (turned further); a hip tattoo on the near hip matches between the halves"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: The patient's-LEFT upper-chest 'Love/Pain' tattoo is visible at the NEAR upper chest/shoulder line in pair3 before (clear) and after (faint edge, checked at 2x). Confirms left"
+   }
+  }
+ },
+ "lakeshore:38": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-38-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: A vine/flower tattoo on the lateral chest below the viewer-LEFT breast in the front view (patient's RIGHT): clear in before, faint in after. It sits on the NEAR flank in pair2 before and after. Confirms right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: The prominent right-flank tattoo is absent from the clearly visible near flank in pair3 before and after, where it would be if mirrored. Consistent with left",
+    "ingest_stopped": "stopped by emit_corpus.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
+   }
+  }
+ },
+ "lakeshore:39": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-39-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Absence-based: the large hyperpigmented patch on the patient's LEFT lower abdomen (see pair3) is absent from the near-side lower abdomen in pair2 before (checked at 1.8x) and after (sheet), where it would appear if mirrored. Consistent with right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Large brown hyperpigmented patch on the lower abdomen, viewer-RIGHT of the navel in the front view (patient's LEFT), in both halves. It appears on the NEAR lower abdomen in pair3 before (clear) and after (faint). Moles on the viewer-right upper arm in the front view are also consistent with the near arm. Confirms left"
+   }
+  }
+ },
+ "lakeshore:40": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-40-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "anchored on the AFTER half only (watch on the far wrist); both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:41": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-41-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:43": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-43-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "duplicate patient: case 43 republishes case 12 (front and this pair are pixel-identical to case 12); dropped so one patient is not split across two keys"
+   },
+   "pair3": {
+    "withheld": "duplicate patient: case 43 republishes case 12; dropped so one patient is not split across two keys"
+   }
+  }
+ },
+ "lakeshore:44": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-44-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Full tattoo sleeve on the arm at the viewer's left in the front (both halves) = patient's RIGHT arm. In this lateral the near arm (viewer's right) is untattooed in both halves, and the sleeve shows only at the far edge (bottom-left of before). So the tattooed right arm is on the far side, which confirms left"
+   },
+   "pair3": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Same right-arm sleeve (front, viewer's left) is the NEAR arm in both halves, with the 'In Memory of Graciela' script legible. Confirms right"
+   }
+  }
+ },
+ "lakeshore:45": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-45-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "corrupt pairing: the BEFORE is case 52 pair2 BEFORE (pixel-identical) and faces the other way from the AFTER"
+   },
+   "pair3": {
+    "withheld": "corrupt pairing: before/after swapped (BEFORE shows augmented breasts) and the halves are different views; positional pairing mis-pairs this case"
+   }
+  }
+ },
+ "lakeshore:46": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-46-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   }
+  }
+ },
+ "lakeshore:47": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-47-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Mandala/flower shoulder tattoo at the viewer's right in the front (both halves) = patient's LEFT shoulder. In this lateral it shows on the FAR shoulder (top right) in both halves, and the near arm is clean. Confirms right"
+   },
+   "pair3": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The left-shoulder tattoo (front, viewer's right) is hidden and the near shoulder/arm is clean in both halves, consistent with the patient's right facing the camera. Confirms right (hidden-on-far-side evidence)"
+   }
+  }
+ },
+ "lakeshore:48": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-48-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "corrupt pairing: halves are different views (oblique vs profile); the page publishes before-oblique, before-side, after-oblique, after-side so positional pairing mis-pairs this case"
+   },
+   "pair3": {
+    "withheld": "corrupt pairing: halves are different views and the BEFORE looks post-operative; positional pairing mis-pairs this case"
+   }
+  }
+ },
+ "lakeshore:49": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-49-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Large flower tattoo on the upper arm/shoulder at the viewer's left in the front (the viewer's-right upper arm is bare; owl tattoos are on both forearms) = patient's RIGHT upper arm. It is the NEAR shoulder/arm in both halves. Confirms right"
+   },
+   "pair3": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The same right-arm flower tattoo is the NEAR shoulder in both halves. Confirms right",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
+   }
+  }
+ },
+ "lakeshore:50": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-50-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:51": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-51-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "anchored on the BEFORE half only (star tattoo on the far shoulder); AFTER evidence is only a clean near arm; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: The star tattoo (patient's left upper chest) is on the NEAR shoulder at the top of the before (zoomed 2x). A rib tattoo on the near flank appears in BOTH halves, tying the after to the same side. The patient's right-forearm script tattoo (front, viewer's left) is not visible. Confirms left"
+   }
+  }
+ },
+ "lakeshore:52": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-52-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right; its BEFORE is pixel-identical to case 45 pair2's BEFORE, which is why that pair is withheld",
+    "identity_check": "this pair's BEFORE is pixel-identical to case 45 pair2's BEFORE, so cases 45 and 52 may be one patient; settle that before releasing this pair, because both fronts are already in the corpus and build_dataset.py splits train/val by patient"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:53": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-53-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Script rib tattoo below the breast at the viewer's left in the front (both halves) = patient's RIGHT ribs. It is HIDDEN in both halves of this lateral, and it is visible on the near side in pair3 (the opposite facing). Confirms left"
+   },
+   "pair3": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: The same patient's-right rib script tattoo ('...alis volat propriis') is on the NEAR ribs in both halves. Confirms right"
+   }
+  }
+ },
+ "lakeshore:54": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-54-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   }
+  }
+ },
+ "lakeshore:55": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-55-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair4": {
+    "withheld": "identity unverified: a second shoot (beige wall) in BOTH halves, unlike the case front; no landmark ties it to this patient"
+   },
+   "pair5": {
+    "withheld": "identity unverified: second shoot in both halves; the flank script tattoo seen in pair2 is absent from the near flank"
+   }
+  }
+ },
+ "lakeshore:56": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-56-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:57": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-57-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "the two passes disagree on the AFTER view (oblique vs near-frontal)"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Both patient's-right marks (upper-chest mole and under-breast rib script tattoo, viewer's left in the front) are HIDDEN in both halves; the near flank is clean (checked at 1.1x). Consistent with left"
+   },
+   "pair4": {
+    "withheld": "contradiction: second shoot in both halves; a flank tattoo on the near side of a left-facing view, while the case front puts its only torso tattoo on the patient's RIGHT - a different patient or a mirrored image"
+   },
+   "pair5": {
+    "withheld": "contradiction: same as pair4"
+   }
+  }
+ },
+ "lakeshore:58": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-58-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Depigmented pale patch on the lower chest/upper abdomen at the viewer's left in the front (both halves) = patient's RIGHT. It is on the NEAR side in both halves (zoomed 1.3x). Confirms right"
+   },
+   "pair3": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: The patient's-right pale patch is HIDDEN in both halves, and pair2 (the opposite facing) shows it near-side. Consistent with left"
+   }
+  }
+ },
+ "lakeshore:59": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-59-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side-left",
+    "evidence": "two independent passes agree on the view and facing; landmark: Mandala forearm tattoo on the viewer's-right forearm in the front (both halves; watch on the same wrist in the before) = patient's LEFT forearm. It is the NEAR forearm at the bottom of both halves. Confirms left",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
+   },
+   "pair3": {
+    "view": "side-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Floral rib tattoo with script, at the viewer's left under the breast in the front = patient's RIGHT ribs. It is on the NEAR ribs in both halves. Confirms right"
+   }
+  }
+ },
+ "lakeshore:60": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-60-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "no landmark visible in both the case front and both halves of this pair; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:61": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-61-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "side",
+    "pose_laterality": "right",
+    "held": "anchored on the AFTER half only; the forearm tattoo was acquired between visits; both passes read the pose as right"
+   },
+   "pair3": {
+    "view": "side",
+    "pose_laterality": "left",
+    "held": "anchored on the AFTER half only; the forearm tattoo was acquired between visits; both passes read the pose as left"
+   }
+  }
+ },
+ "lakeshore:93": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-93-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "withheld": "direction mismatch: BEFORE faces viewer-left, AFTER faces viewer-right"
+   }
+  }
+ },
+ "lakeshore:94": {
+  "clothing": "nude",
+  "pairs": {
+   "pair1": {
+    "view": "front",
+    "key_source": "already in the corpus as lakeshore-94-front; key re-derived by pixel match against that pair, not taken from the shared annotations.json"
+   },
+   "pair2": {
+    "view": "oblique-right",
+    "evidence": "two independent passes agree on the view and facing; landmark: Small dark mole on the upper abdomen just to the viewer's LEFT of midline in the front (both halves) = patient's RIGHT. In both halves it sits below the NEAR breast (zoomed 1.5x). Moderate strength (the mole is close to midline). An outline tattoo on the near lateral chest wall is visible in both halves but not in the front. Gold watch on the far wrist in both",
+    "ingest_stopped": "stopped by ingest.py's censorship gate as a texture-free patch of skin, a false positive; not overridden, pending the captain's censorship-false-positive-readmit decision"
+   },
+   "pair3": {
+    "withheld": "different patient: the case front and pair2 show a different woman (skin tone, hair)"
+   },
+   "pair4": {
+    "withheld": "different patient: as pair3"
+   }
+  }
+ }
+}

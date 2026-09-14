@@ -334,6 +334,30 @@ def test_resolve_view():
     assert sg.resolve_view(pair1, {"pairs": {"pair1": {"view": "side-right"}}})[0] == "side-right"
 
 
+def test_view_evidence_reaches_the_notes():
+    """The landmark a laterality call rests on must be checkable from the pair.
+
+    Without it the notes say only 'visual inspection', which is how unanchored
+    by-eye calls reached the corpus undetected (sanantonio, sign-flipped).
+    """
+    pair = sg.ImagePair("pair2", "b", "a")
+    evidence = "flank tattoo on the patient's RIGHT sits on the near side"
+    ann = {"pairs": {"pair2": {"view": "oblique-right", "evidence": evidence}}}
+    view, source = sg.resolve_view(pair, ann)
+    assert view == "oblique-right"
+    assert source == f"visual inspection of downloaded images; evidence: {evidence}"
+    typed = {"laterality": "right",
+             "pairs": {"pair2": {"view": "side", "evidence": evidence}}}
+    assert sg.resolve_view(pair, typed)[1].endswith(f"; evidence: {evidence}")
+    specs = sg.CaseSpecs(left_cc=300.0, right_cc=300.0, age=30)
+    meta = sg.build_meta("x-2-oblique-right", view, specs, ann,
+                         ann["pairs"]["pair2"], source, "consent")
+    assert f"evidence: {evidence}" in meta["notes"]
+    # A pair annotated without evidence keeps the old provenance exactly.
+    assert sg.resolve_view(pair, {"pairs": {"pair2": {"view": "front"}}}) == (
+        "front", "visual inspection of downloaded images")
+
+
 class TestGramVolumesAreRecordedAsCc:
     """Captain ruling 2026-08-14 (`ba-viz-emit-backlog` report section 2).
 

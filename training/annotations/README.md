@@ -64,3 +64,26 @@ The view is recorded per SLIDE because the slide order is not a protocol here - 
 Every non-front call was made at full annotation size, against the corpus convention (`-left` = near shoulder/arm on the VIEWER'S RIGHT, body angled toward the viewer's left), read off the visible chin/shoulder direction.
 That size matters: a first pass from 6-per-sheet contact sheets called case 14's oblique `left`, and re-rendered at full size it is unambiguously `oblique-right`.
 Every call was redone at the larger size.
+
+## lakeshore.json
+
+The 60 cases already in the corpus as fronts, and all 186 pairs they publish: 60 fronts, 45 obliques/sides labelled, 58 held, 23 withheld (captain-approved intra-case collection, 2026-09-13).
+Every pair carries its disposition in the file itself, so there is no table to read it against.
+
+- **Fronts are keyed by pixel match, not by the shared `clinic-corpus/annotations.json`.**
+  That file labels `pair2` as front for all 60 cases, but under today's `influx_swiper` parser the emitted front is `pair1` in 53 cases, `pair2` in 5 and `pair3` in 2.
+  Replaying the shared file would label obliques as fronts.
+  That provenance is recorded in each front's `key_source`, which the loader ignores, so `evidence` keeps its landmark-only meaning.
+- **A labelled lateral needs a landmark in the case's front AND in both halves of the pair** (a mark present, or a large mark absent from a region the view clearly shows).
+  Its `evidence` sentence names the landmark and reaches the pair's `meta.json` notes.
+  Every call was made twice, independently (one full pass plus a blind second pass), and a pair emits only where both agree on each half's view and on the facing.
+- **5 of the 45 labelled laterals were stopped by a censorship gate, so 40 are in the corpus.**
+  Each of the 5 carries an `ingest_stopped` marker, which the loader ignores: the gate read a texture-free patch of skin, a false positive that was deliberately not overridden, pending the captain's censorship-false-positive-readmit decision.
+- **Held pairs** carry the bare view type (`oblique`/`side`) plus `pose_laterality`, the direction both passes read from the pose.
+  They are held because no landmark ties both halves to a side, not because the pose is unclear; adding `laterality` releases one.
+  Case 52's `pair2` is the exception that needs more than a label: it also carries an `identity_check`, because its BEFORE is pixel-identical to case 45 `pair2`'s BEFORE.
+  Settle whether cases 45 and 52 are the same patient before releasing it, because both fronts are already in the corpus and `build_dataset.py` splits train/val by patient.
+- **Withheld pairs** carry a `withheld` reason and no view.
+  The reasons are ones no label can fix: halves of different views, a duplicate patient (case 43 republishes case 12), or photos that belong to another case.
+  This gallery pairs positionally, and cases 45 and 48 publish before-oblique, before-side, after-oblique, after-side, so it pairs two pre-op or two post-op shots.
+  A second shoot on a beige wall is appended to cases 55, 57 and 94, and at 94 it is visibly a different woman.
