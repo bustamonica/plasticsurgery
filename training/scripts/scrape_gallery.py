@@ -53,7 +53,12 @@ produced by visually inspecting the downloaded images:
         "clothing": "nude" | "bra" | "top",
         "pairs": {"<pair_key>": {"view": "<schema view>",
                                  "laterality": "left" | "right",
-                                 "clothing": "nude" | "bra" | "top"}}}}
+                                 "clothing": "nude" | "bra" | "top",
+                                 "evidence": "<the landmark the call rests on>"}}}}
+
+A pair's "evidence", when recorded, is appended to its view-label provenance in
+the emitted notes, so the landmark a left/right call was anchored on can be
+checked against the photographs by whoever reviews the pair.
 
 A pair's "view" may also be the bare type "oblique" or "side". That records
 what the photograph is - the call CLAUDE.md says is reliable at contact-sheet
@@ -7478,11 +7483,23 @@ def _pair_laterality(pair_ann: dict, annotations: dict):
     return pair_ann.get("laterality") or annotations.get("laterality")
 
 
+def _with_evidence(source: str, pair_ann: dict) -> str:
+    """A visual call's source, with the annotator's recorded evidence if any.
+
+    "Visual inspection" alone does not say which landmark a left/right call
+    was anchored on, so a reviewer of the emitted pair could not check it
+    against the photographs; the evidence travels into the pair's notes.
+    """
+    evidence = pair_ann.get("evidence")
+    return f"{source}; evidence: {evidence}" if evidence else source
+
+
 def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | None]:
     """(schema view, annotation source) for a pair, or (None, ...) to skip."""
     pair_ann = annotations.get("pairs", {}).get(pair.key, {})
     if pair_ann.get("view") in SCHEMA_VIEWS:
-        return pair_ann["view"], "visual inspection of downloaded images"
+        return pair_ann["view"], _with_evidence(
+            "visual inspection of downloaded images", pair_ann)
     # Some clinics document laterality directly in the page (e.g. heavenly's
     # older filenames spell out 'Left-Oblique'/'Right-Oblique'); a hint that
     # is already a full schema view needs no annotation.
@@ -7495,8 +7512,8 @@ def resolve_view(pair: ImagePair, annotations: dict) -> tuple[str | None, str | 
     if laterality not in ("left", "right"):
         return None, None
     lat_source = "laterality from visual inspection of downloaded images"
-    return (f"{view_type}-{laterality}",
-            f"{type_source}; {lat_source}" if type_source else lat_source)
+    return (f"{view_type}-{laterality}", _with_evidence(
+        f"{type_source}; {lat_source}" if type_source else lat_source, pair_ann))
 
 
 def view_skip_reason(pair: ImagePair, annotations: dict) -> str:
