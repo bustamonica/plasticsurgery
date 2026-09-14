@@ -740,10 +740,64 @@ def test_wny_parse_case_and_chain():
     case = sg.wny_parse_case(load_fixture("wny_case_8.html"), "8", "x")
     assert [p.key for p in case.pairs] == ["view1", "view2", "view3"]
     assert all(p.split_composite for p in case.pairs)
+    # The older numbered family carries no view_hint at all - front/oblique/
+    # side must be judged visually, same as always.
+    assert all(p.view_hint is None for p in case.pairs)
     # No L/R prefix in the narrative, so parse_fill_volumes falls back to its
     # documented unordered two-number case (not necessarily symmetric).
     assert case.specs.left_cc == 360 and case.specs.right_cc == 390
     assert sg.wny_next_case_ids(load_fixture("wny_case_8.html")) == ["1", "19"]
+
+
+def test_wny_parse_case_newer_named_view_family():
+    # The newer family names the view instead of numbering it, and is a pure
+    # 'breast-augmentation' case: all 5 composites are kept, with laterality
+    # (only) read off the filename as a view_hint - the angle word itself
+    # ('oblique'/'side') is not trustworthy (report section 3.2) and must
+    # still be judged from the downloaded images, so a bare laterality hint
+    # cannot resolve a schema view on its own.
+    case = sg.wny_parse_case(load_fixture("wny_case_204.html"), "204", "x")
+    assert {p.key for p in case.pairs} == {
+        "front", "left-oblique", "left-side", "right-oblique", "right-side"}
+    assert all(p.split_composite for p in case.pairs)
+    hints = {p.key: p.view_hint for p in case.pairs}
+    assert hints["front"] is None
+    assert hints["left-oblique"] == "left" and hints["left-side"] == "left"
+    assert hints["right-oblique"] == "right" and hints["right-side"] == "right"
+    for pair in case.pairs:
+        assert sg.resolve_view(pair, {}) == (None, None)  # never auto-resolves
+    assert case.warnings == []
+    assert case.specs.left_cc == 340 and case.specs.right_cc == 340
+
+
+def test_wny_parse_case_mommy_makeover_excluded_by_slug():
+    # Mommy Makeover cases publish under a 'mommy-makeover' slug prefix (the
+    # case's own primary procedure) rather than 'breast-augmentation', and are
+    # OUT per captain ruling: the after photograph also shows an
+    # abdominoplasty the implants did not cause.
+    case = sg.wny_parse_case(load_fixture("wny_case_170.html"), "170", "x")
+    assert case.pairs == []
+    assert len(case.warnings) == 1
+    assert "mommy-makeover" in case.warnings[0]
+    assert "excluded by captain ruling" in case.warnings[0]
+    # Specs are still parsed even though the case is excluded - the same
+    # 'read the spec, throw the case away' shape the original parser bug hid.
+    assert case.specs.left_cc == 340 and case.specs.right_cc == 340
+
+
+def test_wny_parse_case_mastopexy_excluded_by_case_text():
+    # A pure 'breast-augmentation' slug is necessary but not sufficient: this
+    # case publishes under it while its OWN text names a mastopexy, so the
+    # slug filter alone would have let it through. It stays WITHHELD per the
+    # captain's constraints (not covered by the Mommy Makeover ruling).
+    case = sg.wny_parse_case(load_fixture("wny_case_194.html"), "194", "x")
+    assert case.pairs == []
+    assert len(case.warnings) == 1
+    # The case text names the lift twice ('cosmetic breast lift' ... 'and a
+    # mastopexy'); combined_procedure_term() reports the leftmost match.
+    assert "breast lift" in case.warnings[0]
+    assert "excluded by captain ruling" in case.warnings[0]
+    assert case.specs.left_cc == 295 and case.specs.right_cc == 295
 
 
 def test_privateclinic_parse_card():
