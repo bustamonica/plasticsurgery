@@ -1246,7 +1246,7 @@ def test_etna_pure_augmentation_case_is_kept():
 
 def test_etna_labelled_bare_number_reads_as_cc():
     """Inside a field whose label names it as an implant size, a bare number
-    or an ml figure reads as cc (2026-08-15 units ruling)."""
+    or an ml figure reads as cc (2026-08-14 units ruling)."""
     assert sg._etna_labelled_volume("Implant Size", "350") == 350.0
     assert sg._etna_labelled_volume("Implant Size", "350 ml") == 350.0
     assert sg._etna_labelled_volume("Implant Size", "350cc") == 350.0
@@ -4604,7 +4604,7 @@ def test_swan_height_and_weight_have_no_documented_unit_and_do_not_convert():
 
 
 def test_swan_bare_number_in_a_labelled_implant_size_field_reads_as_cc():
-    """The 2026-08-15 units ruling: labelled field yes, free prose no."""
+    """The 2026-08-14 units ruling: labelled field yes, free prose no."""
     specs = swan_case("17094").specs
     assert (specs.left_cc, specs.right_cc) == (325.0, 325.0)
 
