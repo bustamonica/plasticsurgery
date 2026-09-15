@@ -448,8 +448,9 @@ RM_PROFILE_PATTERNS = [
     (re.compile(r"\bprofile\s*[:\-]\s*high\b", re.I), "high"),
     (re.compile(r"\bprofile\s*[:\-]\s*moderate\b(?!\s*plus)", re.I), "moderate"),
     # The Full ladder in a labelled field (captain's ruling of 2026-08-26, see
-    # sg.FULL_PROJECTION_PATTERNS): Extra-Full is extra-high, Full is high.
-    (re.compile(r"\bprofile\s*[:\-]\s*extra[- ]full\b", re.I), "extra-high"),
+    # sg.FULL_PROJECTION_RE): Extra-Full is extra-high, Full is high.
+    (re.compile(rf"\bprofile\s*[:\-]\s*extra{sg.FULL_LADDER_SEP}full\b", re.I),
+     "extra-high"),
     (re.compile(r"\bprofile\s*[:\-]\s*full\b", re.I), "high"),
     # Spelled out, unambiguous with or without the word "profile".
     (re.compile(r"\b(?:extra|ultra)[- ]high\b", re.I), "extra-high"),

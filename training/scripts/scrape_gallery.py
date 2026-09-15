@@ -196,19 +196,29 @@ BRAND_WORD_ONLY = {"motiva"}
 # rules. Only the spelling with 'profile'/'projection' beside it is a
 # projection: bare 'full' is marketing prose ('a full, balanced figure') and
 # decodes only under a documented Motiva implant (MOTIVA_PROFILE_PATTERNS).
-# The high pattern refuses a preceding 'extra', so the two rungs never overlap.
+# One pattern carries both rungs, with 'extra' as an optional prefix: matches
+# never overlap, so an Extra-Full consumes its own 'full' and can never also be
+# read as Full, whatever separator the page used (NBSP, a run of spaces, a
+# hyphen or a Unicode dash all reach this text unnormalized).
 # Shared with rm_gallery2 and folk_gallery, whose own tables would otherwise
 # have to restate the ruling.
-FULL_PROJECTION_PATTERNS = [
-    (re.compile(r"\bextra[- ]full[- ](?:profile|projection)\b", re.I), "extra-high"),
-    (re.compile(r"(?<!extra[- ])\bfull[- ](?:profile|projection)\b", re.I), "high"),
-]
+FULL_LADDER_SEP = r"[-\s‐-―]+"
+FULL_PROJECTION_RE = re.compile(
+    rf"\b(?P<extra>extra{FULL_LADDER_SEP})?full{FULL_LADDER_SEP}(?:profile|projection)\b",
+    re.I)
 PROFILE_PATTERNS = [
     (re.compile(r"\b(extra[- ]high|ultra[- ]high)\b", re.I), "extra-high"),
     (re.compile(r"\bmoderate[- ](profile[- ])?plus\b", re.I), "moderate-plus"),
     (re.compile(r"\bhigh\s+(profile|projection)\b", re.I), "high"),
     (re.compile(r"\bmoderate\s+(profile|projection)\b", re.I), "moderate"),
 ]
+
+
+def full_projection_rungs(text: str) -> set[str]:
+    """Every Full-ladder rung `text` documents: 'high', 'extra-high', both or
+    neither."""
+    return {"extra-high" if match.group("extra") else "high"
+            for match in FULL_PROJECTION_RE.finditer(text)}
 
 
 def full_projection_profile(text: str) -> str | None:
@@ -222,8 +232,7 @@ def full_projection_profile(text: str) -> str | None:
     another projection ('Moderate profile (left side), full profile (right
     side)', lakeshore) keeps the value it recorded before the Full ruling.
     """
-    rungs = {profile for pattern, profile in FULL_PROJECTION_PATTERNS
-             if pattern.search(text)}
+    rungs = full_projection_rungs(text)
     return rungs.pop() if len(rungs) == 1 else None
 # Motiva projection families map onto the schema's profile enum (captain's
 # ruling): Mini -> moderate, Demi -> moderate-plus, Full -> high,

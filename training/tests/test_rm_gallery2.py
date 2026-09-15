@@ -268,6 +268,7 @@ def test_a_bare_implant_figure_before_moderate_is_not_months_post_op():
     ("breast augmentation with 295 cc Full Profile silicone gel implants.", "high"),
     ("Profile: Full", "high"),
     ("Profile: Extra Full", "extra-high"),
+    ("Profile: Extra–Full", "extra-high"),
     ("340 cc extra full profile gel implants", "extra-high"),
 ])
 def test_profile_vocabulary_this_family_actually_publishes(text, profile):

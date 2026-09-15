@@ -144,7 +144,7 @@ PAGE1_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 # (six ncps cases, and not a term in the captain's 2026-08-19 mapping) and
 # 'Classic Profile' stay undocumented rather than being guessed into an enum.
 # 'Full' is high and 'Extra Full' extra-high (captain's ruling of 2026-08-26,
-# see scrape_gallery.FULL_PROJECTION_PATTERNS).
+# see scrape_gallery.FULL_PROJECTION_RE).
 PAGE1_BARE_PROFILES = {
     "moderate": "moderate",
     "moderate plus": "moderate-plus",

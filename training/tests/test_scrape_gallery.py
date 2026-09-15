@@ -5338,12 +5338,22 @@ def test_bare_full_is_not_a_projection(text):
     assert _shared_profile(text) is None
 
 
-def test_the_full_pattern_never_reads_extra_full_as_high():
-    """The high rung refuses a preceding 'extra' by itself, so a caller that
-    splices the ladder in either order cannot read Extra-Full as Full."""
-    full = sg.FULL_PROJECTION_PATTERNS[1][0]
-    for text in ("extra full profile", "Extra-Full projection", "extra-full profile"):
-        assert full.search(text) is None, text
+@pytest.mark.parametrize("text,profile", [
+    ("extra full profile", "extra-high"),
+    ("Extra-Full projection", "extra-high"),
+    ("extra full profile implant", "extra-high"),
+    ("Extra–Full projection", "extra-high"),
+    ("extra  full profile", "extra-high"),
+    ("Extra Full Profile", "extra-high"),
+    ("Full Profile", "high"),
+    ("full profile", "high"),
+    ("full–projection", "high"),
+])
+def test_the_full_ladder_never_reads_extra_full_as_high(text, profile):
+    """Whatever separator the page used, Extra-Full is never read as Full: a
+    wrong rung is worse than no rung on the corpus's thinnest axis."""
+    assert sg.full_projection_profile(text) == profile
+    assert _shared_profile(text) == profile
 
 
 def test_extra_full_and_corse_vocabulary_is_untouched():
