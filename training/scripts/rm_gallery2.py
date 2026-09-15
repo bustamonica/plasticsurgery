@@ -75,7 +75,7 @@ already records: `mL` cannot go into the shared `VOLUME_UNIT` because it would
 read sanantonio's "225 mL of lipoaspirate" as an implant volume. Here the unit
 is only ever accepted next to an implant, so the local reader is safe where a
 shared one would not be. drcoberly publishes exclusively in mL ("425 mL smooth
-round saline implants"); under the captain's 2026-08-15 ruling mL reads as cc.
+round saline implants"); under the captain's 2026-08-14 ruling mL reads as cc.
 
 A bare number is read ONLY out of a labelled implant field (`Implant Size:
 421`), never out of prose - the mwps precedent. A published RANGE is not a

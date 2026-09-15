@@ -3334,7 +3334,7 @@ ETNA_LABEL_RE = _label_regex(ETNA_FIELD_LABELS)
 ETNA_EMPTY_DESCRIPTIONS = re.compile(
     r"^\s*no case details (?:for this patient|available)\.?\s*$", re.I)
 # Fields whose label names the value as an implant size/volume. Per the
-# 2026-08-15 units ruling, a bare number or an ml figure INSIDE one of these
+# 2026-08-14 units ruling, a bare number or an ml figure INSIDE one of these
 # reads as cc; the same bare number in free prose does not.
 ETNA_VOLUME_LABELS = {
     "implant size", "implant size (left)", "implant size (right)",
@@ -5502,7 +5502,7 @@ BAYSIDE_CASE_RE = re.compile(
 BAYSIDE_SIZE_SUFFIX_RE = re.compile(r"-\d+x\d+(?=\.\w+$)")
 
 # Volume: an explicit ml or cc unit, including inside a narrative sentence
-# (captain's ruling of 2026-08-19, which extends the 2026-08-15 labelled-field
+# (captain's ruling of 2026-08-19, which extends the 2026-08-14 labelled-field
 # ruling to narrative prose and reads ml as cc). This is deliberately NOT added
 # to the shared VOLUME_UNIT: 'mL' there measures what a COMBINED procedure
 # removed rather than what an implant holds - sanantonio case 24139 reads
