@@ -6545,6 +6545,8 @@ def test_gallatin_timepoint_does_not_read_the_patients_age(age_phrase):
     ("gryskiewicz", "rmgallery2"),
     ("ciaravino", "page1solutions_paged"),
     ("gallatin", "gallatin"),
+    ("sarasota", "bragbook_rev"),
+    ("brisbane", "brisbane"),
 ])
 def test_2026_08_25_batch_is_registered_with_a_traceable_consent_ref(slug, kind):
     """Section 6 lets a surgeon revoke; a pair must name the form that covers it."""
