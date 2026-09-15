@@ -21,7 +21,9 @@ assumption a single-clinic parser would have made:
 - `bottger`/`sbbreast` are impure cases filed in the augmentation category.
 """
 
+import dataclasses
 import io
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -35,6 +37,10 @@ import rm_gallery2 as rm  # noqa: E402
 import scrape_gallery as sg  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "gallery"
+
+
+def load_fixture(name: str) -> str:
+    return (FIXTURES / name).read_text()
 
 
 def load(clinic: str) -> str:
@@ -163,6 +169,18 @@ def test_volume_then_side_layout_keeps_both_sides():
 def test_side_then_volume_layout_keeps_both_sides():
     assert rm.rm_parse_volumes("Left: 400cc Right: 425cc") == (400.0, 425.0)
     assert rm.rm_parse_volumes("R) 457cc L) 492cc") == (492.0, 457.0)
+
+
+@pytest.mark.parametrize("line", [
+    "L implant: 225cc   R implant: 250cc",
+    "L Implant: 225cc | R Implant: 250cc",
+])
+def test_abbreviated_side_labels_on_one_line_keep_each_side(line):
+    """tcplasticsurgery's chart puts both abbreviated labels on one line; read
+    as one field, the left figure was filed as the right breast's."""
+    assert rm.rm_parse_volumes(line) == (225.0, 250.0)
+    specs = rm.rm_parse_specs(line)
+    assert (specs.left_cc, specs.right_cc) == (225.0, 250.0)
 
 
 def test_millilitres_read_as_cc():
@@ -443,13 +461,14 @@ def test_duplicate_threshold_is_well_below_measured_different_patients():
 
 
 def test_fourteen_clinics_share_this_one_parser():
-    clinics = [k for k, v in sg.CLINICS.items() if v.kind == "rm_gallery2"]
+    clinics = [k for k, v in sg.CLINICS.items()
+               if v.kind == "rm_gallery2" and v.template == "case_text"]
     assert len(clinics) == 14
 
 
 def test_every_rosemont_clinic_carries_a_traceable_consent_ref():
     for slug, cfg in sg.CLINICS.items():
-        if cfg.kind in ("rm_gallery2", "folk"):
+        if cfg.kind == "folk" or cfg.template == "case_text":
             assert cfg.consent_ref == f"{slug}-consent-2026-08-25-rosemont-16"
 
 
@@ -547,3 +566,177 @@ def test_collect_cases_reads_both_domains_and_drops_republished_patients(tmp_pat
     assert cases[2].source_url.startswith(SB_SECOND)
     assert any("photographs of case 100" in w for w in cases[2].warnings)
     assert any("duplicate case number 200" in w for w in cases[3].warnings)
+
+
+# ---------------------------------------------------------------------------
+# `patient_details` template (gryskiewicz)
+# ---------------------------------------------------------------------------
+
+RMG_GALLERY = "/gallery/breast/silicone-breast-augmentation/"
+
+
+def _rmg_cases() -> dict:
+    """The fixture's four verbatim case-wrap blocks, keyed by patient slug."""
+    parts = re.split(r"<!-- (silicone-breast-augmentation_patient-\d+) -->",
+                     load_fixture("rmgallery2_gryskiewicz_cases.html"))
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def _rmg_case(slug: str):
+    return rm.details_parse_case(_rmg_cases()[slug], slug, "x",
+                                    "Silicone Breast Augmentation")
+
+
+def test_details_listing_enumerates_and_counts_its_own_cases():
+    """The listing renders every case inline, and its block count is the check.
+
+    RM Gallery 2 publishes no case total, so a case walk that comes back short
+    can only be caught against what the listing itself rendered.
+    """
+    html = load_fixture("rmgallery2_gryskiewicz_listing.html")
+    assert rm.details_list_cases(html, RMG_GALLERY) == [
+        "patient-1", "patient-2", "patient-150"]
+    assert rm.details_listing_case_count(html) == 3
+
+
+def test_details_listing_ignores_links_outside_its_gallery():
+    html = load_fixture("rmgallery2_gryskiewicz_listing.html").replace(
+        "</section>",
+        '<div class="bna-group case-9"><a href="https://www.tcplasticsurgery.com'
+        '/gallery/breast/breast-lift/patient-9"><img class="before-img" '
+        'data-src="/x/small.jpeg"></a></div></section>')
+    assert "patient-9" not in rm.details_list_cases(html, RMG_GALLERY)
+
+
+def _rmg_frames(*halves: str) -> str:
+    """A case whose img-wrap publishes the given before/after frame run."""
+    frames = "".join(
+        f'<div class="{half}-img img-frame"><img data-src="/x/RMG{n}-9-'
+        f'{half[0]}/small.jpeg"></div>'
+        for n, half in enumerate(halves, 1))
+    return ('<section class="case-wrap">'
+            f'<div class="img-wrap">{frames}</div></section>')
+
+
+def test_details_holds_a_case_whose_frame_run_stops_alternating():
+    """Pairing across the gap crosses two VIEWS of one patient.
+
+    The 'after' half would then show a pose change on top of the size change,
+    and the pair id, the 400px floor, the censorship gate and the schema all
+    pass it. A parser that says it cannot trust the run must not emit from it.
+    """
+    case = rm.details_parse_case(
+        _rmg_frames("before", "before", "after", "after"), "patient-9", "x")
+    assert case.pairs == []
+    assert any("two consecutive before frames" in w for w in case.warnings)
+    assert any("held rather than paired across the gap" in w
+               for w in case.warnings)
+
+
+def test_details_holds_a_case_with_a_trailing_unmatched_before_frame():
+    case = rm.details_parse_case(
+        _rmg_frames("before", "after", "before"), "patient-9", "x")
+    assert case.pairs == []
+    assert any("trailing before frame" in w for w in case.warnings)
+
+
+def test_details_keeps_an_alternating_run_untouched():
+    """The hold is for a desync only - a clean run still pairs every frame."""
+    case = rm.details_parse_case(
+        _rmg_frames("before", "after", "before", "after"), "patient-9", "x")
+    assert [p.key for p in case.pairs] == ["pair1", "pair2"]
+    assert not any("held rather than paired" in w for w in case.warnings)
+
+
+def test_details_pairs_each_before_frame_with_the_after_that_follows():
+    """The page's own before/after divs pair the files, not a filename rule."""
+    case = _rmg_case("silicone-breast-augmentation_patient-1")
+    assert [p.key for p in case.pairs] == [f"pair{i}" for i in range(1, 6)]
+    for pair in case.pairs:
+        assert pair.before_url.endswith("-b/original.jpeg")
+        assert pair.after_url.endswith("-a/original.jpeg")
+        # Separate files, so the file IS the half - never a composite split.
+        assert not pair.split_composite
+        assert pair.before_url != pair.after_url
+        # Views are documented nowhere on this platform.
+        assert pair.view_hint is None
+
+
+def test_details_reads_both_fields_when_a_chart_line_holds_two():
+    """'L implant: 339cc   R implant: 339cc' is one line carrying two fields.
+
+    Splitting a line at its first ': ' is the lakeshore failure mode: the first
+    field's value swallows the rest of the chart and the case loses its volume.
+    """
+    specs = _rmg_case("silicone-breast-augmentation_patient-1").specs
+    assert specs.fields["L implant"] == "339cc"
+    assert specs.fields["R implant"] == "339cc"
+    assert sg.volume_cc(specs) == 339
+    assert specs.age == 44
+    assert specs.fields["Size preop"] == "34A"
+
+
+def test_details_averages_asymmetric_volumes():
+    specs = _rmg_case("silicone-breast-augmentation_patient-103").specs
+    assert (specs.left_cc, specs.right_cc) == (275.0, 325.0)
+    assert sg.volume_cc(specs) == 300
+
+
+def test_details_decodes_a_profile_abbreviated_onto_the_volume():
+    specs = _rmg_case("silicone-breast-augmentation_patient-114").specs
+    assert specs.fields["L implant"] == "375HP"
+    assert sg.volume_cc(specs) == 375
+    assert specs.profile == "high"
+
+
+def test_details_reads_placement_off_the_chart():
+    specs = _rmg_case("silicone-breast-augmentation_patient-131").specs
+    assert specs.placement == "submuscular"
+    assert specs.profile == "moderate-plus"
+
+
+def test_details_full_res_reaches_the_original_the_listing_hides():
+    small = ("https://www.tcplasticsurgery.com/wp-content/uploads/rmgallery2/"
+             "RMG2515968080-520-b/small.jpeg")
+    assert rm.rm_full_res(small).endswith("-520-b/original.jpeg")
+    # Already-original URLs and anything else are left alone.
+    original = small.replace("small", "original")
+    assert rm.rm_full_res(original) == original
+
+
+def test_details_missing_chart_is_reported_not_invented():
+    html = ('<section class="case-wrap"><div class="img-wrap">'
+            '<div class="before-img img-frame"><img src="/a-b/original.jpeg"></div>'
+            '<div class="after-img img-frame"><img src="/a-a/original.jpeg"></div>'
+            '</div></section>')
+    case = rm.details_parse_case(html, "patient-9", "x", "Saline")
+    assert len(case.pairs) == 1
+    assert sg.volume_cc(case.specs) is None
+    assert any("no div.patient-details" in w for w in case.warnings)
+
+
+def test_details_excludes_a_combined_case_and_says_which_term():
+    html = _rmg_cases()["silicone-breast-augmentation_patient-1"]
+    case = rm.details_parse_case(html, "patient-1", "x",
+                                    "Breast Augmentation with Lift")
+    assert case.pairs == []
+    assert any("augmentation with lift" in w for w in case.warnings)
+
+
+# ---------------------------------------------------------------------------
+# One module, one kind: the template picks the theme
+# ---------------------------------------------------------------------------
+
+
+def test_every_rm_clinic_is_one_kind_with_its_own_template():
+    """gryskiewicz and the fourteen share a kind; the template keeps them apart."""
+    templates = {slug: cfg.template for slug, cfg in sg.CLINICS.items()
+                 if cfg.kind == "rm_gallery2"}
+    assert templates.pop("gryskiewicz") == "patient_details"
+    assert len(templates) == 14 and set(templates.values()) == {"case_text"}
+
+
+def test_an_unknown_template_refuses_the_run():
+    cfg = dataclasses.replace(sg.CLINICS["weston"], template="theme")
+    with pytest.raises(ValueError, match="template 'theme' is not one of"):
+        rm.collect_cases(cfg, fetcher=None)

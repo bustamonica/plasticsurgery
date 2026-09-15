@@ -6,13 +6,38 @@ across every practice on it. Fifteen of the sixteen clinics consented on
 2026-08-25 run it and fourteen are registered (drtabbal is withheld; see its
 note in `scrape_gallery.CLINICS`), so this module is one parser configured
 fourteen times rather than fourteen parsers; `scrape_gallery.collect_cases`
-imports it for `kind="rm_gallery2"`.
+hands every `kind="rm_gallery2"` clinic to `collect_cases` here.
 
 The family is unusually cheap to collect for two reasons that are worth stating
 because most of this corpus's clinics have neither: it stores **separate before
 and after files** (no composite, so no midpoint split and no half-resolution
 penalty), and it **enumerates completely on one listing page** with no AJAX, no
 pagination and nothing under a `robots.txt` Disallow.
+
+Templates
+---------
+The plugin markup is shared across the family but the theme around it is not,
+and gryskiewicz (2026-08-25) was collected on its own theme, with its own
+reader, before this module existed. Both readers now live here, selected by
+`ClinicConfig.template`, and an unknown template refuses the run:
+
+- `case_text` (the fourteen Rosemont clinics): the theme's case region read as
+  text by `rm_parse_specs`, keyed on the RM case number (see Case identity).
+- `patient_details` (gryskiewicz): the `div.patient-details` chart read by
+  `details_parse_details`, keyed `<gallery>-patient-<n>` because its three
+  galleries each number from 1. That display-slug key is the one this
+  module's Case identity section warns against, and it stays anyway: its 304
+  emitted pair ids and `held-pairs.csv` are keyed on it, and re-keying is
+  `ba-viz-pair-key-stability`'s job under the 2026-08-26 containment ruling.
+
+The two share `rm_full_res` (it agrees with gryskiewicz's old helper on all
+4,842 of that clinic's cached image URLs) and the dispatch. They keep separate
+spec readers on purpose. Re-parsing all 531 cached gryskiewicz cases through
+`rm_parse_specs` changes the meta of 526, every one of its 304 emitted pairs
+among them: `notes` on all, `height_cm` on 265, and three emitted pairs whose
+`volume_cc` it LOSES on `Implant Size: R - 240cc L - 270cc`. Unifying the
+readers is a label change with regressions to fix first, so it is a backfill
+with its own per-case ledger rather than part of this consolidation.
 
 Markup contract
 ---------------
@@ -92,6 +117,9 @@ from __future__ import annotations
 
 import html as _html
 import re
+from urllib.parse import urlsplit
+
+from bs4 import BeautifulSoup
 
 import scrape_gallery as sg
 
@@ -375,8 +403,13 @@ RM_VOLUME_RE = re.compile(rf"(\d{{2,4}}(?:\.\d+)?)\s*{_RM_VOLUME_UNIT}", re.I)
 RM_SIDE_RE = re.compile(
     rf"\b(left|right)\b|\b([LR])\s*[):.]|\b([LR])\s+(?=\d{{2,4}}\s*{_RM_VOLUME_UNIT})", re.I)
 # "Right Breast Implant: Smooth Round Moderate Plus Profile 450 cc Silicone" -
-# a side label whose figure can sit far along its own field.
-RM_SIDE_LABEL_RE = re.compile(r"\b(left|right)(?:\s+(?:breast|implant|side))*\s*:", re.I)
+# a side label whose figure can sit far along its own field. The abbreviated
+# form ("L implant: 225cc   R implant: 250cc", both sides on ONE line) is a
+# label only with its breast/implant/side word, so leber's "L 12.5cm" widths
+# stay out; without it the line read as one field and filed 225 as the right.
+RM_SIDE_LABEL_RE = re.compile(
+    r"\b(?:(left|right)(?:\s+(?:breast|implant|side))*|([LR])(?:\s+(?:breast|implant|side))+)\s*:",
+    re.I)
 # A published range is not a measurement (the sixsurgery precedent):
 # drbottger's "400-425 cc" and najera's "151-160 lbs" both stay unrecorded.
 RM_RANGE_RE = re.compile(
@@ -580,7 +613,8 @@ def _rm_labelled_sides(case_text: str) -> dict[str, float] | None:
             if len(figures) > 1 or (figures and RM_RANGE_RE.search(field)):
                 return None
             if figures:
-                sides.setdefault(label.group(1).lower(), figures[0])
+                side = (label.group(1) or label.group(2)).lower()
+                sides.setdefault({"l": "left", "r": "right"}.get(side, side), figures[0])
     return sides
 
 
@@ -838,3 +872,331 @@ def rm_image_hash(data: bytes) -> "list[bool]":
 
 def rm_hash_distance(left, right) -> int:
     return int((left != right).sum())
+
+
+# ---------------------------------------------------------------------------
+# `patient_details` template (gryskiewicz's theme)
+# ---------------------------------------------------------------------------
+#
+# Rosemont Media is a plastic-surgery web agency; RM Gallery 2 is the gallery
+# product it ships. This template reads the theme gryskiewicz publishes on;
+# the module docstring says why it keeps its own spec reader. Markers, measured on tcplasticsurgery.com and recorded for
+# the ~50 other RM Gallery 2 practices on the prospecting lists:
+#
+#   * The category listing renders EVERY case inline - no pagination, no
+#     load-more, no ajax - as <div class="bna-group case-N"> blocks whose <h2>
+#     is 'Patient N' and whose <a href> points at <gallery_path>patient-N.
+#     The gallery publishes NO case total of its own, so enumeration is
+#     reconciled against the listing's own block count rather than a declared
+#     figure (see collect_cases).
+#   * A case page carries section.case-wrap > div.img-wrap, whose children
+#     alternate div.before-img.img-frame / div.after-img.img-frame. Each holds
+#     one <img> - the platform stores SEPARATE before and after files, so the
+#     file IS the half: no composite split, and the 400px floor applies to the
+#     delivered file.
+#   * Image URLs are /wp-content/uploads/rmgallery2/RMG<digits>-<n>-{b,a}/
+#     <size>.jpeg. 'original' is the camera-resolution file (up to 3648x2736 on
+#     tcplasticsurgery); the listing links 'small'. The -b/-a suffix agrees with
+#     the div that wraps it, and the div is what this parser trusts: the pairing
+#     is the page's own, not a filename convention.
+#   * Specs are a div.patient-details block of 'Label: value' lines separated by
+#     <br>, and MORE THAN ONE FIELD SHARES A LINE ('L implant: 339cc   R
+#     implant: 339cc'), so the line is scanned for known labels rather than
+#     split at its first ': '.
+#
+# Views are NOT documented anywhere on the platform - not in the markup, not in
+# the filename, not in alt text (alt is empty on every case image). Every view
+# label therefore comes from the visual-annotation pass, and pairs without one
+# are skipped rather than guessed.
+
+DETAILS_PATIENT_RE = re.compile(r"patient-(\d+)/?$", re.I)
+# Labels published in div.patient-details. 'L implant'/'R implant' are the
+# sided volume fields; 'Implant' and 'Implants' appear on the symmetric layout.
+DETAILS_FIELD_LABELS = (
+    "Age", "Height", "Weight", "Size preop", "Size postop", "Size pre-op",
+    "Size post-op", "Pre-op size", "Post-op size", "Bra size", "Cup size",
+    "L implant", "R implant", "Left implant", "Right implant",
+    "Implant", "Implants", "Implant Type", "Implant type", "Implant Size",
+    "Implant size", "Incision", "Placement", "Procedure", "Profile",
+    "Surgeon", "Gender", "Ethnicity",
+)
+DETAILS_LABEL_RE = sg._label_regex(DETAILS_FIELD_LABELS)
+DETAILS_SIDED_VOLUME_LABELS = {
+    "l implant": "left", "left implant": "left",
+    "r implant": "right", "right implant": "right",
+}
+DETAILS_VOLUME_LABELS = set(DETAILS_SIDED_VOLUME_LABELS) | {
+    "implant", "implants", "implant size",
+}
+DETAILS_NARRATIVE_LABELS = {"procedure", "surgeon"}
+
+
+def details_list_cases(listing_html: str, gallery_path: str) -> list[str]:
+    """Case slugs ('patient-1', ...) the category listing renders inline."""
+    soup = BeautifulSoup(listing_html, "html.parser")
+    slugs: list[str] = []
+    for group in soup.select("div.bna-group"):
+        for a in group.select("a[href]"):
+            path = urlsplit(a["href"]).path
+            if not path.startswith(gallery_path):
+                continue
+            m = DETAILS_PATIENT_RE.search(path)
+            if m and f"patient-{m.group(1)}" not in slugs:
+                slugs.append(f"patient-{m.group(1)}")
+    return sorted(slugs, key=lambda s: int(s.split("-")[1]))
+
+
+def details_listing_case_count(listing_html: str) -> int:
+    """How many case blocks the listing renders - the enumeration check.
+
+    RM Gallery 2 publishes no case total of its own, so this stands in for one:
+    a case-page walk that returns fewer cases than the listing rendered has
+    lost cases, and collect_cases says so.
+    """
+    return len(BeautifulSoup(listing_html, "html.parser").select("div.bna-group"))
+
+
+
+
+def details_parse_details(details, specs: sg.CaseSpecs) -> None:
+    """Fill specs from a div.patient-details block."""
+    prose_parts: list[str] = []
+    for line in sg._br_lines(details):
+        fields, leftover = sg._split_labelled_line(line, DETAILS_LABEL_RE)
+        if leftover:
+            prose_parts.append(leftover)
+        for label, value in fields:
+            if not value:
+                continue
+            key = label.lower()
+            if key in DETAILS_NARRATIVE_LABELS:
+                prose_parts.append(f"{label}: {value}")
+                continue
+            specs.fields.setdefault(label, value)
+            if key not in DETAILS_VOLUME_LABELS:
+                continue
+            cc = sg.labelled_volume(value)
+            if cc is None:
+                continue
+            side = DETAILS_SIDED_VOLUME_LABELS.get(key)
+            if side == "left":
+                specs.left_cc = cc
+            elif side == "right":
+                specs.right_cc = cc
+            elif specs.left_cc is None and specs.right_cc is None:
+                specs.left_cc = specs.right_cc = cc
+    specs.summary = " ".join(prose_parts).strip()
+
+
+def details_parse_case(case_html: str, case_id: str, source_url: str,
+                          gallery_label: str = "") -> sg.CaseData:
+    """One RM Gallery 2 case: alternating before/after frames plus a chart."""
+    case = sg.CaseData(case_id=case_id, source_url=source_url)
+    soup = BeautifulSoup(case_html, "html.parser")
+
+    wrap = soup.select_one("section.case-wrap div.img-wrap") or soup.select_one(
+        "div.img-wrap")
+    pending_before: str | None = None
+    index = 0
+    desynced = False
+    if wrap is not None:
+        for frame in wrap.select("div.img-frame"):
+            classes = frame.get("class") or []
+            img = frame.find("img")
+            src = (img.get("src") or img.get("data-src") or "") if img else ""
+            if not src:
+                continue
+            src = rm_full_res(src)
+            if "before-img" in classes:
+                if pending_before is not None:
+                    case.warnings.append(
+                        "two consecutive before frames; the unmatched one is dropped")
+                    desynced = True
+                pending_before = src
+            elif "after-img" in classes:
+                if pending_before is None:
+                    case.warnings.append(
+                        "after frame with no preceding before frame; dropped")
+                    desynced = True
+                    continue
+                index += 1
+                case.pairs.append(sg.ImagePair(
+                    key=f"pair{index}", before_url=pending_before, after_url=src))
+                pending_before = None
+    if pending_before is not None:
+        case.warnings.append("trailing before frame with no after; dropped")
+        desynced = True
+    if desynced and case.pairs:
+        # Once the run stops alternating, the halves either side of the gap
+        # belong to different VIEWS of this patient, so the pair reads as a
+        # pose change on top of a size change and every downstream gate passes
+        # it. A parser that says it cannot trust the run must not then emit
+        # from it: hold the case, as gallatin and page1solutions do.
+        case.warnings.append(
+            f"the frame run does not alternate, so the {len(case.pairs)} pair(s) "
+            "it produced may span two views; the case is held rather than paired "
+            "across the gap")
+        case.pairs = []
+    if not case.pairs:
+        case.warnings.append("no usable image pairs")
+
+    specs = sg.CaseSpecs()
+    details = soup.select_one("div.patient-details")
+    if details is None:
+        case.warnings.append("no div.patient-details block published")
+    else:
+        details_parse_details(details, specs)
+
+    haystack = " ".join([specs.summary, *specs.fields.values()])
+    age = specs.fields.get("Age", "")
+    if age.strip().isdigit():
+        specs.age = int(age.strip())
+    height = specs.fields.get("Height", "")
+    if height:
+        specs.height = height.replace("’", "'").replace("”", '"').strip()
+        specs.height_cm = sg.height_to_cm(specs.height)
+    weight = specs.fields.get("Weight", "")
+    m = re.match(r"^(\d{2,3})\s*(?:lbs?|pounds?)?\.?$", weight.strip(), re.I)
+    if m:
+        specs.weight_lbs = int(m.group(1))
+        specs.weight_kg = sg.pounds_to_kg(specs.weight_lbs)
+    if specs.left_cc is None and specs.right_cc is None and specs.summary:
+        specs.left_cc, specs.right_cc = sg.parse_fill_volumes(specs.summary)
+
+    sg.classify_brand_shape_profile(specs, haystack)
+    if specs.profile is None:
+        # 'L implant: 375HP' - the same number-hard-against-abbreviation chart
+        # string CIARAVINO publishes, decoded under the same 2026-08-19 ruling
+        # and read only out of the labelled implant fields.
+        specs.profile = sg.captain_profile_term(
+            " ".join(v for k, v in specs.fields.items()
+                     if k.lower() in DETAILS_VOLUME_LABELS or "implant" in k.lower()))
+    sg.classify_placement_incision(
+        specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
+    case.specs = specs
+
+    # Purity: the case's own chart text and the gallery heading it was published
+    # under. RM Gallery 2 galleries are procedure-separated (augmentation-with-
+    # lift is its own category), so this is the backstop for a mis-filed case.
+    term = sg.combined_procedure_term(
+        gallery_label, " ".join(f"{k}: {v}" for k, v in specs.fields.items()),
+        specs.summary)
+    if term is not None:
+        case.warnings.append(
+            f"not pure breast augmentation (case text names '{term}'); "
+            "excluded by captain ruling")
+        case.pairs = []
+    return case
+
+
+# ---------------------------------------------------------------------------
+# Enumeration, one walk per template
+# ---------------------------------------------------------------------------
+
+
+def _collect_case_text(cfg, fetcher) -> list[sg.CaseData]:
+    cases: list[sg.CaseData] = []
+    seen_case_ids: set[str] = set()
+    # Image hash -> the case that published that photograph first.
+    #
+    # A duplicate patient must be dropped rather than emitted, because
+    # build_dataset.py splits train/val BY PATIENT and would otherwise put
+    # the same woman in both halves.
+    #
+    # Run on EVERY gallery, not only on a practice publishing across two
+    # domains. Cross-domain republication is the obvious case (sbschooler
+    # republishes 33 of its 39 second-domain cases), but a single gallery
+    # does it too: doctorleber publishes one patient - the same photographs,
+    # the same tattoos - as both case 1389 and case 2287. Scoping this to
+    # multi-gallery clinics let that pair through to ingest.py, which
+    # happened to catch it on a byte-identical file; a re-encode between the
+    # two uploads would have defeated that and put one woman in both halves
+    # of the split.
+    #
+    # The check is by pixels rather than by text, for the reason recorded
+    # above DUPLICATE_HAMMING_MAX. It costs one image fetch per case, which
+    # the emit makes anyway; when the image cannot be fetched the case is
+    # kept rather than dropped on missing evidence.
+    seen_hashes: list[tuple[str, object]] = []
+    # The cache key is indexed by GALLERY, not derived from the path's last
+    # segment. sbschooler's two galleries both end in "breast-augmentation"
+    # on different hosts, so a path-derived key made the second listing
+    # replay the first from cache and report zero cases - and would have
+    # served one domain's patient-1 as the other's.
+    for gallery_index, gallery_path in enumerate(cfg.gallery_paths):
+        listing_url = sg.gallery_url(cfg, gallery_path)
+        listing_key = f"g{gallery_index}"
+        listing = fetcher.get(
+            listing_url,
+            f"{cfg.slug}_listing_{listing_key}.html").decode("utf-8", "replace")
+        path_only = listing_url.split("/", 3)[-1]
+        slugs = rm_list_cases(listing, "/" + path_only)
+        print(f"  {listing_url}: {len(slugs)} cases listed")
+        for case_slug in slugs:
+            url = f"{listing_url.rstrip('/')}/{case_slug}"
+            html = fetcher.get(
+                url, f"{cfg.slug}_case_{listing_key}_{case_slug}.html"
+            ).decode("utf-8", "replace")
+            case = rm_parse_case(html, case_slug, url)
+            if case.case_id in seen_case_ids:
+                case.warnings.append(
+                    f"duplicate case number {case.case_id}; not emitted twice")
+                case.pairs = []
+                cases.append(case)
+                continue
+            seen_case_ids.add(case.case_id)
+            sg._drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
+            cases.append(case)
+    return cases
+
+
+def _collect_patient_details(cfg, fetcher) -> list[sg.CaseData]:
+    cases = []
+    for gallery_path in cfg.gallery_paths:
+        tag = gallery_path.strip("/").rsplit("/", 1)[-1]
+        listing_url = cfg.base_url + gallery_path
+        listing = fetcher.get(
+            listing_url, f"{cfg.slug}_listing_{tag}.html").decode("utf-8", "replace")
+        rendered = details_listing_case_count(listing)
+        slugs = details_list_cases(listing, gallery_path)
+        label = BeautifulSoup(listing, "html.parser").select_one("h1")
+        gallery_label = label.get_text(" ", strip=True) if label else tag
+        walked = 0
+        for slug in slugs:
+            url = f"{cfg.base_url}{gallery_path}{slug}"
+            html = sg._fetch_seed(
+                fetcher, url, f"{cfg.slug}_case_{tag}_{slug}.html")
+            if html is None:
+                print(f"  WARN {cfg.slug}/{tag}: case page {slug} unavailable")
+                continue
+            # The case id namespaces the gallery: all three galleries
+            # number their patients from 1, and the id becomes the pair id.
+            cases.append(details_parse_case(
+                html, f"{tag}-{slug}", url, gallery_label))
+            walked += 1
+        # RM Gallery 2 publishes no case total, so the listing's own block
+        # count is the completeness check.
+        if walked != rendered:
+            print(f"  WARN {cfg.slug}/{tag}: walked {walked} case page(s) "
+                  f"but the listing renders {rendered} case block(s)")
+        else:
+            print(f"  {cfg.slug}/{tag}: walked all {walked} case(s) the "
+                  f"listing renders")
+    return cases
+
+
+# ClinicConfig.template -> that template's enumeration.
+TEMPLATES = {
+    "case_text": _collect_case_text,
+    "patient_details": _collect_patient_details,
+}
+
+
+def collect_cases(cfg, fetcher) -> list[sg.CaseData]:
+    """Every case of an RM Gallery 2 clinic, through its template's walk."""
+    walk = TEMPLATES.get(cfg.template)
+    if walk is None:
+        raise ValueError(
+            f"{cfg.slug}: template {cfg.template!r} is not one of "
+            f"{sorted(TEMPLATES)}")
+    return walk(cfg, fetcher)

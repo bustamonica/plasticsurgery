@@ -50,8 +50,8 @@ here, not a parser bug - see the collection report for the measured split.
 Watermark: a "Stacey Folk, MD" script wordmark sits in the bottom-right corner
 of EACH half, over the lower abdomen - one mark per half, so it survives the
 midpoint split on both sides and is not a label leak. It is cropped rather than
-tolerated (captain, 2026-08-19) via `ClinicConfig.bottom_crop_frac`, as a
-fraction of WIDTH, because this gallery serves the same framing at several
+tolerated (captain, 2026-08-19) via the clinic's `crop` (rule `width_frac`,
+see `framing.py`), as a fraction of WIDTH, because this gallery serves the same framing at several
 resolutions and a pixel constant would miss it on the large exports and eat a
 sixth of the small ones (the arps precedent).
 """

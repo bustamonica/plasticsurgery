@@ -26,9 +26,9 @@ import annotate_contact_sheets as acs  # noqa: E402
 import scrape_gallery as sg  # noqa: E402
 
 
-def _jpeg(width: int, height: int) -> bytes:
+def _jpeg(width: int, height: int, colour="white") -> bytes:
     buf = io.BytesIO()
-    Image.new("RGB", (width, height), "white").save(buf, format="JPEG")
+    Image.new("RGB", (width, height), colour).save(buf, format="JPEG")
     return buf.getvalue()
 
 
@@ -45,7 +45,32 @@ def _cache(tmp_path: Path, cfg: sg.ClinicConfig, url: str,
     return tmp_path
 
 
-def test_composite_bottom_frac_is_applied_before_the_sheet_is_measured(tmp_path):
+def _offline(cache_dir: Path) -> sg.PoliteFetcher:
+    return sg.PoliteFetcher(cache_dir, offline=True)
+
+
+def test_a_misconfigured_crop_stops_the_sheet_run(tmp_path, monkeypatch):
+    """A crop that cannot apply to the clinic's layout fails every pair alike.
+
+    Rendering the pairs that survive as though the rest were unreadable cache
+    entries would hand the annotator a silently empty or partial sheet.
+    """
+    import dataclasses
+    cfg = dataclasses.replace(
+        sg.CLINICS["arps"], crop=sg.Crop("height_frac", 0.22, stage="composite"))
+    before_url = "https://arplasticsurgery.com.au/x/a-before.jpg"
+    after_url = "https://arplasticsurgery.com.au/x/a-after.jpg"
+    _cache(tmp_path, cfg, before_url, _jpeg(500, 900))
+    _cache(tmp_path, cfg, after_url, _jpeg(500, 900))
+    case = sg.CaseData(case_id="1", source_url="x", pairs=[
+        sg.ImagePair(key="front", before_url=before_url, after_url=after_url)])
+    monkeypatch.setattr(sg, "collect_cases", lambda cfg, fetcher: [case])
+
+    with pytest.raises(sg.framing.CropConfigError, match="composite stage"):
+        acs.collect_tiles(cfg, tmp_path, None, both=True, min_dim=0)
+
+
+def test_composite_stage_crop_is_applied_before_the_sheet_is_measured(tmp_path):
     """mwps burns its logo across 20.7% of the composite's height.
 
     Its real geometry: a 1500x499 composite whose halves are 750x499 uncropped
@@ -56,9 +81,9 @@ def test_composite_bottom_frac_is_applied_before_the_sheet_is_measured(tmp_path)
     url = "https://www.mountainwestplasticsurgery.com/x/case-1.jpg"
     _cache(tmp_path, cfg, url, _jpeg(1500, 499))
     pair = sg.ImagePair(key="pair1", before_url=url, after_url=url,
-                        split_composite=True, composite_bottom_frac=0.22)
+                        split_composite=True)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (750, 389)
     assert _size(after) == (750, 389)
@@ -68,13 +93,13 @@ def test_composite_bottom_frac_is_applied_before_the_sheet_is_measured(tmp_path)
 def test_pixel_bottom_crop_is_applied_to_both_halves_of_a_sheet(tmp_path):
     """roth's one-sided watermark crop is 175 absolute rows, after the split."""
     cfg = sg.CLINICS["roth"]
-    assert cfg.bottom_crop_px == 175
+    assert cfg.crop == sg.Crop("px", 175)
     url = "https://x.test/roth/case-1-detail.jpg"
     _cache(tmp_path, cfg, url, _jpeg(1200, 800))
     pair = sg.ImagePair(key="front", before_url=url, after_url=url,
                         split_composite=True)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (600, 625)
     assert _size(after) == (600, 625)
@@ -83,14 +108,14 @@ def test_pixel_bottom_crop_is_applied_to_both_halves_of_a_sheet(tmp_path):
 def test_fractional_bottom_crop_is_applied_to_a_two_file_sheet(tmp_path):
     """arps crops a fraction of the image's WIDTH off a pair of separate files."""
     cfg = sg.CLINICS["arps"]
-    assert cfg.bottom_crop_frac == 0.10
+    assert cfg.crop == sg.Crop("width_frac", 0.10)
     before_url = "https://arplasticsurgery.com.au/x/a-before.jpg"
     after_url = "https://arplasticsurgery.com.au/x/a-after.jpg"
     _cache(tmp_path, cfg, before_url, _jpeg(500, 900))
     _cache(tmp_path, cfg, after_url, _jpeg(500, 900))
     pair = sg.ImagePair(key="front", before_url=before_url, after_url=after_url)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (500, 850)
     assert _size(after) == (500, 850)
@@ -99,14 +124,14 @@ def test_fractional_bottom_crop_is_applied_to_a_two_file_sheet(tmp_path):
 def test_grid_gutter_is_applied_to_a_sheet(tmp_path):
     """wyten's 2x2 template draws a blank divider the emit path trims away."""
     cfg = sg.CLINICS["wyten"]
-    assert cfg.grid_gutter_px == 8
+    assert cfg.frame == sg.Frame(grid_gutter=8)
     url = "https://x.test/wyten/case-1.jpg"
     _cache(tmp_path, cfg, url, _jpeg(800, 800))
     pair = sg.ImagePair(key="front", before_url=url, after_url=url,
                         grid_shape=(2, 2), before_cell=(0, 0),
                         after_cell=(0, 1))
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == _size(after)
     assert _size(before) == (392, 392)
@@ -114,17 +139,20 @@ def test_grid_gutter_is_applied_to_a_sheet(tmp_path):
 
 @pytest.mark.parametrize("slug", sorted(sg.CLINICS))
 def test_a_sheet_half_matches_what_the_emit_path_would_write(slug, tmp_path):
-    """The two paths share `decode_pair_halves`/`finish_pair_halves`, so a
-    clinic that adds a crop knob cannot apply it on one side only."""
+    """Both paths are `framing.pair_images`, so a clinic's frame or crop cannot
+    reach one of them and not the other."""
     cfg = sg.CLINICS[slug]
     url = f"https://x.test/{slug}/case-1.jpg"
-    _cache(tmp_path, cfg, url, _jpeg(1400, 900))
+    # Skin-toned, not white: an all-white frame is all caption band to
+    # tcclinic's measured crop, which would leave nothing to compare.
+    _cache(tmp_path, cfg, url, _jpeg(1400, 900, (180, 140, 130)))
     pair = sg.ImagePair(key="front", before_url=url, after_url=url,
                         split_composite=True)
 
-    sheet = acs._pair_images(cfg, tmp_path, pair)
-    emitted = sg.finish_pair_halves(
-        cfg, *sg.decode_pair_halves(cfg, pair, _jpeg(1400, 900)))[:2]
+    sheet = acs._pair_images(cfg, _offline(tmp_path), pair)
+    images = sg.framing.pair_images(
+        cfg, pair, lambda _: _jpeg(1400, 900, (180, 140, 130)))
+    emitted = (images.before, images.after)
 
     assert sheet == emitted
 

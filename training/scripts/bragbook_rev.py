@@ -40,14 +40,15 @@ reorders a case (AGENTS.md, running-count keys).
 **Watermark.** Sarasota burns an opaque red "SARASOTA PLASTIC SURGERY CENTER"
 block into the bottom-right corner of each half, on the backdrop beside the
 lower abdomen. It is cropped (captain, 2026-08-19) as a fraction of the
-composite's HEIGHT before the split (`ImagePair.composite_bottom_frac`, the mwps
-mechanism), because its top edge sits at a constant fraction of height across
+composite's HEIGHT before the split (`Crop("height_frac", ..., stage="composite")`
+in its CLINICS entry, the mwps rule), because its top edge sits at a constant fraction of height across
 every export size - 0.205-0.226, median 0.210 on 1800x599 and 0.217 on
 1280x480 - while its pixel offset is not. A handful of composites carry no
 block, and at least one carries it on one half only, which is why the crop is
 applied to every composite rather than detected per image: the crop is what
-keeps every pair framed alike. `REV_BOTTOM_FRAC` holds the per-clinic figure;
-another clinic on this plugin measures its own.
+keeps every pair framed alike. The figure lives in the clinic's
+`ClinicConfig.crop` (`framing.py`); another clinic on this plugin measures its
+own.
 
 **Text.** `#revPatientDetails` is the surgeon's narrative. Two `<ul>` charts
 follow: `#revPatientDetailsList` (Age / Weight / Height / Gender / Post-op
@@ -89,10 +90,6 @@ REV_PATIENT_RE = re.compile(r"\bPatient\s+(\d+)\b", re.I)
 # this is ~2,000 cases - far above anything the site publishes - and exists only
 # so a page that links back to itself can never loop the crawler forever.
 REV_MAX_PAGES = 200
-# Fraction of each composite's HEIGHT cropped off its bottom before the split,
-# per clinic; measured, never transferred (module docstring). 0.25 clears the
-# worst measured top edge (0.226) by ~10%.
-REV_BOTTOM_FRAC = {"sarasota": 0.25}
 # A chart value that is a bucket rather than a figure. The unit may sit between
 # the first figure and the dash ('300cc - 350cc').
 REV_BUCKET_RE = re.compile(
@@ -392,7 +389,6 @@ def collect(cfg: sg.ClinicConfig, fetcher: sg.PoliteFetcher) -> list[sg.CaseData
     """
     cases: list[sg.CaseData] = []
     seen_hashes: list = []
-    bottom_frac = REV_BOTTOM_FRAC.get(cfg.slug, 0.0)
     for gallery_path in cfg.gallery_paths:
         gallery = sg.gallery_url(cfg, gallery_path)
         slug = gallery.rstrip("/").rsplit("/", 1)[-1]
@@ -420,8 +416,6 @@ def collect(cfg: sg.ClinicConfig, fetcher: sg.PoliteFetcher) -> list[sg.CaseData
             case_url = f"{gallery.rstrip('/')}/{case_id}/"
             html = fetcher.get(case_url, f"{cfg.slug}_case_{case_id}.html")
             case = rev_parse_case(html.decode("utf-8", "replace"), case_id, case_url)
-            for pair in case.pairs:
-                pair.composite_bottom_frac = bottom_frac
             sg._drop_duplicate_patient(fetcher, cfg, case, seen_hashes)
             cases.append(case)
     return cases

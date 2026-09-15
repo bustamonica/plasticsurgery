@@ -280,8 +280,9 @@ def test_bottom_crop_is_a_fraction_of_width():
         Image.new("RGB", (w, h), (180, 160, 150)).save(buf, format="JPEG")
         return buf.getvalue()
 
-    small = Image.open(io.BytesIO(sg.crop_bottom_frac(jpeg(790, 1186), 0.10)))
-    large = Image.open(io.BytesIO(sg.crop_bottom_frac(jpeg(1707, 2560), 0.10)))
+    crop = sg.CLINICS["arps"].crop
+    small = Image.open(io.BytesIO(sg.framing.crop_image(jpeg(790, 1186), crop)))
+    large = Image.open(io.BytesIO(sg.framing.crop_image(jpeg(1707, 2560), crop)))
     assert small.size == (790, 1107)
     assert large.size == (1707, 2389)
     # Same framing: the aspect ratios stay within a rounding pixel of each other.
@@ -290,8 +291,12 @@ def test_bottom_crop_is_a_fraction_of_width():
 
 
 def test_no_crop_returns_the_delivered_bytes_untouched():
-    data = b"not even an image"
-    assert sg.crop_bottom_frac(data, 0) is data
+    import dataclasses
+    cfg = dataclasses.replace(sg.CLINICS["arps"], crop=None)
+    pair = sg.ImagePair(key="front", before_url="https://x.test/b.jpg",
+                        after_url="https://x.test/a.jpg")
+    images = sg.framing.pair_images(cfg, pair, lambda _: b"not even an image")
+    assert images.before == images.after == b"not even an image"
 
 
 def test_arps_is_registered_with_its_measured_crop():
@@ -299,7 +304,7 @@ def test_arps_is_registered_with_its_measured_crop():
     assert cfg.kind == "arps"
     assert cfg.consent_ref == "arps-agreement-2026-08-25"
     # Measured mark top edge is 3.8%-7.2% of width above the bottom.
-    assert cfg.bottom_crop_frac == 0.10
+    assert cfg.crop == sg.Crop("width_frac", 0.10)
 
 
 # Every clinic carrying a fractional crop must have had its own mark measured
@@ -312,4 +317,6 @@ CLINICS_WITH_A_MEASURED_FRACTIONAL_MARK = {"arps": 0.10, "folk": 0.105}
 def test_clinics_without_a_measured_mark_are_not_cropped():
     for slug, cfg in sg.CLINICS.items():
         expected = CLINICS_WITH_A_MEASURED_FRACTIONAL_MARK.get(slug, 0)
-        assert cfg.bottom_crop_frac == expected, slug
+        fraction = (cfg.crop.amount if cfg.crop is not None
+                    and cfg.crop.rule == "width_frac" else 0)
+        assert fraction == expected, slug

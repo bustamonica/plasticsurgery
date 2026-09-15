@@ -50,7 +50,8 @@ Three things about this gallery are not guessable and each cost a measurement:
    2026-08-19). The mark is drawn at a size proportional to the frame's WIDTH,
    so the crop is a fraction of width rather than a pixel count - across the
    six export sizes its top edge is 3.8%-7.2% of width above the bottom but
-   anywhere from 24px to 115px. See `ClinicConfig.bottom_crop_frac` and the
+   anywhere from 24px to 115px. See the clinic's `crop` in CLINICS
+   (`scrape_gallery.py`, rule `width_frac`, applied by `framing.py`) and the
    measurement in `data/ba-viz-collect-arps/report.md`.
 
 Views are not documented anywhere on the page (the alt text is one constant
