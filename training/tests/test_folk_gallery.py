@@ -216,7 +216,7 @@ def test_folk_is_registered_with_its_own_kind_and_measured_crop():
     assert cfg.consent_ref == "folk-consent-2026-08-25-rosemont-16"
     # Measured on this clinic and never transferred: the mark needs 0.096 of
     # half width at worst and is cropped at 0.105.
-    assert cfg.bottom_crop_frac == 0.105
+    assert cfg.crop == sg.Crop("width_frac", 0.105)
 
 
 def _composite(before_seed, after_seed):

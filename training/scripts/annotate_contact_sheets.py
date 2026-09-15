@@ -27,13 +27,11 @@ Two layouts:
   views; a flat grid interleaves cases and forces the call to be made on one
   tile in isolation, which is where it goes wrong.
 
-Composites are decoded and cropped through the same two seams the emit path
-uses (``decode_pair_halves`` then ``finish_pair_halves``), so every clinic's
-measured crop - the composite border/gutter, the caption band and seam trim,
-the fractional and pixel bottom crops, the grid gutter, the watermark
-postprocess - is already applied to what you label. That is also what
-``--min-dim`` measures, so a pair the 400px floor would reject after cropping
-is never put in front of you.
+Every pair is decoded, framed and cropped by ``framing.pair_images``, the one
+function the emit path writes with, so every clinic's measured template trim
+(``ClinicConfig.frame``) and watermark crop (``ClinicConfig.crop``) is already
+applied to what you label. That is also what ``--min-dim`` measures, so a pair
+the 400px floor would reject after cropping is never put in front of you.
 
 Usage:
 
@@ -55,6 +53,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import framing  # noqa: E402
 import scrape_gallery as sg  # noqa: E402
 
 TILE_BG = (24, 24, 24)
@@ -62,30 +61,20 @@ DIVIDER = (255, 60, 60)
 LABEL_H = 22
 
 
-def _cached(cfg: sg.ClinicConfig, cache_dir: Path, url: str) -> bytes | None:
-    full_url = url if url.startswith("http") else cfg.base_url + url
-    path = cache_dir / sg.image_cache_key(cfg.slug, full_url)
-    return path.read_bytes() if path.exists() else None
-
-
 def _pair_images(cfg: sg.ClinicConfig, cache_dir: Path,
                  pair: sg.ImagePair) -> tuple[bytes, bytes] | None:
-    """(before, after) image bytes for a pair, decoded as the emit path does."""
-    data = _cached(cfg, cache_dir, pair.before_url)
-    if data is None:
+    """(before, after) image bytes for a pair, exactly as the emit writes them.
+
+    None when an image is not in the cache or the frame cannot be split; a
+    sheet is built from the cache alone and never touches the network.
+    """
+    fetcher = sg.PoliteFetcher(cache_dir, offline=True)
+    try:
+        images = framing.pair_images(
+            cfg, pair, lambda url: fetcher.get(url, sg.image_cache_key(cfg.slug, url)))
+    except (FileNotFoundError, ValueError):
         return None
-    if pair.grid_shape is not None or pair.split_composite:
-        try:
-            halves = sg.decode_pair_halves(cfg, pair, data)
-        except ValueError:
-            return None
-    else:
-        after = _cached(cfg, cache_dir, pair.after_url)
-        if after is None:
-            return None
-        halves = (data, after)
-    before_data, after_data, _ = sg.finish_pair_halves(cfg, *halves)
-    return before_data, after_data
+    return images.before, images.after
 
 
 def _min_dimension(images: tuple[bytes, bytes]) -> int:

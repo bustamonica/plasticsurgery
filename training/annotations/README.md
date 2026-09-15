@@ -104,6 +104,6 @@ Every pair carries its disposition in the file itself: 386 carry a view (120 `fr
   Each lateral's `evidence` sentence says so; none rests on a landmark, and a pair whose pose was unreadable would have been left unannotated (none was).
   Page order is not trusted: case 14424 publishes its front where a band sheet made it look like an oblique, and only the full-frame render settled it.
 - **Withheld pairs are the crop's cost, not a view problem.**
-  Every composite loses its bottom 0.25 of height to remove the corner logo (`REV_BOTTOM_FRAC` in `bragbook_rev.py`), and on tightly framed shots that line runs through the lower breast pole.
+  Every composite loses its bottom 0.25 of height to remove the corner logo (sarasota's `Crop("height_frac", 0.25, stage="composite")` in `scrape_gallery.py`), and on tightly framed shots that line runs through the lower breast pole.
   Under decision `sarasota-corner-block-crop` (A) a pair is withheld when the line crosses or touches breast tissue in EITHER half, judged at 1.5-2x zoom on a strip around the line; a pair whose fold clears the line by a few pixels was kept.
   The withheld reason names the decision, and the pair id list is the collection report's.

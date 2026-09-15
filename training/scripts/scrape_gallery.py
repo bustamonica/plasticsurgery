@@ -86,9 +86,10 @@ mwps, ncps, psiw, sculpted, swan, tcclinic, wyten; prospected in
 ba-viz-prospect-20-international, consent in
 clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md) were collected one
 clinic per lane and add one parser per gallery platform in the same way. Each
-has its own section below, or its own module - arps in arps_gallery.py, bandy in
-page1solutions.py, ncps in page1_solutions.py - so read the one the clinic's
-ClinicConfig.kind dispatches to. Six carry a contract that is not guessable from
+has its own section below, or its own module - arps in arps_gallery.py, and
+every Page 1 Solutions clinic (bandy, ncps, psiw, ciaravino) in
+page1solutions.py under its ClinicConfig.template - so read the one the
+clinic's ClinicConfig.kind dispatches to. Six carry a contract that is not guessable from
 the rendered page:
 
 - kind='aips' is a Breakdance page builder whose photos are CSS
@@ -105,8 +106,8 @@ the rendered page:
   makes the gallery fully enumerable without an endpoint grant.
 - kind='tcclinic' is a bespoke WordPress/Divi build whose photos have to be read
   out of the page's inline CSS as well as its markup; its composites carry a
-  caption-band watermark, cropped rather than tolerated by `caption_band_crop` +
-  `split_composite_image(bottom_crop=...)`.
+  caption-band watermark, cropped rather than tolerated by its `caption_band`
+  crop (see framing.py).
 - kind='wyten' is a bespoke WordPress/Elementor carousel: one page, one slide per
   case, no case pages and no declared total. Its slides mix implant augmentation
   with fat grafting, revisions and combined procedures, and the image FILENAMES
@@ -115,11 +116,11 @@ the rendered page:
 
 3 more of that same 2026-08-25 batch (gryskiewicz, ciaravino, gallatin) landed
 on their own lane and add two further reusable families plus one bespoke
-parser, all in this module: kind='rmgallery2' (Rosemont Media "RM Gallery 2",
-which stores separate before and after FILES and publishes no case total),
-kind='page1solutions_paged' (the paginated inline Page 1 Solutions listing -
-a distinct kind from the three Page 1 Solutions parsers above, on purpose) and
-kind='gallatin' (one bespoke WordPress list paired by document order). Both
+parser: kind='rmgallery2' (Rosemont Media "RM Gallery 2", which stores
+separate before and after FILES and publishes no case total), the 'pager'
+template of kind='page1solutions' (the paginated inline Page 1 Solutions
+listing, in page1solutions.py) and kind='gallatin' (one bespoke WordPress
+list paired by document order). Both
 families serve many more practices on the prospecting lists, so each is written
 to be configured per clinic the way 'etna' is; see their sections below for the
 markup contracts, and the pure-procedure screen preceding them for the
@@ -163,7 +164,8 @@ from urllib.parse import unquote, urljoin, urlsplit
 import requests
 from bs4 import BeautifulSoup
 
-import page1_solutions as p1
+import framing
+from framing import Crop, Frame
 
 USER_AGENT = (
     "clinic-corpus-scraper/1.0 (consented before/after gallery crawl for "
@@ -282,8 +284,20 @@ class ClinicConfig:
     base_url: str
     gallery_paths: list[str]
     kind: str  # parser implementation key
-    # Rows trimmed from the BOTTOM of both halves of every pair, after the
-    # composite split.
+    # Which of a platform family's published markups this clinic runs, for a
+    # family whose one parser serves several (Page 1 Solutions: see the table
+    # in page1solutions.py). The family's parser refuses a template it does not
+    # know, so two clinics can never be routed through each other's markup.
+    template: str | None = None
+    # The clinic's presentation template around its photographs: a printed
+    # frame and centre gutter around a composite, a divider either side of its
+    # seam, or a blank divider between grid panels. Template geometry, not a
+    # watermark; see framing.Frame. Measured per clinic - a divider width is a
+    # property of that practice's template, not of the platform.
+    frame: Frame = field(default_factory=Frame)
+    # The burned-in watermark crop: ONE framing.Crop, trimming the same rows off
+    # both halves of every pair. framing.py's docstring owns the rules and the
+    # stages; the measurement behind each clinic's value sits beside it below.
     #
     # This exists for one reason and it is not cosmetic. tccs burns a colour-wheel
     # logo and a THE CENTER FOR COSMETIC SURGERY wordmark into the bottom-left of
@@ -304,13 +318,12 @@ class ClinicConfig:
     # inpainting: heavenly's three inpaint passes cost $28 and still failed.
     # Anything falling under ingest.py's 400px floor after the crop is rejected
     # there rather than shipped shrunken.
-    bottom_crop_px: int = 0
-    # Pixels trimmed off each grid-cell edge that touches an INTERIOR seam of a
-    # multi-panel composite, for templates that draw a blank divider between the
-    # panels. See crop_grid_cell(). Measured per clinic - a divider width is a
-    # property of that practice's template, not of the platform - and confirmed
-    # constant in pixels rather than as a fraction of the image.
-    grid_gutter_px: int = 0
+    #
+    # Measure it per clinic and never transfer another clinic's number or rule;
+    # the verification that matters is that the mark is GONE afterwards, not that
+    # the arithmetic looked right. None (the default) means no measured mark, and
+    # the clinic's pixels reach ingest.py as they were served.
+    crop: Crop | None = None
     # Reference to the site owner's grant of access to the gallery's own case-list
     # endpoint (`admin-ajax.php`, which these robots.txt files otherwise disallow).
     #
@@ -322,30 +335,6 @@ class ClinicConfig:
     # the run is invoked, and `--gallery-endpoint` must be passed as well, so neither
     # a config edit nor a stray flag alone opens it.
     endpoint_grant: str | None = None
-    # Rows trimmed from the BOTTOM of every emitted image, as a fraction of
-    # that image's WIDTH, applied equally to the before and the after of a pair.
-    #
-    # A corner or edge watermark is CROPPED rather than tolerated or masked
-    # (captain, 2026-08-19). Masking preserves the defect it is meant to remove
-    # - the masked region is still present on whichever half carried the mark -
-    # and where a mark falls on only one half of a pair it correlates perfectly
-    # with the training label, so an edit model can satisfy "make the breasts
-    # larger" by learning to add or remove a logo.
-    #
-    # Against WIDTH, and as a fraction, because that is how a burned-in mark is
-    # actually drawn. arps publishes one "(c) Dr Eddie Cheng" mark across six
-    # export sizes from 667x1000 to 1707x2560: measured against height its top
-    # edge ranges over 2.5%-6% (the aspect ratios differ), against width it is
-    # a much tighter 3.8%-7.2%, and in pixels it is nothing like constant. A
-    # single pixel figure would either miss the mark on the large exports or
-    # eat a sixth of the small ones.
-    #
-    # Measure it per clinic and never transfer another clinic's number; the
-    # verification that matters is that the mark is GONE afterwards, not that
-    # the arithmetic looked right. Both halves are cropped by the same amount:
-    # a framing difference between before and after would be the same
-    # correlated-with-the-label artifact in another form.
-    bottom_crop_frac: float = 0.0
 
 
 CLINICS: dict[str, ClinicConfig] = {
@@ -432,7 +421,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # the even split, leaving 3-6px inside each cell). 8 clears it on every
         # one with margin and still leaves 805x611 cells, well over the 400px
         # floor.
-        grid_gutter_px=8),
+        frame=Frame(grid_gutter=8)),
     "privateclinic": ClinicConfig(
         slug="privateclinic", consent_ref="privateclinic-agreement-2026-08",
         base_url="https://www.theprivateclinic.co.uk",
@@ -457,7 +446,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # This crop is also what CLOSED the `wny-after-only-watermark` question
         # (captain, 2026-08-19): a corner or edge-band mark is cropped rather than
         # tolerated, so the mark itself and the label leak are settled together.
-        bottom_crop_px=60),
+        crop=Crop("px", 60)),
     "austinweston": ClinicConfig(
         slug="austinweston", consent_ref="austinweston-agreement-2026-08",
         base_url="https://www.austin-weston.com",
@@ -516,7 +505,25 @@ CLINICS: dict[str, ClinicConfig] = {
     "mwps": ClinicConfig(
         slug="mwps", consent_ref="mwps-agreement-2026-08-25",
         base_url="https://www.mountainwestplasticsurgery.com",
-        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="mwps"),
+        gallery_paths=["/gallery/breast/breast-augmentation/"], kind="mwps",
+        # Every composite carries a translucent "MW MOUNTAIN WEST PLASTIC
+        # SURGERY" mark (circle monogram over two lines of type) centred on the
+        # split seam at the bottom of the frame, so an equal piece of it lands on
+        # EACH half - cropping one side only would leave the mark on one half of
+        # a pair, which is a label leak. It is cropped from the whole composite
+        # before the split so the halves stay dimension- and framing-matched.
+        #
+        # The mark is SCALED TO THE FRAME, not stamped at a fixed pixel size.
+        # Measured by eye off a row ruler at 2-3x zoom on three heights, the top
+        # of the circle sits at 133/644, 118/568 and 103/499 of the way up from
+        # the bottom - 0.2065, 0.2077, 0.2064. 0.22 covers that with ~6%
+        # headroom. Do not re-derive this by aligning a residual on the bottom
+        # edge across the gallery: that population is dominated by one height
+        # (53 of 114 composites are 1500x499) and reports a plausible-looking
+        # constant ~100px offset, which silently leaves the logo's top on every
+        # image taller than ~515 - i.e. on every composite that clears the
+        # 400px floor.
+        crop=Crop("height_frac", 0.22, stage="composite")),
     # -- 2026-08-15 batch: 12 newly consented clinics, all Etna Interactive --
     # Consent executed 2026-08-15; recorded in clinic-corpus/CONSENT-STATUS.md
     # with the instrument filed beside it. Section 2 of that instrument grants
@@ -530,7 +537,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # "STEVEN CAMP MD PLASTIC SURGERY", bottom-right, on the AFTER half only
         # - 7.4x asymmetry. Mark top measured 98px from the bottom on the tall
         # groups and 81px on the 478px group; 110 covers both with a margin.
-        bottom_crop_px=110),
+        crop=Crop("px", 110)),
     "colville": ClinicConfig(
         slug="colville", consent_ref="colville-agreement-2026-08-15",
         base_url="https://www.craigcolvillemd.com",
@@ -544,7 +551,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # AFTER half only - 16.9x high-pass-average asymmetry, the strongest in
         # the corpus. Mark top measured 162px from the bottom across every height
         # group; 175 leaves a margin. Costs 0 pairs to the 400px floor.
-        bottom_crop_px=175),
+        crop=Crop("px", 175)),
     "kochcarlisle": ClinicConfig(
         slug="kochcarlisle", consent_ref="kochcarlisle-agreement-2026-08-15",
         base_url="https://www.kochandcarlisle.com",
@@ -602,7 +609,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # the band starts 50-53px from the bottom and its gold text tops out
         # at 53px; 60 clears both with margin on every one of them, leaving
         # 455x441 halves that stay above ingest.py's 400px floor.
-        bottom_crop_px=60),
+        crop=Crop("px", 60)),
     "tccs": ClinicConfig(
         slug="tccs", consent_ref="tccs-agreement-2026-08-15",
         base_url="https://www.thecenterforcosmeticsurgery.net",
@@ -610,8 +617,8 @@ CLINICS: dict[str, ClinicConfig] = {
         endpoint_grant="clinic-corpus/CONSENT-ENDPOINT-GRANT-2026-08-18.md",
         # 130px clears the logo on 742 of 743 measured before halves (its top
         # edge sits 122px from the bottom at the median, 124px at p95) with a
-        # small margin. See ClinicConfig.bottom_crop_px for why this matters.
-        bottom_crop_px=130),
+        # small margin. See ClinicConfig.crop for why this matters.
+        crop=Crop("px", 130)),
     # -- 2026-08-25 batch: prospected clinics with executed AI-training consent
     #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
     # sculpted.com's robots.txt (last modified 2023-11-22) names GPTBot,
@@ -622,7 +629,17 @@ CLINICS: dict[str, ClinicConfig] = {
     "sculpted": ClinicConfig(
         slug="sculpted", consent_ref="sculpted-agreement-2026-08-25",
         base_url="https://sculpted.com",
-        gallery_paths=["/gallery/breast-implants/"], kind="sculpted"),
+        gallery_paths=["/gallery/breast-implants/"], kind="sculpted",
+        # Every composite is 1200x675 and carries a printed white presentation
+        # frame: ~8px on the left, right and top edges, ~4px at the bottom, and
+        # a ~9px white gutter straddling the midpoint. Measured across all 39
+        # published images, not assumed - 10px outer and 12px each side of the
+        # midpoint clears it on every one of the 78 halves, leaving no near-white
+        # band on any cropped edge. Halves come out 578x655, well clear of
+        # ingest.py's 400px floor. A fixed inset beats an adaptive one here: the
+        # backdrop is a near-white wall, so an auto-trim that chases "white"
+        # eats body pixels.
+        frame=Frame(border=10, gutter=12)),
     # -- 2026-08-25 batch: prospected clinics, consent executed 2026-08-25 --
     # (CONSENT-2026-08-25-PROSPECTED-CLINICS.md). One clinic per collection
     # task; the Page 1 Solutions family parser lives in page1solutions.py.
@@ -630,7 +647,29 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="bandy", consent_ref="bandy-agreement-2026-08-25",
         base_url="https://www.drbandy.com",
         gallery_paths=["/before-after-photos/breast-augmentation/"],
-        kind="page1solutions"),
+        kind="page1solutions", template="item",
+        # A large translucent "(c) Dr. Amy Bandy" wordmark burned across a
+        # full-width band at the BOTTOM of the 655x491 gallery exports, in two
+        # sizes that overlap; the crop is the union of both.
+        #
+        # Measured, not assumed. A median high-pass over the 2,199 downloaded
+        # 655x491 images keeps the fixed overlay and cancels the anatomy, which
+        # moves: the wordmark's ink starts at y=401 of 491 (the rows above it
+        # carry only the high-pass filter's own halo) and runs to the bottom
+        # edge. 401/491 = 0.8167, so the crop keeps the top 81.67% of the frame
+        # - 401px of a 491px export, which clears ingest.py's 400px floor by
+        # 1px, and 1568px of a 1920px original. The band sits over the lower
+        # abdomen; no case's breast tissue reaches it.
+        #
+        # Cropped on EVERY pair rather than only the ones a detector calls
+        # watermarked. Some cases publish the un-watermarked 2560x1920 original
+        # instead of the export (241 of 2,664 images, with no wordmark structure
+        # at all in the same median high-pass), and cropping those by the same
+        # fraction costs only field of view the frame does not use, where a
+        # per-image detector that scores one half wrong would either ship a
+        # stamped photograph or leave the watermark itself as a before/after
+        # label.
+        crop=Crop("keep_height_frac", 0.8167)),
     # 2026-08-25 batch (CONSENT-2026-08-25-PROSPECTED-CLINICS.md). Parser and
     # every gallery-specific constant live in arps_gallery.py.
     #
@@ -652,7 +691,12 @@ CLINICS: dict[str, ClinicConfig] = {
         # the bottom band falling from 3.4x-28x the body baseline to ~1x.
         # Costs 0 pairs to the 400px floor: every image is portrait, so the
         # short edge is the width and a bottom crop does not touch it.
-        bottom_crop_frac=0.10),
+        #
+        # Against WIDTH, and as a fraction, because that is how this mark is
+        # drawn: across six export sizes from 667x1000 to 1707x2560 its top edge
+        # ranges over 2.5%-6% of height (the aspect ratios differ) but a much
+        # tighter 3.8%-7.2% of width, and in pixels it is nothing like constant.
+        crop=Crop("width_frac", 0.10)),
     # -- 2026-08-25 batch: consent executed for 19 prospected clinics; see
     # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md (Blaine is row 8).
     "blaine": ClinicConfig(
@@ -662,14 +706,14 @@ CLINICS: dict[str, ClinicConfig] = {
         kind="blaine"),
     # -- 2026-08-25 batch: clinics consented in
     # clinic-corpus/CONSENT-2026-08-25-PROSPECTED-CLINICS.md --
-    # Page 1 Solutions platform; scripts/page1_solutions.py is the parser.
+    # Page 1 Solutions platform; the 'entry' template in page1solutions.py.
     "ncps": ClinicConfig(
         slug="ncps", consent_ref="ncps-agreement-2026-08-25",
         # drgregpark.com 301s to the www host, which is also where /files/
         # serves the images; base_url points at the canonical host directly.
         base_url="https://www.drgregpark.com",
         gallery_paths=["/before-after-gallery-san-diego/breast-augmentation/"],
-        kind="page1"),
+        kind="page1solutions", template="entry"),
     # -- 2026-08-25 batch: prospected clinics
     #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
     # dsmplasticsurgery.com redirects to the www host, which also serves every
@@ -689,12 +733,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # relative image paths resolve.
         base_url="https://www.plasticsurgerynow.com",
         gallery_paths=["/gallery/breast-procedures/augmentation/"],
-        # `page1_inline`, not `page1`: two collections landed a Page 1 Solutions
-        # parser independently and both claimed the same kind, which routed ncps
-        # through this clinic's listing parser and collected zero cases from it.
-        # The two parsers stay separate (consolidating them needs the shared-
-        # parser blast-radius proof); the KINDS are what must not collide.
-        kind="page1_inline"),
+        kind="page1solutions", template="holder"),
     # -- 2026-08-25 batch: prospected clinics (CONSENT-2026-08-25-PROSPECTED-
     #    CLINICS.md). One clinic per collection lane; see that file for the
     #    executed forms and for what the consent does NOT grant (access).
@@ -717,7 +756,18 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="tcclinic", consent_ref="tcclinic-agreement-2026-08-25",
         base_url="https://www.tcclinic.com",
         gallery_paths=["/surgical/breast-augmentation/before-after-photos/"],
-        kind="tcclinic"),
+        kind="tcclinic",
+        # Both composite families draw a light divider strip down the seam,
+        # measured 5px wide on the 1200px family; 8px either side of the
+        # midpoint clears it on both families with margin, and costs 16px of a
+        # half that has >= 180px of headroom over the 400px floor.
+        frame=Frame(seam_trim=8),
+        # The 1200x571 family carries a white TCC caption band plus a logo badge
+        # that straddles the seam and rises 44px out of the band into the frame,
+        # so the band's own height is the wrong crop. The rows are measured off
+        # each composite's own pixels (161px on all nine banded composites, 0 on
+        # the 56 unbanded) and cut from the whole composite before the split.
+        crop=Crop("caption_band", stage="composite")),
     # -- 2026-08-25 batch: prospected clinics
     #    (CONSENT-2026-08-25-PROSPECTED-CLINICS.md) --
     "bayside": ClinicConfig(
@@ -765,12 +815,7 @@ CLINICS: dict[str, ClinicConfig] = {
             "/before-after-gallery-houston/breast/ultra-high-profile-silicone-implants/",
             "/before-after-gallery-houston/breast/breast-augmentation-saline-implants/",
         ],
-        # `page1solutions_paged`, not `page1solutions`: bandy above already
-        # claims that kind for the per-case-page parser in page1solutions.py,
-        # and two clinics on one kind means the first dispatch branch takes
-        # both (the psiw/ncps precedent - see `page1_inline`). This gallery is
-        # the paginated inline listing, parsed below in this module.
-        kind="page1solutions_paged"),
+        kind="page1solutions", template="pager"),
     "gallatin": ClinicConfig(
         slug="gallatin", consent_ref="gallatin-agreement-2026-08-25",
         base_url="https://gallatinplasticsurgery.com",
@@ -846,7 +891,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # 339 plus margin, leaving 1000x645, still far above the 400px floor.
         # The clinic's other size family (379x377) is under the floor already
         # and is rejected at ingest rather than cropped.
-        bottom_crop_px=355),
+        crop=Crop("px", 355)),
     "bottger": ClinicConfig(
         slug="bottger", consent_ref="bottger-consent-2026-08-25-rosemont-16",
         base_url="https://www.drbottger.com",
@@ -938,7 +983,7 @@ CLINICS: dict[str, ClinicConfig] = {
         # surviving size family. The one 1194x450 composite falls under the
         # 400px floor after the crop and is rejected at ingest rather than
         # shipped shrunken.
-        bottom_crop_frac=0.105),
+        crop=Crop("width_frac", 0.105)),
 
     # -- 2026-08-25 prospected batch, collected 2026-09-15 on one branch in one
     #    sequential pass (CONSENT-2026-08-25-PROSPECTED-CLINICS.md row 17) --
@@ -956,7 +1001,15 @@ CLINICS: dict[str, ClinicConfig] = {
         slug="sarasota", consent_ref="sarasota-agreement-2026-08-25",
         base_url="https://sarasotaplasticsurgery.com",
         gallery_paths=["/photo-gallery/breast-augmentation/"],
-        kind="bragbook_rev"),
+        kind="bragbook_rev",
+        # Opaque red "SARASOTA PLASTIC SURGERY CENTER" block, bottom-right of
+        # each half. Its top edge sits at a constant 0.205-0.226 of HEIGHT
+        # across every export size while its pixel offset does not, so it is
+        # cropped as a fraction of the composite's height before the split (the
+        # mwps rule); 0.25 clears the worst measured edge by ~10%. Applied to
+        # every composite, including the few without the block, so every pair
+        # is framed alike (bragbook_rev.py docstring, clinic_watermarks.md).
+        crop=Crop("height_frac", 0.25, stage="composite")),
     # Brisbane Cosmetic Clinic (Dr Georgina Konrat), cleared by the captain's
     # 2026-08-25 confirmation recorded in the same consent file (its executed
     # form is not yet archived on disk). NOT Brisbane Plastic & Cosmetic
@@ -1023,14 +1076,6 @@ class ImagePair:
     # True when before_url/after_url point at the same side-by-side composite
     # image (left half before, right half after) that must be split on save.
     split_composite: bool = False
-    # Fraction of the composite's HEIGHT to trim off its BOTTOM before
-    # splitting, for a gallery that burns an edge watermark there (mwps).
-    # A fraction rather than a pixel count because the mark is rendered at a
-    # fixed proportion of the frame, not a fixed size. Applied to the whole
-    # composite, so both halves are cropped identically and stay dimension- and
-    # framing-matched; a watermark centred on the split seam lands on both
-    # halves, so cropping one side only would be a label leak.
-    composite_bottom_frac: float = 0.0
     # Set (with before_url == after_url) when before_url/after_url point at a
     # shared multi-panel grid composite (e.g. drrohrich's 2x2, teitelbaum's
     # 2x3): grid_shape is (rows, cols); before_cell/after_cell are (row, col)
@@ -1038,20 +1083,8 @@ class ImagePair:
     grid_shape: tuple[int, int] | None = None
     before_cell: tuple[int, int] | None = None
     after_cell: tuple[int, int] | None = None
-    # A split_composite whose two halves are laid out inside a printed
-    # presentation frame: composite_border px of that frame on all four outer
-    # edges and composite_gutter px on EACH side of the midpoint, trimmed
-    # before the split. Both halves lose the same amount, so their dimensions
-    # stay matched. 0/0 (the default) splits the raw image, which is what every
-    # composite clinic before sculpted publishes.
-    composite_border: int = 0
-    composite_gutter: int = 0
-    # split_composite only. crop_caption_band measures each composite's own
-    # logo band with caption_band_crop() and trims it before the split;
-    # seam_trim drops that many columns either side of the midpoint, for a
-    # composite that draws a divider strip between its two photos.
-    crop_caption_band: bool = False
-    seam_trim: int = 0
+    # How the halves are then framed and cropped is the CLINIC's, not the
+    # pair's: ClinicConfig.frame and ClinicConfig.crop (see framing.py).
     # The clinic's own text for THESE two photographs, where it publishes one
     # per pair rather than one per case. It is what the pair's notes quote; the
     # case's specs stay the merge of every pair's.
@@ -1217,41 +1250,6 @@ class PoliteFetcher:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
             return data
-
-
-def crop_bottom(data: bytes, rows: int) -> bytes:
-    """Trim `rows` pixels off the bottom of an encoded image.
-
-    Re-encodes, which is what every stage of this pipeline already does; the
-    corpus's last-mile builder re-encodes again on the way out.
-    """
-    from PIL import Image
-
-    if rows <= 0:
-        return data
-    with Image.open(io.BytesIO(data)) as im:
-        im = im.convert("RGB")
-        if rows >= im.height:
-            raise ValueError(f"bottom crop of {rows}px exceeds image height {im.height}")
-        out = im.crop((0, 0, im.width, im.height - rows))
-        buf = io.BytesIO()
-        out.save(buf, "JPEG", quality=95)
-        return buf.getvalue()
-
-
-def emitted_image_name(stem: str, url: str, bottom_crop_px: int) -> str:
-    """The filename one half of a pair is written under.
-
-    An uncropped half keeps the source URL's own extension, because this corpus
-    legitimately mixes .jpg/.jpeg/.png/.webp and a scan that globs `before.*`
-    depends on the name being true. A CROPPED half cannot: `crop_bottom` re-encodes
-    to JPEG, so writing it under the source's extension would put JPEG bytes in a
-    `before.webp`. The extension follows the encoding, never the source.
-    """
-    if bottom_crop_px:
-        return f"{stem}.jpg"
-    ext = Path(urlsplit(url).path).suffix or ".jpg"
-    return f"{stem}{ext.lower()}"
 
 
 def image_cache_key(clinic: str, url: str) -> str:
@@ -2297,23 +2295,8 @@ def charlotte_parse_case(case_html: str, case_id: str, source_url: str) -> CaseD
 # ---------------------------------------------------------------------------
 
 MWPS_GALLERY_IMG_RE = re.compile(r"/_static_/gallery/")
-# Every composite carries a translucent "MW MOUNTAIN WEST PLASTIC SURGERY" mark
-# (circle monogram over two lines of type) centred on the split seam at the
-# bottom of the frame, so an equal piece of it lands on EACH half - cropping
-# one side only would leave the mark on one half of a pair, which is a label
-# leak. It is cropped, never masked, and the crop is applied to the whole
-# composite before the split so the halves stay dimension- and framing-matched.
-#
-# The mark is SCALED TO THE FRAME, not stamped at a fixed pixel size. Measured
-# by eye off a row ruler at 2-3x zoom on three heights, the top of the circle
-# sits at 133/644, 118/568 and 103/499 of the way up from the bottom - 0.2065,
-# 0.2077, 0.2064. 0.22 covers that with ~6% headroom.
-# Do not re-derive this by aligning a residual on the bottom edge across the
-# gallery: that population is dominated by one height (53 of 114 composites are
-# 1500x499) and reports a plausible-looking constant ~100px offset, which
-# silently leaves the logo's top on every image taller than ~515 - i.e. on
-# every composite that clears the 400px floor.
-MWPS_WATERMARK_CROP_BOTTOM_FRAC = 0.22
+# Every composite carries a seam-centred watermark, cropped by the clinic's
+# `crop` in CLINICS, which records the measurement.
 
 # Purity screen (captain ruling: pure breast augmentation only). Read off the
 # case's own Description, never the URL slug. Two traps, both real here:
@@ -2424,8 +2407,7 @@ def mwps_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
             continue
         case.pairs.append(ImagePair(
             key=Path(urlsplit(src).path).stem,
-            before_url=src, after_url=src, split_composite=True,
-            composite_bottom_frac=MWPS_WATERMARK_CROP_BOTTOM_FRAC))
+            before_url=src, after_url=src, split_composite=True))
     if not case.pairs:
         case.warnings.append("no usable image pairs")
 
@@ -4872,405 +4854,6 @@ def captain_profile_term(text: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# page1solutions_paged parser family (Page 1 Solutions paginated inline gallery)
-# ---------------------------------------------------------------------------
-#
-# `kind="page1solutions_paged"`. Page 1 Solutions has SEVERAL parsers in this
-# repo, one per gallery layout, and each has its own kind: `page1solutions`
-# (per-case pages, page1solutions.py), `page1` (per-case pages,
-# page1_solutions.py), `page1_inline` (single inline listing, above in this
-# module) and this one, the paginated inline listing. Read the one your
-# clinic's kind dispatches to; folding them together needs the shared-parser
-# blast-radius proof AGENTS.md demands.
-#
-# Page 1 Solutions is a medical-marketing agency; this is its gallery product,
-# already identified on four consented/prospected practices (CIARAVINO, Dr Amy
-# Bandy, Plastic Surgery Institute of Washington, North Coast). One parser
-# configured per clinic, as with etna and rmgallery2. What the platform fixes:
-#
-#   * Cases are div.patient blocks rendered ten to a listing page, paginated
-#     with ?page=N through ul.pager. The pager enumerates EVERY page number, so
-#     the gallery's own page count is the enumeration check - the last pager
-#     link times ten, less the short final page.
-#   * Every image of a case lives in one numbered asset folder referenced by a
-#     RELATIVE path, './378/01.jpg'. That folder number is the case key: the
-#     'Case #NNNN' the clinic prints is NOT unique (thebodydoc publishes two
-#     consecutive saline cases both labelled Case #2547), and the block's
-#     anchor href points at the gallery, not at the case.
-#   * The relative path must be resolved against the CANONICAL gallery URL.
-#     The block's own anchor points at a different path that serves the same
-#     listing (.../breast-augmentation-silicone-implants/2890/), and resolving
-#     './378/01.jpg' against that yields a 404.
-#   * div.slides holds one div.item per view pair, each with exactly two
-#     <img class="feat2"> - odd file first, even second. div.view.s3grid repeats
-#     only the FIRST pair, but marks it data-before/data-after, which is what
-#     documents the odd/even convention rather than assuming it.
-#   * Specs are div.patient-info > div.patient-meta-info, '<strong>Label:</strong>
-#     value<br>'. The same block is repeated inside div.details for the popup,
-#     so only the patient-info copy is read.
-#
-# Views are not documented: div.slides items are positional and carry no label,
-# and the alt text is one boilerplate string on every image. View labels come
-# from the visual-annotation pass; unannotated pairs are skipped, never guessed.
-
-P1S_FIELD_LABELS = (
-    "Age", "Case #", "Height", "Weight", "Gender", "Ethnicity",
-    "Implant Size", "Implant Size (Left)", "Implant Size (Right)",
-    "Implant Type", "Incision", "Placement", "Procedure", "Patient #",
-)
-P1S_LABEL_RE = _label_regex(P1S_FIELD_LABELS)
-P1S_SIDED_VOLUME_LABELS = {
-    "implant size (left)": "left", "implant size (right)": "right",
-}
-P1S_VOLUME_LABELS = set(P1S_SIDED_VOLUME_LABELS) | {"implant size"}
-P1S_NARRATIVE_LABELS = {"procedure"}
-P1S_ASSET_RE = re.compile(r"^\.?/?(\d+)/(\d+)\.(jpe?g|png|webp)$", re.I)
-# The same numbered-folder/numbered-file tail, wherever it sits in a URL.
-P1S_ASSET_TAIL_RE = re.compile(r"(?:^|/)(\d+)/(\d+)\.(?:jpe?g|png|webp)$", re.I)
-P1S_CASE_NUMBER_RE = re.compile(r"case\s*#\s*(\d+)", re.I)
-
-
-def page1solutions_page_count(listing_html: str) -> int | None:
-    """Highest ?page=N the gallery's OWN pager offers, or None if unpaginated.
-
-    Read from ul.pager alone. This count is the family's whole enumeration
-    check, and a footer nav, a related-content widget or an inline script
-    carries ?page= links of its own: an inflated figure walks pages the gallery
-    does not have, and on a CMS that serves page 1 for an out-of-range ?page it
-    re-collects page 1's blocks under the case ids they already have, where the
-    per-page block reconciliation counts them as a match and nothing warns.
-    """
-    highest = None
-    soup = BeautifulSoup(listing_html, "html.parser")
-    for link in soup.select("ul.pager a[href]"):
-        m = re.search(r"[?&]page=(\d+)", link["href"])
-        if m is None:
-            continue
-        n = int(m.group(1))
-        highest = n if highest is None else max(highest, n)
-    return highest
-
-
-def page1solutions_has_pager(listing_html: str) -> bool:
-    """Whether the listing published pager markup at all.
-
-    page_count is None for a one-page gallery AND for a listing whose pager
-    this parser could not find, and those are not the same claim: the pager is
-    the family's only enumeration signal, so 'one page' with no pager markup is
-    this parser's result rather than the gallery's own statement, and reading it
-    as the end of the set is how 582 declared Etna cases became a confident 450.
-    """
-    return BeautifulSoup(
-        listing_html, "html.parser").select_one("ul.pager") is not None
-
-
-def page1solutions_listing_case_count(listing_html: str) -> int:
-    """div.patient blocks one listing page renders, parsed or not.
-
-    The pager states how many PAGES the gallery has, so it cannot see a case
-    the parser dropped inside a page. This is the per-page half of the
-    enumeration check.
-    """
-    return len(BeautifulSoup(listing_html, "html.parser").select("div.patient"))
-
-
-def _p1s_asset_folder(src: str) -> str | None:
-    m = P1S_ASSET_RE.match(src.strip())
-    return m.group(1) if m else None
-
-
-def _p1s_asset_ref(src: str) -> tuple[str, int] | None:
-    """(asset folder, file number) from ANY spelling of an asset reference.
-
-    Keying a case is a different question and stays on P1S_ASSET_RE: only the
-    platform's relative './44/01.jpg' names a case's own folder there, so an
-    absolute CDN path is a block this parser cannot key. But the NUMBERING is
-    a property of the file whatever the page spells it as, and the grid and
-    the slides do not always spell one image the same way - reading only the
-    anchored form there silently drops the evidence instead of using it.
-    """
-    m = P1S_ASSET_TAIL_RE.search(src.strip().split("?", 1)[0].split("#", 1)[0])
-    return (m.group(1), int(m.group(2))) if m else None
-
-
-def _p1s_descending(before_src: str, after_src: str) -> bool:
-    """True when the after asset is numbered BELOW its before, in one folder."""
-    before, after = _p1s_asset_ref(before_src), _p1s_asset_ref(after_src)
-    return (before is not None and after is not None
-            and before[0] == after[0] and after[1] < before[1])
-
-
-def _p1s_numbering_note(before_src: str, after_src: str,
-                        after_first: bool = False) -> str | None:
-    """How this couple departs from the numbering in force, or None if it holds.
-
-    The platform habit is odd file before, even file after, ascending. Where
-    the page's own markers show this install numbers its after file FIRST, that
-    is the convention the case is read against instead.
-
-    Two assets are only comparable within one case's own numbered folder: the
-    numbers restart per folder, so a number from another folder says nothing.
-    """
-    before, after = _p1s_asset_ref(before_src), _p1s_asset_ref(after_src)
-    if before is None or after is None or before[0] != after[0]:
-        return None
-    before_n, after_n = before[1], after[1]
-    if after_first:
-        if before_n % 2 == 0 and after_n % 2 == 1 and after_n < before_n:
-            return None
-        return (f"asset numbering {before_n}/{after_n} departs from this case's "
-                f"own even-before/odd-after numbering")
-    if before_n % 2 == 1 and after_n % 2 == 0 and after_n > before_n:
-        return None
-    return (f"asset numbering {before_n}/{after_n} departs from the platform's "
-            f"odd-before/even-after convention")
-
-
-class _P1SMarks:
-    """What div.view.s3grid states about which image of a pair is which.
-
-    Two spellings of ONE image have to compare equal. The grid publishes its
-    markers as data-before/data-after and the slides publish src; an install
-    that renders one relative and the other absolute, or that appends a
-    cache-buster, would make every lookup miss and silently reduce the guard to
-    the numbering habit with no trace in the output. So every reference is
-    canonicalised against the gallery URL before it is compared.
-
-    The markers also state the case's own NUMBERING: a marked pairing whose
-    after file is numbered below its before says this install numbers
-    after-first, and every slide of the case is then read that way. The grid
-    repeats only the first pair, so re-deciding per slide with the marker
-    discarded would lose every pair past the first at such a practice.
-    """
-
-    def __init__(self, block, gallery_url: str):
-        self._gallery_url = gallery_url
-        self.pairs: dict[str, str] = {}
-        self.after_first = False
-        for item in block.select("div.view.s3grid div.item"):
-            b = item.select_one("img[data-before]")
-            a = item.select_one("img[data-after]")
-            if b is None or a is None:
-                continue
-            self.pairs[self.key(b["data-before"])] = self.key(a["data-after"])
-            if _p1s_descending(b["data-before"], a["data-after"]):
-                self.after_first = True
-        self.afters = set(self.pairs.values())
-
-    def key(self, src: str) -> str:
-        """One image's comparable form, whatever attribute it was read from."""
-        resolved = urljoin(self._gallery_url, (src or "").strip())
-        return resolved.split("?", 1)[0].split("#", 1)[0]
-
-    def describes(self, src: str) -> bool:
-        """True when the grid names this image on either side of a pairing."""
-        key = self.key(src)
-        return key in self.pairs or key in self.afters
-
-
-def _p1s_pair_problem(before_src: str, after_src: str, marks: _P1SMarks,
-                      ) -> tuple[str | None, str | None]:
-    """(contradiction, note) for one div.slides item read in DOM order.
-
-    DOM order alone is too weak to carry a label this consequential: a reversed
-    pair teaches the edit model to SHRINK breasts and passes every downstream
-    gate silently. Two sources on the page can speak to it - the data-before/
-    data-after markers the s3grid publishes, and the platform's odd-first/
-    even-second asset numbering - and they do not rank equally. The markers are
-    the page's own statement of which image is which, checked in both
-    directions because an image the page names as a before turning up in the
-    after slot is the same evidence as the pairing itself disagreeing. The
-    numbering is a habit: it can raise a suspicion where nothing else speaks,
-    but it never overrules a marker, and where a marker establishes the case's
-    numbering the whole case is read against THAT.
-
-    So a marker contradiction skips the pair; a marker affirmation keeps it
-    whatever the numbering does; and with no marker either way, only a couple
-    running against the case's own numbering - the shape of an actual reversal
-    - skips. Anything else unconventional is reported and kept.
-    """
-    before_key, after_key = marks.key(before_src), marks.key(after_src)
-    if before_key in marks.pairs and marks.pairs[before_key] != after_key:
-        return "contradicts the page's own data-before/data-after pairing", None
-    if after_key in marks.pairs:
-        return "puts an image the page marks data-before in the after slot", None
-    if before_key in marks.afters:
-        return "puts an image the page marks data-after in the before slot", None
-    note = _p1s_numbering_note(before_src, after_src, marks.after_first)
-    if marks.pairs.get(before_key) == after_key:
-        return None, (f"{note}; kept, the page marks this pairing itself"
-                      if note else None)
-    before_folder = _p1s_asset_folder(before_src)
-    after_folder = _p1s_asset_folder(after_src)
-    if (before_folder is not None and after_folder is not None
-            and before_folder != after_folder):
-        return (f"pairs asset folder {before_folder} against {after_folder}, "
-                f"but a case's images all live in one folder"), None
-    if note is not None:
-        before_n, after_n = (_p1s_asset_ref(before_src)[1],
-                             _p1s_asset_ref(after_src)[1])
-        reversed_shape = (after_n > before_n if marks.after_first
-                          else after_n < before_n)
-        if reversed_shape:
-            direction = "above" if marks.after_first else "below"
-            return (f"numbers its after asset ({after_n}) {direction} its "
-                    f"before ({before_n})"), None
-    return None, f"{note}; kept in DOM order" if note else None
-
-
-def page1solutions_parse_meta(meta_block, specs: CaseSpecs) -> None:
-    """Fill specs from a div.patient-meta-info chart block."""
-    prose_parts: list[str] = []
-    for line in _br_lines(meta_block):
-        fields, leftover = _split_labelled_line(line, P1S_LABEL_RE)
-        if leftover:
-            prose_parts.append(leftover)
-        for label, value in fields:
-            if not value or value.strip() in {"--", "-", "N/A"}:
-                continue
-            key = label.lower()
-            if key in P1S_NARRATIVE_LABELS:
-                prose_parts.append(f"{label}: {value}")
-                continue
-            specs.fields.setdefault(label, value)
-            if key not in P1S_VOLUME_LABELS:
-                continue
-            cc = labelled_volume(value)
-            if cc is None:
-                continue
-            side = P1S_SIDED_VOLUME_LABELS.get(key)
-            if side == "left":
-                specs.left_cc = cc
-            elif side == "right":
-                specs.right_cc = cc
-            elif specs.left_cc is None and specs.right_cc is None:
-                specs.left_cc = specs.right_cc = cc
-    specs.summary = " ".join(prose_parts).strip()
-
-
-def page1solutions_parse_listing_page(listing_html: str, gallery_url: str,
-                                      gallery_tag: str) -> list[CaseData]:
-    """Every div.patient case rendered on one Page 1 Solutions listing page.
-
-    gallery_url is the CANONICAL listing URL; relative asset paths resolve
-    against it. gallery_tag namespaces the case id, because each sub-gallery
-    numbers its asset folders from 1 independently.
-    """
-    soup = BeautifulSoup(listing_html, "html.parser")
-    cases: list[CaseData] = []
-    for block in soup.select("div.patient"):
-        info = block.select_one("div.patient-info")
-        srcs = [i.get("src") or i.get("data-before") or i.get("data-after") or ""
-                for i in block.select("img")]
-        folders = [f for f in (_p1s_asset_folder(s) for s in srcs) if f]
-        if not folders:
-            # The asset folder is the case key, so a block that publishes none
-            # cannot be collected - but it is a case the gallery rendered, and
-            # dropping it silently is a case that no accounting can sum.
-            link = info.select_one("a") if info else None
-            m = (P1S_CASE_NUMBER_RE.search(link.get_text(" ", strip=True))
-                 if link is not None else None)
-            evidence = (f"Case #{m.group(1)}" if m
-                        else next((s for s in srcs if s), "no image published"))
-            print(f"  WARN page1solutions/{gallery_tag}: case block "
-                  f"({evidence}) publishes no numbered asset path; dropped")
-            continue
-        folder = folders[0]
-        case_id = f"{gallery_tag}-{folder}"
-        case = CaseData(case_id=case_id, source_url=gallery_url)
-
-        # div.slides carries every view pair; div.view.s3grid repeats only the
-        # first, but its data-before/data-after is what documents which of the
-        # two images in an item is which.
-        marks = _P1SMarks(block, gallery_url)
-        marks_matched = False
-        for index, item in enumerate(block.select("div.slides div.item"), 1):
-            imgs = [i.get("src", "") for i in item.select("img") if i.get("src")]
-            if len(imgs) != 2:
-                case.warnings.append(
-                    f"slide {index} publishes {len(imgs)} image(s), not 2; skipped")
-                continue
-            before_src, after_src = imgs[0], imgs[1]
-            if marks.describes(before_src) or marks.describes(after_src):
-                marks_matched = True
-            contradiction, note = _p1s_pair_problem(before_src, after_src, marks)
-            if contradiction is not None:
-                case.warnings.append(f"slide {index} {contradiction}; skipped")
-                continue
-            if note is not None:
-                case.warnings.append(f"slide {index} {note}")
-            case.pairs.append(ImagePair(
-                key=f"pair{index}",
-                before_url=urljoin(gallery_url, before_src),
-                after_url=urljoin(gallery_url, after_src)))
-        if marks.pairs and not marks_matched:
-            # The guard the module docstring calls the page's own statement of
-            # which image is which, silently inert.
-            case.warnings.append(
-                "div.view.s3grid marks a before/after pairing that names none "
-                "of the case's slide images; the pairing guard checked nothing")
-        if not case.pairs:
-            case.warnings.append("no usable image pairs")
-
-        specs = CaseSpecs()
-        meta_block = info.select_one("div.patient-meta-info") if info else None
-        if meta_block is None:
-            case.warnings.append("no div.patient-meta-info chart published")
-        else:
-            page1solutions_parse_meta(meta_block, specs)
-
-        procedure = ""
-        link = info.select_one("a") if info else None
-        if link is not None:
-            procedure = link.get_text(" ", strip=True)
-            m = P1S_CASE_NUMBER_RE.search(procedure)
-            if m:
-                specs.fields.setdefault("Case #", m.group(1))
-        age = specs.fields.get("Age", "")
-        if age.strip().isdigit():
-            specs.age = int(age.strip())
-        height = specs.fields.get("Height", "")
-        if height:
-            specs.height = (height.replace("’", "'").replace("”", '"')
-                            .replace("“", '"').strip())
-            specs.height_cm = height_to_cm(specs.height)
-        weight = specs.fields.get("Weight", "")
-        m = re.match(r"^(\d{2,3})\s*(?:lbs?|pounds?)?\.?$", weight.strip(), re.I)
-        if m:
-            specs.weight_lbs = int(m.group(1))
-            specs.weight_kg = pounds_to_kg(specs.weight_lbs)
-
-        # Profile and brand come from the implant-size fields only - the
-        # clinic's own labelled statement of what was implanted.
-        size_text = " ".join(v for k, v in specs.fields.items()
-                             if k.lower() in P1S_VOLUME_LABELS
-                             or k.lower() == "implant type")
-        classify_brand_shape_profile(specs, size_text)
-        if specs.profile is None:
-            specs.profile = captain_profile_term(size_text)
-        classify_placement_incision(
-            specs, " ".join(f"{k}: {v}" for k, v in specs.fields.items()))
-        case.specs = specs
-
-        # specs.summary is not optional here: the chart's own 'Procedure:' line
-        # is narrative, so page1solutions_parse_meta routes it to the summary
-        # and never to specs.fields, and so does any line whose label this
-        # parser does not know. The anchor is the gallery's heading, identical
-        # on every block of the page - screening on that alone is the mistake
-        # that let 86 combined cases through at the Etna clinics.
-        term = combined_procedure_term(
-            procedure, " ".join(f"{k}: {v}" for k, v in specs.fields.items()),
-            specs.summary)
-        if term is not None:
-            case.warnings.append(
-                f"not pure breast augmentation (case text names '{term}'); "
-                "excluded by captain ruling")
-            case.pairs = []
-        cases.append(case)
-    return cases
-
-
-# ---------------------------------------------------------------------------
 # gallatin parser (bespoke WordPress gallery, one inline filterable list)
 # ---------------------------------------------------------------------------
 #
@@ -5738,294 +5321,6 @@ def bayside_parse_case(case_html: str, case_id: str, source_url: str) -> CaseDat
     return case
 
 # ---------------------------------------------------------------------------
-# page1_inline parser (Page 1 Solutions; single inline listing, numbered folders)
-# ---------------------------------------------------------------------------
-#
-# Markup contract, one `div.patient-holder` per case:
-#
-#   div.patient-holder
-#     div.patient.gallery-preview        <- listing thumbnail (before, after)
-#     div.gallery-wrap.hide id="<n>"     <- the case, hidden until clicked
-#       div.slides > div.item            <- ONE PAIR each: img[0]=before, img[1]=after
-#       div.details > p ...              <- the clinic's caption/spec block
-#
-# Images are referenced by a **relative** path (`./07/03.jpg`) in
-# `data-lazyload-src`; the folder is the case's own directory under the gallery
-# URL and is the case key. A naive `<img src>` scrape reads zero images here,
-# because nothing carries a real `src` until the lazyloader runs.
-#
-# The image number is positional and documents nothing: within a `.slides
-# .item` the FIRST img is the before and the SECOND is the after, which the
-# page states independently on its first pair via the `data-before` /
-# `data-after` attributes in `.view.s3grid`. It says nothing about the VIEW, so
-# every view label here comes from visual annotation.
-#
-# The clinic's own "Case # NNN" label is NOT unique - plasticsurgerynow
-# publishes `Case # KH006` on two different patients and `Case # 1102` on two
-# more - so the folder number is the case key and the Case # is recorded as a
-# spec field only.
-
-PAGE1_LABELS = [
-    "Patient Age", "Age", "Height", "Ht", "Weight", "Wt",
-    "Implant Size (Left)", "Implant Size (Right)", "Implant size", "Implant Size",
-    "Implant Type", "Implant", "Incision Type", "Incision",
-    "Placement", "Left", "Right", "Cup Size", "Size", "Before", "Post", "After",
-    "Description", "Procedures", "Details", "Time after surgery",
-]
-# Longest label first so 'Implant Size (Left)' is never read as bare 'Implant'.
-PAGE1_LABEL_RE = re.compile(
-    r"\b(" + "|".join(re.escape(lbl) for lbl in
-                      sorted(PAGE1_LABELS, key=len, reverse=True)) + r")\s*:",
-    re.I)
-# Labels whose own text names the value an implant size, so a bare number in
-# them is a volume (the standing units ruling). Bare 'Left'/'Right' qualify
-# only after an 'Implant size' label has opened a sided sub-block - see
-# page1_parse_details.
-PAGE1_SIDED_VOLUME_LABELS = {
-    "implant size (left)": "left", "implant size (right)": "right",
-    "left": "left", "right": "right",
-}
-PAGE1_VOLUME_LABELS = {"implant size", "implant size (left)",
-                       "implant size (right)"}
-PAGE1_NARRATIVE_LABELS = {"description", "procedures", "details",
-                          "time after surgery"}
-PAGE1_BARE_VOLUME_RE = re.compile(r"^(\d{2,4}(?:\.\d+)?)\s*(?:ccs?|ml)?\b", re.I)
-
-# A volume followed straight away by its side, with nothing between them:
-# '405 cc left and 360 cc right', '250cc right, 225cc left'. Kept separate from
-# the shared TRAILING_SIDE_RE, which reads the 'on the right' phrasing and
-# would take '405 cc left' as a bilateral figure.
-PAGE1_POSTFIX_SIDE_RE = re.compile(
-    rf"(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}\s*[,;]?\s+(left|right)\b", re.I)
-# The mirror phrasing: 'right side 405 cc and left side 375 cc'.
-PAGE1_SIDE_PREFIX_RE = re.compile(
-    rf"\b(left|right)\s+side\s+(\d+(?:\.\d+)?)\s*{VOLUME_UNIT}", re.I)
-
-# Profile abbreviations, per the captain's 2026-08-19 ruling (UHP -> extra-high,
-# HP -> high, MP -> moderate). MPP is this family's spelling of 'Moderate
-# Profile Plus': plasticsurgerynow publishes both forms for the same product
-# ('275 cc MPP gel' in case 55, '275cc Moderate Profile Plus Gels' in case 83).
-# Matched case-sensitively as whole words so ordinary prose cannot trip them,
-# and only after the spelled-out PROFILE_PATTERNS have had their turn.
-PAGE1_PROFILE_ABBREVIATIONS = [
-    (re.compile(r"\bUHP\b"), "extra-high"),
-    (re.compile(r"\bMPP\b"), "moderate-plus"),
-    (re.compile(r"\bHP\b"), "high"),
-    (re.compile(r"\bMP\b"), "moderate"),
-]
-
-# Procedures that make a case something other than a pure augmentation. The
-# screen reads the case TEXT, never the gallery slug or the folder name: this
-# gallery is titled 'Augmentation' and still publishes a mastopexy, a tummy
-# tuck, a liposuction, a nipple reduction and a congenital-deformity
-# reconstruction inside it.
-PAGE1_COMBINED_PATTERNS = [
-    (re.compile(r"\bmastopex\w*\b", re.I), "mastopexy (augmentation with lift)"),
-    (re.compile(r"\bbreast lift\b", re.I), "breast lift"),
-    (re.compile(r"\btummy tuck\b|\babdominoplast\w*\b", re.I), "abdominoplasty"),
-    (re.compile(r"\bliposuction\b|\blipoaspirate\b", re.I), "liposuction"),
-    (re.compile(r"\bnipple reduction\b", re.I), "nipple reduction"),
-    (re.compile(r"\bbreast reduction\b", re.I), "breast reduction"),
-    (re.compile(r"\b(?:implant )?removal\b|\bexplant\w*\b", re.I), "implant removal"),
-    (re.compile(r"\brevision\b", re.I), "revision"),
-    (re.compile(r"\breconstruct\w*\b", re.I), "reconstruction"),
-    (re.compile(r"\bcongenital\b", re.I), "congenital deformity correction"),
-]
-
-
-def page1_combined_procedure(text: str) -> str | None:
-    """The non-augmentation procedure a case documents, or None if pure."""
-    for pattern, label in PAGE1_COMBINED_PATTERNS:
-        if pattern.search(text):
-            return label
-    return None
-
-
-def _page1_split_fields(text: str) -> list[tuple[str, str]]:
-    """(label, value) for every labelled field in a details block.
-
-    Each known label ends the previous field's value, so the run-on chart
-    'Implant Size (Left): 275 cc Implant Size (Right): 275 cc' yields both
-    sides. Splitting at the first ': ' instead would swallow the second.
-    """
-    matches = list(PAGE1_LABEL_RE.finditer(text))
-    fields = []
-    for i, match in enumerate(matches):
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        fields.append((match.group(1).strip(), text[match.end():end].strip()))
-    return fields
-
-
-def _page1_labelled_volume(value: str) -> float | None:
-    """cc figure from a field whose label already named it an implant size."""
-    sided = _parse_fill_side(value)
-    if sided is not None and 100 <= sided <= 1000:
-        return sided
-    m = PAGE1_BARE_VOLUME_RE.match(value.strip())
-    if m:
-        cc = float(m.group(1))
-        return cc if 100 <= cc <= 1000 else None
-    return None
-
-
-def page1_parse_volumes(text: str) -> tuple[float | None, float | None]:
-    """(left_cc, right_cc) from a details block, labelled chart or narrative.
-
-    Tried in order: the labelled sided chart fields, then this family's two
-    narrative side phrasings, then the shared narrative reader. The first two
-    exist because the shared reader mis-read both layouts when this parser was
-    written: its prefix branch consumed the rest of the line as one segment, so
-    'Implant Size (Left): 350 cc Implant Size (Right): 325 cc' lost the right
-    side and reported the left figure as the average, and '405 cc left and 360
-    cc right' assigned 360 to the left. The chart half was fixed centrally on
-    2026-08-25 and the shared reader handles it now; the narrative half is
-    still live. Sixteen of this clinic's 104 cases publish asymmetric volumes,
-    so either misread changes the caption's cc.
-    """
-    left = right = None
-    sided_block_open = False
-    for label, value in _page1_split_fields(text):
-        key = label.lower()
-        if key in PAGE1_VOLUME_LABELS:
-            sided_block_open = True
-        elif key not in PAGE1_SIDED_VOLUME_LABELS:
-            # 'Cup Size: Before: 34 A  Post: 32 D' closes the sided block, so a
-            # later bare 'Left'/'Right' is not read as an implant size.
-            sided_block_open = False
-        side = PAGE1_SIDED_VOLUME_LABELS.get(key)
-        if side is None:
-            continue
-        if key in ("left", "right") and not sided_block_open:
-            continue
-        cc = _page1_labelled_volume(value)
-        if cc is None:
-            continue
-        if side == "left":
-            left = cc
-        else:
-            right = cc
-    if left is not None or right is not None:
-        return left, right
-
-    for m in PAGE1_POSTFIX_SIDE_RE.finditer(text):
-        cc = float(m.group(1))
-        if 100 <= cc <= 1000:
-            if m.group(2).lower() == "left":
-                left = cc
-            else:
-                right = cc
-    for m in PAGE1_SIDE_PREFIX_RE.finditer(text):
-        cc = float(m.group(2))
-        if 100 <= cc <= 1000:
-            if m.group(1).lower() == "left":
-                left = cc
-            else:
-                right = cc
-    if left is not None or right is not None:
-        return left, right
-    return parse_fill_volumes(text)
-
-
-def page1_parse_details(text: str, specs: CaseSpecs) -> None:
-    """Fill specs from one case's details block.
-
-    Three layouts are published on plasticsurgerynow alone and all three are
-    the same block of text with different delimiters:
-
-      A. Narrative  - '6 months post-op breast augmentation with 360cc implants.'
-      B. Run-on chart - 'Patient Age: 50 Height: 5’7 ... Implant Size (Left): 275 cc'
-      C. Tab-delimited chart - "Age: 23\tHt: 5’6”\tWt: 120 Implant: ... Left: 375cc\t\tRight: 350cc"
-
-    Placement and incision are read from the LABELLED chart fields only, never
-    from the narrative, per the standing chart-metadata rule.
-    """
-    specs.summary = re.sub(r"\s+", " ", text).strip()
-    chart_parts = []
-    for label, value in _page1_split_fields(text):
-        value = re.sub(r"\s+", " ", value).strip()
-        if not value or label.lower() in PAGE1_NARRATIVE_LABELS:
-            continue
-        specs.fields.setdefault(label, value)
-        chart_parts.append(f"{label}: {value}")
-        key = label.lower()
-        if key in ("age", "patient age"):
-            m = re.match(r"(\d{1,3})\b", value)
-            if m and 10 <= int(m.group(1)) <= 100:
-                specs.age = int(m.group(1))
-        elif key in ("height", "ht"):
-            specs.height = value
-            specs.height_cm = height_to_cm(value)
-        elif key in ("weight", "wt"):
-            m = re.match(r"(\d{2,3})\b", value)
-            if m:
-                specs.weight_lbs = int(m.group(1))
-                specs.weight_kg = pounds_to_kg(specs.weight_lbs)
-    specs.left_cc, specs.right_cc = page1_parse_volumes(text)
-    classify_brand_shape_profile(specs, text)
-    if specs.profile is None:
-        for pattern, profile in PAGE1_PROFILE_ABBREVIATIONS:
-            if pattern.search(text):
-                specs.profile = profile
-                break
-    classify_placement_incision(specs, "\n".join(chart_parts))
-
-
-def page1_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
-    """Every case inline on one listing page; see the markup contract above."""
-    soup = BeautifulSoup(listing_html, "html.parser")
-    cases = []
-    for holder in soup.select("div.patient-holder"):
-        wrap = holder.select_one("div.gallery-wrap")
-        if wrap is None:
-            continue
-        pairs, folder = [], None
-        for item in wrap.select("div.slides div.item"):
-            srcs = [img.get("data-lazyload-src") or img.get("src")
-                    for img in item.select("img")]
-            srcs = [s for s in srcs if s]
-            if len(srcs) < 2:
-                continue
-            if folder is None:
-                m = re.match(r"\.?/?([^/]+)/", srcs[0])
-                if m is None:
-                    continue
-                folder = m.group(1)
-            # './07/03.jpg' is relative to the GALLERY page, not the site root,
-            # so it is resolved here rather than left for the caller to prefix
-            # with base_url (which would build /07/03.jpg off the domain).
-            pairs.append((urljoin(source_url, srcs[0]),
-                          urljoin(source_url, srcs[1])))
-        if not pairs or folder is None:
-            continue
-        case = CaseData(case_id=folder, source_url=source_url)
-        details = wrap.select_one("div.details")
-        text = details.get_text(" ", strip=True) if details is not None else ""
-        # 'Case # NNN' is the clinic's own label and is not unique across
-        # patients; it is kept as a spec field, never as the case key.
-        case_number = None
-        m_case = re.search(r"Case\s*#\s*([\w#]+)", text)
-        if m_case:
-            case_number = m_case.group(1)
-            text = text[:m_case.start()] + text[m_case.end():]
-        page1_parse_details(text, case.specs)
-        if case_number:
-            case.specs.fields.setdefault("Case #", case_number)
-        combined = page1_combined_procedure(text)
-        if combined is not None:
-            # Kept in the list with no pairs so the run log accounts for it
-            # rather than silently dropping it from the enumeration.
-            case.warnings.append(
-                f"excluded from the corpus: not a pure breast augmentation "
-                f"({combined})")
-        else:
-            for idx, (before, after) in enumerate(pairs, 1):
-                case.pairs.append(ImagePair(key=f"pair{idx}", before_url=before,
-                                            after_url=after))
-        cases.append(case)
-    return cases
-
-
-# ---------------------------------------------------------------------------
 # dsm parser (Kadence Blocks gallery; one inline listing, per-photo captions)
 # ---------------------------------------------------------------------------
 #
@@ -6271,7 +5566,7 @@ def choice_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
     Every image is a side-by-side before|after composite (910x~502) finished
     with a caption band printing BEFORE under the left half and AFTER under
     the right. That band is a label leak in the most literal form available,
-    so `bottom_crop_px` trims it off both halves - see ClinicConfig.
+    so the clinic's `crop` trims it off both halves - see its CLINICS entry.
 
     Views are not documented anywhere on the page or in the filenames, so
     every view label comes from an annotations file.
@@ -6335,103 +5630,6 @@ def choice_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
         case.specs = specs
         cases.append(case)
     return cases
-
-
-# ---------------------------------------------------------------------------
-# Page 1 Solutions parser (shared platform; see scripts/page1_solutions.py)
-# ---------------------------------------------------------------------------
-
-# The listing walk's ceiling. Page N past the end is a plain 404 on this
-# platform, so the walk normally ends on its own - but a WordPress gallery that
-# 200s past the end with the last page's cases re-rendered (sculpted does
-# exactly that) would otherwise loop forever at one fetch per delay interval,
-# because the `seen` set dedupes the repeats away while the page keeps parsing
-# non-empty. ncps, the largest clinic on this platform, publishes 370 cases
-# across 37 pages.
-PAGE1_MAX_PAGES = 200
-
-
-def page1_parse_case(case_html: str, case_id: str, source_url: str) -> CaseData:
-    """One Page 1 Solutions case: labelled chart + positional Before/After singles.
-
-    The markup contract, the case-key rule and the purity screen live in
-    page1_solutions.py; this is the glue that turns them into CaseData. A case
-    whose documented procedure is not a pure primary augmentation is returned
-    with no pairs and a warning naming the rejection class, so the driver
-    accounts for it instead of silently emitting it.
-    """
-    case = CaseData(case_id=case_id, source_url=source_url)
-    soup = BeautifulSoup(case_html, "html.parser")
-    entry = soup.select_one("div.patient-entry")
-    if entry is None:
-        case.warnings.append("no patient-entry block")
-        return case
-    content = entry.select_one("div.single-content")
-    fields, narrative = p1.page1_split_chart(
-        p1.page1_chart_lines(content) if content is not None else [])
-
-    specs = CaseSpecs()
-    specs.fields = dict(fields)
-    specs.summary = narrative
-    specs.gender = fields.get("Gender", "")
-    if fields.get("Age", "").isdigit():
-        specs.age = int(fields["Age"])
-    specs.height = fields.get("Height", "")
-    m = re.match(r"(\d+)", fields.get("Weight", ""))
-    if m:
-        specs.weight_lbs = int(m.group(1))
-    m = re.match(r"(\d+(?:\.\d+)?)", fields.get("Months Post-Op", ""))
-    if m:
-        specs.months_post_op = float(m.group(1))
-    specs.height_cm = height_to_cm(specs.height)
-    if specs.weight_lbs is not None:
-        specs.weight_kg = pounds_to_kg(specs.weight_lbs)
-    # 'Left Implant Size: 410 cc' is a LABELLED implant-size field, so a bare
-    # number there counts as a volume; a bare number in the narrative does not,
-    # which is why the sides are read from the chart first and the narrative is
-    # only the fallback (and parse_fill_volumes there still demands a unit).
-    specs.left_cc = _page1_labelled_cc(fields.get("Left Implant Size", ""))
-    specs.right_cc = _page1_labelled_cc(fields.get("Right Implant Size", ""))
-    if specs.left_cc is None and specs.right_cc is None and narrative:
-        specs.left_cc, specs.right_cc = parse_fill_volumes(narrative)
-    elif specs.left_cc is None:
-        specs.left_cc = specs.right_cc
-    elif specs.right_cc is None:
-        specs.right_cc = specs.left_cc
-    # Shape/profile/brand come from the CHART's own labelled fields, not the
-    # narrative and not the whole chart: the prose routinely names the implant
-    # line ('Mentor MemoryShape ... anatomic (tear drop) shaped') while the
-    # chart states what this patient received, and reading only the three
-    # fields that document these keeps a value from leaking in from a
-    # neighbouring one.
-    profile_text, profile_is_sided = p1.page1_profile(fields)
-    classify_brand_shape_profile(specs, " ".join([
-        fields.get("Implant Type", ""),
-        fields.get("Implant Shape", "") or fields.get("Shape", ""),
-        "" if profile_is_sided else profile_text,
-    ]))
-    if specs.profile is None and not profile_is_sided:
-        specs.profile = p1.page1_bare_profile(profile_text)
-    chart_text = " ".join(fields.values())
-    classify_placement_incision(specs, chart_text)
-    case.specs = specs
-
-    rejection = p1.page1_purity(fields, narrative)
-    if rejection is not None:
-        case.warnings.append(f"not pure augmentation ({rejection})")
-        return case
-    for i, (before_url, after_url) in enumerate(p1.page1_pair_urls(entry), 1):
-        case.pairs.append(ImagePair(key=f"pair{i}", before_url=before_url,
-                                    after_url=after_url))
-    if not case.pairs:
-        case.warnings.append("no usable image pairs")
-    return case
-
-
-def _page1_labelled_cc(value: str) -> float | None:
-    """Volume from a labelled implant-size field ('410 cc', '215cc', '410')."""
-    m = re.match(r"(\d+(?:\.\d+)?)", value.strip())
-    return float(m.group(1)) if m else None
 
 
 # ---------------------------------------------------------------------------
@@ -6929,7 +6127,8 @@ def aips_parse_listing(listing_html: str, source_url: str) -> list[CaseData]:
 # needs none.
 #
 # Every image is a landscape side-by-side before|after composite split at the
-# midpoint by the shared `split_composite_image`.
+# midpoint by `framing.split_composite`, inside the printed frame the clinic's
+# `frame` in CLINICS trims.
 
 SCULPTED_ASSET_RE = re.compile(
     r"Breast-Implants-patient[-_]([A-Za-z]?\d+)[-_](front|angle|side)", re.I)
@@ -6961,18 +6160,6 @@ SCULPTED_COMBINED_RE = re.compile(
 # converted (the same class of unit conversion as height_to_cm/pounds_to_kg),
 # and the verbatim sentence survives in specs.summary either way.
 SCULPTED_POSTOP_UNIT_MONTHS = {"week": 7 / 30.44, "month": 1.0, "year": 12.0}
-
-# Every composite is 1200x675 and carries a printed white presentation frame:
-# ~8px on the left, right and top edges, ~4px at the bottom, and a ~9px white
-# gutter straddling the midpoint. Measured across all 39 published images, not
-# assumed - the trim below (10px outer, 12px each side of the midpoint) clears
-# it on every one of the 78 halves, leaving no near-white band on any cropped
-# edge. Halves come out 578x655, well clear of ingest.py's 400px floor, and the
-# trim is symmetric so before and after stay dimension-matched. A fixed inset
-# beats an adaptive one here: the backdrop is a near-white wall, so an
-# auto-trim that chases "white" eats body pixels.
-SCULPTED_BORDER_PX = 10
-SCULPTED_GUTTER_PX = 12
 
 # Per-case exclusions that the CASE TEXT cannot express, so they cannot be
 # derived and are enumerated instead - each one is a finding from opening the
@@ -7029,9 +6216,7 @@ def sculpted_parse_listing_page(listing_html: str, source_url: str) -> list[Case
             key = m.group(2).lower()
             pairs.append(ImagePair(key=key, before_url=href, after_url=href,
                                    view_hint=SCULPTED_VIEW_MAP[key],
-                                   split_composite=True,
-                                   composite_border=SCULPTED_BORDER_PX,
-                                   composite_gutter=SCULPTED_GUTTER_PX))
+                                   split_composite=True))
         if not pairs:
             continue
         # One case, one patient: three views that disagree on the asset stem
@@ -7108,12 +6293,8 @@ def sculpted_parse_listing_page(listing_html: str, source_url: str) -> list[Case
 # of the band into the frame), and 835x455 with no band at all; both draw a
 # light divider strip down the seam. Views are NOT documented - the filename
 # index ('-01', '-02', '-03') is positional - so every view label comes from the
-# annotations file.
-
-# The seam divider measured on this gallery is 5px wide on the 1200px family;
-# 8px either side of the midpoint clears it on both families with margin, and
-# costs 16px of a half that has >= 180px of headroom over the 400px floor.
-TCCLINIC_SEAM_TRIM = 8
+# annotations file. The seam trim and the caption-band crop are the clinic's
+# `frame` and `crop` in CLINICS.
 TCCLINIC_SLIDE_BG_RE = re.compile(
     r"\.et_pb_slider\s+\.et_pb_slide_(\d+)\s*\{[^}]*?background-image:\s*url\(([^)]+)\)")
 TCCLINIC_SLIDE_CLASS_RE = re.compile(r"^et_pb_slide_(\d+)$")
@@ -7217,8 +6398,7 @@ def tcclinic_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         for url in urls:
             key = Path(urlsplit(url).path).stem.rsplit("-", 1)[-1]
             case.pairs.append(ImagePair(
-                key=key, before_url=url, after_url=url, split_composite=True,
-                crop_caption_band=True, seam_trim=TCCLINIC_SEAM_TRIM))
+                key=key, before_url=url, after_url=url, split_composite=True))
 
         specs = CaseSpecs()
         specs.fields["Case"] = title
@@ -7245,292 +6425,6 @@ def tcclinic_parse_listing(listing_html: str, source_url: str) -> list[CaseData]
         case.specs = specs
         cases.append(case)
     return cases
-
-
-def split_composite_image(data: bytes, border: int = 0, gutter: int = 0,
-                          bottom_frac: float = 0.0, bottom_crop: int = 0,
-                          seam_trim: int = 0) -> tuple[bytes, bytes]:
-    """Split a side-by-side before|after composite into (before, after) JPEGs.
-
-    The split is the exact horizontal midpoint. Raises ValueError for
-    portrait/square images, where a left|right split cannot be assumed.
-
-    `border` and `gutter` trim a printed presentation frame before the split:
-    `border` px off each outer edge and `gutter` px off each side of the
-    midpoint. Both halves lose exactly the same amount, so a trimmed pair stays
-    dimension-matched; a trim that would leave nothing is refused rather than
-    silently clamped. The default 0/0 is the raw midpoint split.
-
-    `bottom_frac` trims that fraction of the composite's HEIGHT off its bottom
-    before the split, so both halves lose exactly the same rows (see
-    `ImagePair.composite_bottom_frac`). It composes with `border`/`gutter`.
-
-    `bottom_crop` drops that many rows off the BOTTOM of the composite before
-    splitting - a clinic's caption band and the logo burned into it (see
-    `caption_band_crop`). It is applied to the whole composite, so both halves
-    lose exactly the same rows and the pair stays dimensionally matched.
-
-    `seam_trim` drops that many columns on EACH side of the midpoint, for
-    composites that draw a divider strip between the two photos. A white
-    divider left in place is also a known false positive for
-    `censorship.py`'s bar detector.
-    """
-    import io
-
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(data))
-    if img.width <= img.height:
-        raise ValueError(
-            f"composite image is not landscape ({img.width}x{img.height}); "
-            "cannot assume a left|right before|after split")
-    if bottom_crop >= img.height:
-        raise ValueError(
-            f"bottom crop of {bottom_crop}px exceeds image height {img.height}")
-    half = img.width // 2
-    if border < 0 or gutter < 0:
-        raise ValueError("composite border/gutter must not be negative")
-    if border + gutter >= half:
-        raise ValueError(
-            f"composite trim (border={border}, gutter={gutter}) leaves no image "
-            f"in a {img.width}x{img.height} composite")
-    # The two bottom trims compose: `bottom_crop` is a measured band in pixels,
-    # `bottom_frac` a mark that scales with the frame. Both cut the WHOLE
-    # composite, so the two halves always lose identical rows.
-    floor_y = (img.height - bottom_crop
-               - math.ceil(img.height * bottom_frac))
-    top, bottom = border, floor_y - border
-    if bottom <= top:
-        raise ValueError(
-            f"composite trim (border={border}, bottom_crop={bottom_crop}, "
-            f"bottom_frac={bottom_frac}) leaves nothing of a "
-            f"{img.width}x{img.height} composite")
-    if seam_trim:
-        # Both halves are cut to the SAME width, so an odd-width composite
-        # cannot emit a before one pixel wider than its after.
-        width = min(half, img.width - half) - seam_trim - border
-        if width <= 0:
-            raise ValueError(
-                f"seam trim of {seam_trim}px leaves no image either side of "
-                f"the midpoint of a {img.width}px-wide composite")
-        boxes = ((half - seam_trim - width, top, half - seam_trim, bottom),
-                 (half + seam_trim, top, half + seam_trim + width, bottom))
-    else:
-        # Untrimmed, the split stays exactly what it has always been: an
-        # odd-width composite gives an after one pixel wider. Every clinic
-        # already in the corpus was emitted this way and emit_corpus.py treats
-        # a byte difference as a clash, so this path must not shift.
-        boxes = ((border, top, half - gutter, bottom),
-                 (half + gutter, top, img.width - border, bottom))
-    out = []
-    for box in boxes:
-        buf = io.BytesIO()
-        img.crop(box).convert("RGB").save(buf, format="JPEG", quality=95)
-        out.append(buf.getvalue())
-    return out[0], out[1]
-
-
-def crop_fraction(data: bytes, box: tuple[float, float, float, float]) -> bytes:
-    """Crop an image to a fractional (left, top, right, bottom) box.
-
-    Fractions rather than pixels because a gallery can serve the same framing
-    at several resolutions (drbandy publishes both a 655x491 export and the
-    2560x1920 original), and the same fraction crops both to the same picture.
-    """
-    import io
-
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(data))
-    left, top, right, bottom = box
-    pixels = (round(left * img.width), round(top * img.height),
-              round(right * img.width), round(bottom * img.height))
-    buf = io.BytesIO()
-    img.crop(pixels).convert("RGB").save(buf, format="JPEG", quality=95)
-    return buf.getvalue()
-
-
-def postprocess_pair(cfg: ClinicConfig, before: bytes,
-                     after: bytes) -> tuple[bytes, bytes, bool]:
-    """Clinic-specific pixel work on a decoded pair; (before, after, applied).
-
-    This is where a burnt-in watermark is cropped away. Both halves always get
-    the identical transform: a crop applied to one half only would change the
-    pair's geometry, and a watermark left on one half only is a label the model
-    can read instead of the anatomy.
-    """
-    if cfg.kind == "page1solutions":
-        import page1solutions
-
-        return (*page1solutions.crop_watermark(before, after), True)
-    return before, after, False
-
-
-def decode_pair_halves(cfg: ClinicConfig, pair: ImagePair,
-                       data: bytes) -> tuple[bytes, bytes]:
-    """The two halves of a pair carried in ONE fetched image.
-
-    Only for a pair whose `grid_shape` is set or whose `split_composite` is
-    true; a two-file pair has nothing to decode. Every knob a clinic measured
-    is applied here - `ClinicConfig.grid_gutter_px`, `ImagePair.composite_border`
-    / `composite_gutter` / `composite_bottom_frac` / `crop_caption_band` /
-    `seam_trim` - so a caller cannot decode a composite with some of them and
-    silently frame the pair differently from what the emit writes. Raises
-    ValueError when the composite is too small to split, exactly as
-    `split_composite_image` does.
-    """
-    if pair.grid_shape is not None:
-        rows, cols = pair.grid_shape
-        return (crop_grid_cell(data, rows, cols, pair.before_cell,
-                               cfg.grid_gutter_px),
-                crop_grid_cell(data, rows, cols, pair.after_cell,
-                               cfg.grid_gutter_px))
-    return split_composite_image(
-        data, border=pair.composite_border,
-        gutter=pair.composite_gutter,
-        bottom_frac=pair.composite_bottom_frac,
-        bottom_crop=(caption_band_crop(data) if pair.crop_caption_band else 0),
-        seam_trim=pair.seam_trim)
-
-
-def finish_pair_halves(cfg: ClinicConfig, before: bytes,
-                       after: bytes) -> tuple[bytes, bytes, bool]:
-    """Clinic-level pixel work every emitted half gets, whatever its source.
-
-    `postprocess_pair` then the two bottom crops, in that order, on both halves.
-    Returns (before, after, postprocessed) - the flag is what decides whether a
-    two-file half may keep its source extension.
-    """
-    before, after, postprocessed = postprocess_pair(cfg, before, after)
-    return (crop_bottom(crop_bottom_frac(before, cfg.bottom_crop_frac),
-                        cfg.bottom_crop_px),
-            crop_bottom(crop_bottom_frac(after, cfg.bottom_crop_frac),
-                        cfg.bottom_crop_px),
-            postprocessed)
-
-
-def crop_bottom_frac(data: bytes, frac: float) -> bytes:
-    """Trim `frac` of the image's WIDTH off the bottom (ClinicConfig.bottom_crop_frac).
-
-    Distinct from `crop_bottom`, which trims an absolute number of PIXEL rows
-    (`ClinicConfig.bottom_crop_px`). The two mechanisms coexist because they
-    were measured differently per clinic: see AGENTS.md on both bullets.
-
-    Returns the bytes unchanged when frac is 0, so a clinic with no burned-in
-    mark keeps the file the site delivered and is not re-encoded here for
-    nothing (ingest.py re-encodes everything on the way to staging anyway).
-    """
-    import io
-
-    from PIL import Image
-
-    if frac <= 0:
-        return data
-    img = Image.open(io.BytesIO(data))
-    keep = img.height - int(round(img.width * frac))
-    if keep <= 0:
-        raise ValueError(
-            f"bottom_crop_frac={frac} removes the whole {img.width}x{img.height} frame")
-    buf = io.BytesIO()
-    img.crop((0, 0, img.width, keep)).convert("RGB").save(
-        buf, format="JPEG", quality=95)
-    return buf.getvalue()
-
-
-# A caption band is a solid strip the clinic composites UNDER the photos to
-# carry its logo. It is an edge watermark, so the corpus rule is to crop it
-# (never mask it, never tolerate it) and to exclude what falls below the 400px
-# floor afterwards rather than shipping a shrunken pair.
-#
-# Measured, not assumed: the crop is read off each image's own pixels, because
-# a logo that overlaps the photo above the band (tcclinic's badge straddles the
-# seam and rises 44px into the frame) makes the band height alone the wrong
-# answer.
-BAND_WHITE = 245          # a band pixel is near-white on every channel
-BAND_ROW_FRACTION = 0.85  # ... and a band row is almost entirely such pixels
-LOGO_VALUE = 80           # the badge is near-black ...
-LOGO_NEUTRAL = 12         # ... and neutral (R, G and B within this of each other)
-LOGO_HALF_WIDTH = 90      # searched only this far either side of the midpoint
-LOGO_MAX_ROWS = 120       # ... and only this far above the band
-
-
-def caption_band_crop(data: bytes) -> int:
-    """Rows to drop off the bottom to remove a caption band and its logo.
-
-    Returns 0 when the image carries no band, so the same call is safe on a
-    gallery that mixes banded and unbanded images (tcclinic publishes both).
-    """
-    import io
-
-    import numpy as np
-    from PIL import Image
-
-    with Image.open(io.BytesIO(data)) as im:
-        arr = np.asarray(im.convert("RGB")).astype(int)
-    height, width, _ = arr.shape
-    near_white = (arr >= BAND_WHITE).all(axis=2).mean(axis=1)
-    band_top = height
-    while band_top > 0 and near_white[band_top - 1] >= BAND_ROW_FRACTION:
-        band_top -= 1
-    if band_top == height:
-        return 0
-    # Walk up from the band while the logo still intrudes into the photo.
-    mid = width // 2
-    lo, hi = max(0, mid - LOGO_HALF_WIDTH), min(width, mid + LOGO_HALF_WIDTH)
-    window = arr[:, lo:hi]
-    logo = ((window.max(axis=2) < LOGO_VALUE)
-            & (window.max(axis=2) - window.min(axis=2) < LOGO_NEUTRAL)).any(axis=1)
-    top = band_top
-    while top > 0 and band_top - top < LOGO_MAX_ROWS and logo[top - 1]:
-        top -= 1
-    return height - top
-
-
-def crop_grid_cell(data: bytes, rows: int, cols: int, cell: tuple[int, int],
-                   gutter_px: int = 0) -> bytes:
-    """Crop one (row, col) cell out of a rows x cols grid composite image.
-
-    Used for multi-panel composites (drrohrich's 2x2 front/side x
-    before/after; drteitelbaum/skplastic's 2x3 front/oblique/side x
-    before/after) where a single fetched image yields several pairs.
-
-    `gutter_px` trims that many pixels off each cell edge that touches an
-    INTERIOR seam, for templates that draw a blank divider between the panels
-    (wyten's 2x2 lays ~10px of white between the columns and ~8px between the
-    rows). The outer edges are never trimmed - there is no divider there - so a
-    cell loses the strip only on the sides where one actually exists, and every
-    cell in a given row or column loses the same amount, which keeps the two
-    halves of a pair dimensionally matched. Left at 0 the crop is the exact
-    even division it has always been, so no existing clinic moves.
-
-    Trimming rather than tolerating matters beyond tidiness: a white divider
-    strip merged into the skin silhouette is one of the known false-positive
-    families in `censorship.py` (see its module docstring), so a cell shipped
-    with the seam still attached can be rejected at ingest for a mark the
-    clinic never put on the patient.
-    """
-    import io
-
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(data))
-    cell_w, cell_h = img.width // cols, img.height // rows
-    row, col = cell
-    left, top = col * cell_w, row * cell_h
-    right, bottom = left + cell_w, top + cell_h
-    if gutter_px:
-        if col > 0:
-            left += gutter_px
-        if col < cols - 1:
-            right -= gutter_px
-        if row > 0:
-            top += gutter_px
-        if row < rows - 1:
-            bottom -= gutter_px
-    buf = io.BytesIO()
-    img.crop((left, top, right, bottom)).convert("RGB").save(
-        buf, format="JPEG", quality=95)
-    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -7870,7 +6764,10 @@ def _duplicate_patient_of(fetcher: PoliteFetcher, cfg: ClinicConfig,
         try:
             data = fetcher.get(url, image_cache_key(cfg.slug, url))
             if pair.split_composite:
-                data = split_composite_image(data)[0]
+                # The raw midpoint split, deliberately without the clinic's
+                # frame or crop: this compares published photographs, and a
+                # template trim would only shift both hashes alike.
+                data = framing.split_composite(data)[0]
             hashes.append(rm_gallery2.rm_image_hash(data))
         except Exception:
             continue
@@ -7981,19 +6878,11 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
     if cfg.kind == "page1solutions":
         # Imported here rather than at module scope: page1solutions imports
         # this module for the shared data model, so a top-level import in both
-        # directions would be circular.
+        # directions would be circular. One kind for the whole platform; the
+        # clinic's `template` picks which of its four markups is parsed.
         import page1solutions
 
-        gallery_path = cfg.gallery_paths[0]
-        listing = fetcher.get(cfg.base_url + gallery_path,
-                              f"{cfg.slug}_listing.html").decode("utf-8", "replace")
-        cases = []
-        for case_id in page1solutions.page1_list_cases(listing):
-            url = f"{cfg.base_url}{gallery_path}{case_id}/"
-            html = fetcher.get(url, f"{cfg.slug}_case_{case_id}.html").decode(
-                "utf-8", "replace")
-            cases.append(page1solutions.page1_parse_case(html, case_id, url))
-        return cases
+        return page1solutions.collect_cases(cfg, fetcher)
     if cfg.kind == "drkolker":
         listing = fetcher.get(cfg.base_url + cfg.gallery_paths[0],
                               f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -8427,23 +7316,6 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
         else:
             print(f"  gallery declares {declared} patient(s); parsed {len(cases)}")
         return cases
-    if cfg.kind == "page1_inline":
-        url = cfg.base_url + cfg.gallery_paths[0]
-        listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
-        cases = page1_parse_listing(listing, url)
-        # The gallery publishes no case total of its own, so enumeration is
-        # checked against the numbering instead: the case folders are a
-        # contiguous 1..N run, and a gap would be a case the listing withheld.
-        numbers = sorted(int(c.case_id) for c in cases if c.case_id.isdigit())
-        if numbers:
-            missing = sorted(set(range(1, numbers[-1] + 1)) - set(numbers))
-            if missing:
-                print(f"  WARN {cfg.slug}: case folders {missing} missing from "
-                      f"the listing's 1..{numbers[-1]} run")
-            else:
-                print(f"  {cfg.slug}: {len(numbers)} case(s), a contiguous "
-                      f"1..{numbers[-1]} run; the gallery declares no total")
-        return cases
     if cfg.kind == "tcclinic":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -8468,47 +7340,6 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
             page += 1
             if page > 20:
                 break
-        return cases
-    if cfg.kind == "page1":
-        # The platform publishes no case total, and page N past the end is a
-        # plain 404, so the walk runs until a page yields no cases and the
-        # count reconciles against that boundary rather than a declared figure.
-        gallery_path = cfg.gallery_paths[0]
-        listed: list[tuple[str, str]] = []
-        seen: set[str] = set()
-        page = 1
-        while True:
-            url = (cfg.base_url + gallery_path if page == 1
-                   else f"{cfg.base_url}{gallery_path}page/{page}/")
-            key = (f"{cfg.slug}_listing.html" if page == 1
-                   else f"{cfg.slug}_listing_p{page}.html")
-            # _fetch_seed, not _fetch_optional: page N+1 past the end is a
-            # 404 that was never cached, so an OFFLINE re-parse (the
-            # blast-radius check every shared parser needs) has to treat a
-            # missing cache entry as the same end-of-pages boundary.
-            html = _fetch_seed(fetcher, url, key)
-            if html is None:
-                break
-            found = p1.page1_list_cases(html)
-            if not found:
-                break
-            for case_number, case_url in found:
-                if case_number not in seen:
-                    seen.add(case_number)
-                    listed.append((case_number, case_url))
-            page += 1
-            if page > PAGE1_MAX_PAGES:
-                print(f"  WARN {cfg.slug}: listing walk hit the "
-                      f"{PAGE1_MAX_PAGES}-page ceiling; the gallery may still "
-                      f"be paging, so this count is a floor, not a total")
-                break
-        print(f"  listing walk: {page - 1} page(s), {len(listed)} case(s) "
-              f"(platform publishes no declared total)")
-        cases = []
-        for case_number, case_url in listed:
-            html = fetcher.get(case_url, f"{cfg.slug}_case_{case_number}.html"
-                               ).decode("utf-8", "replace")
-            cases.append(page1_parse_case(html, case_number, case_url))
         return cases
     if cfg.kind == "drteitelbaum":
         cases, page = [], 1
@@ -8615,69 +7446,6 @@ def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                 print(f"  {cfg.slug}/{tag}: walked all {walked} case(s) the "
                       f"listing renders")
         return cases
-    if cfg.kind == "page1solutions_paged":
-        cases = []
-        for gallery_path in cfg.gallery_paths:
-            tag = gallery_path.strip("/").rsplit("/", 1)[-1]
-            short = re.sub(r"^breast-augmentation-|-implants$", "", tag) or tag
-            paged_url = cfg.base_url + gallery_path
-            first = fetcher.get(
-                paged_url, f"{cfg.slug}_listing_{tag}_p1.html").decode(
-                    "utf-8", "replace")
-            declared_pages = page1solutions_page_count(first)
-            if not page1solutions_has_pager(first):
-                print(f"  WARN {cfg.slug}/{tag}: the listing publishes no "
-                      f"ul.pager markup, so a one-page sweep is this parser's "
-                      f"result rather than the gallery's own statement")
-            page_cases = page1solutions_parse_listing_page(
-                first, paged_url, short)
-            cases.extend(page_cases)
-            rendered_blocks = page1solutions_listing_case_count(first)
-            collected_cases = len(page_cases)
-            if rendered_blocks == 0:
-                print(f"  WARN {cfg.slug}/{tag}: listing page 1 renders no "
-                      f"case block(s)")
-            pages_walked = 1
-            page = 2
-            while declared_pages is not None and page <= declared_pages:
-                html = _fetch_optional(
-                    fetcher, f"{paged_url}?page={page}",
-                    f"{cfg.slug}_listing_{tag}_p{page}.html")
-                if html is None:
-                    print(f"  WARN {cfg.slug}/{tag}: page {page} unavailable")
-                    break
-                # The end of the set is a page that RENDERS nothing. A page
-                # whose blocks were all dropped renders plenty, and reading it
-                # as the end abandons every page after it - so it is walked,
-                # and the block reconciliation below is what reports the drop.
-                rendered = page1solutions_listing_case_count(html)
-                if rendered == 0:
-                    print(f"  WARN {cfg.slug}/{tag}: page {page} renders no "
-                          f"case block(s)")
-                    break
-                more = page1solutions_parse_listing_page(html, paged_url, short)
-                cases.extend(more)
-                rendered_blocks += rendered
-                collected_cases += len(more)
-                pages_walked += 1
-                page += 1
-            # The pager enumerates every page, so it is the enumeration check.
-            if declared_pages is not None and pages_walked != declared_pages:
-                print(f"  WARN {cfg.slug}/{tag}: walked {pages_walked} of the "
-                      f"{declared_pages} page(s) the pager offers")
-            else:
-                print(f"  {cfg.slug}/{tag}: walked all "
-                      f"{declared_pages or 1} listing page(s)")
-            # Pages walked says nothing about cases dropped INSIDE a page, so
-            # the blocks the listing rendered are reconciled separately.
-            if collected_cases != rendered_blocks:
-                print(f"  WARN {cfg.slug}/{tag}: collected {collected_cases} "
-                      f"case(s) from the {rendered_blocks} case block(s) those "
-                      f"page(s) render")
-            else:
-                print(f"  {cfg.slug}/{tag}: collected all {collected_cases} "
-                      f"case block(s) those page(s) render")
-        return cases
     if cfg.kind == "gallatin":
         url = cfg.base_url + cfg.gallery_paths[0]
         listing = fetcher.get(url, f"{cfg.slug}_listing.html").decode("utf-8", "replace")
@@ -8777,7 +7545,7 @@ def main() -> int:
         if args.prefetch:
             for pair in case.pairs:
                 for url in dict.fromkeys((pair.before_url, pair.after_url)):
-                    full_url = url if url.startswith("http") else cfg.base_url + url
+                    full_url = framing.image_url(cfg, url)
                     fetcher.get(full_url, image_cache_key(cfg.slug, full_url))
             continue
 
@@ -8800,56 +7568,15 @@ def main() -> int:
             pair_dir = out_clinic / pair_id
             pair_dir.mkdir(parents=True, exist_ok=True)
             try:
-                if pair.grid_shape is not None:
-                    full_url = (pair.before_url
-                                if pair.before_url.startswith("http")
-                                else cfg.base_url + pair.before_url)
-                    data = fetcher.get(full_url,
-                                       image_cache_key(cfg.slug, full_url))
-                    before_data, after_data = decode_pair_halves(
-                        cfg, pair, data)
-                    before_data, after_data, _ = finish_pair_halves(
-                        cfg, before_data, after_data)
-                    (pair_dir / "before.jpg").write_bytes(before_data)
-                    (pair_dir / "after.jpg").write_bytes(after_data)
-                elif pair.split_composite:
-                    full_url = (pair.before_url
-                                if pair.before_url.startswith("http")
-                                else cfg.base_url + pair.before_url)
-                    data = fetcher.get(full_url,
-                                       image_cache_key(cfg.slug, full_url))
-                    try:
-                        before_data, after_data = decode_pair_halves(
-                            cfg, pair, data)
-                    except ValueError as exc:
-                        print(f"    SKIP {pair.key}: {exc}")
-                        skipped += 1
-                        continue
-                    before_data, after_data, _ = finish_pair_halves(
-                        cfg, before_data, after_data)
-                    (pair_dir / "before.jpg").write_bytes(before_data)
-                    (pair_dir / "after.jpg").write_bytes(after_data)
-                else:
-                    halves = {}
-                    for stem, url in (("before", pair.before_url),
-                                      ("after", pair.after_url)):
-                        full_url = (url if url.startswith("http")
-                                    else cfg.base_url + url)
-                        data = fetcher.get(full_url,
-                                           image_cache_key(cfg.slug, full_url))
-                        halves[stem] = (full_url, data)
-                    before_data, after_data, cropped = finish_pair_halves(
-                        cfg, halves["before"][1], halves["after"][1])
-                    for stem, data in (("before", before_data),
-                                       ("after", after_data)):
-                        # A postprocessed half is re-encoded as JPEG, so it may
-                        # keep the source extension only when neither
-                        # postprocess_pair nor crop_bottom touched it.
-                        name = (f"{stem}.jpg"
-                                if cropped or cfg.bottom_crop_frac
-                                else emitted_image_name(stem, halves[stem][0],
-                                                        cfg.bottom_crop_px))
-                        (pair_dir / name).write_bytes(data)
+                images = framing.pair_images(
+                    cfg, pair,
+                    lambda url: fetcher.get(url, image_cache_key(cfg.slug, url)))
+            except ValueError as exc:
+                # A frame or crop this image cannot take: a composite too small
+                # to split, a crop taller than the frame. That pair only.
+                print(f"    SKIP {pair.key}: {exc}")
+                skipped += 1
+                continue
             except requests.exceptions.HTTPError as exc:
                 # One image missing from the CDN must not end the clinic. tccs
                 # publishes case 11336 with a front photograph that 404s, and an
@@ -8868,6 +7595,8 @@ def main() -> int:
                 print(f"    SKIP {pair.key}: image unavailable ({exc})")
                 skipped += 1
                 continue
+            (pair_dir / images.before_name).write_bytes(images.before)
+            (pair_dir / images.after_name).write_bytes(images.after)
             twin = duplicates.record(case.case_id, pair_id,
                                      emitted_pair_digest(pair_dir))
             if twin is not None:

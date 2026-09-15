@@ -6,15 +6,18 @@ styles, the PhotoSwipe dialog and the MyFavorites header stripped. No images
 are stored.
 """
 
+import io
 import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import bragbook_rev as br  # noqa: E402
+import framing  # noqa: E402
 import scrape_gallery as sg  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "gallery"
@@ -365,12 +368,17 @@ def test_sarasota_crops_its_corner_block_as_a_fraction_of_height(tmp_path):
     """Every composite, whether or not it carries the block - one publishes it
     on the after half only, and a crop applied by detection would frame that
     pair differently from its neighbours."""
-    assert br.REV_BOTTOM_FRAC == {"sarasota": 0.25}
     (tmp_path / "sarasota_breast-augmentation_listing.html").write_text(_page(["11"]))
     (tmp_path / "sarasota_case_11.html").write_text(load("sarasota_case_13268.html"))
-    (case,) = sg.collect_cases(sg.CLINICS["sarasota"],
-                               sg.PoliteFetcher(tmp_path, delay=0, offline=True))
-    assert {p.composite_bottom_frac for p in case.pairs} == {0.25}
+    cfg = sg.CLINICS["sarasota"]
+    (case,) = sg.collect_cases(cfg, sg.PoliteFetcher(tmp_path, delay=0, offline=True))
+    buf = io.BytesIO()
+    Image.new("RGB", (1800, 600), (200, 150, 120)).save(buf, format="JPEG")
+    for pair in case.pairs:
+        images = framing.pair_images(cfg, pair, lambda url: buf.getvalue())
+        for half in (images.before, images.after):
+            # 600 - ceil(600 * 0.25): the block's worst edge is 0.226 of height.
+            assert Image.open(io.BytesIO(half)).size == (900, 450)
 
 
 def test_sarasota_is_registered_with_its_own_kind():
