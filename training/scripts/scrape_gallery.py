@@ -188,12 +188,52 @@ BRAND_KEYWORDS = [
 # round silicone implants', where a word boundary would silently drop 66 pairs'
 # documented brand.
 BRAND_WORD_ONLY = {"motiva"}
+# The 'Full' projection ladder (captain's ruling of 2026-08-26: "full is high
+# not extra high"). Clinics publish Full and Extra-Full as SEPARATE rungs of
+# one chart ladder - lakeshore's Implant Profile field alone carries Low,
+# Moderate, Full and Extra full - so Full is second from the top and decodes to
+# high, while Extra-Full stays extra-high as the 2026-08-19 vocabulary already
+# rules. Only the spelling with 'profile'/'projection' beside it is a
+# projection: bare 'full' is marketing prose ('a full, balanced figure') and
+# decodes only under a documented Motiva implant (MOTIVA_PROFILE_PATTERNS).
+# One pattern carries both rungs, with 'extra' as an optional prefix: matches
+# never overlap, so an Extra-Full consumes its own 'full' and can never also be
+# read as Full, whatever separator the page used (NBSP, a run of spaces, a
+# hyphen or a Unicode dash all reach this text unnormalized).
+# Shared with rm_gallery2 and folk_gallery, whose own tables would otherwise
+# have to restate the ruling.
+FULL_LADDER_SEP = r"[-\s‐-―]+"
+FULL_PROJECTION_RE = re.compile(
+    rf"\b(?P<extra>extra{FULL_LADDER_SEP})?full{FULL_LADDER_SEP}(?:profile|projection)\b",
+    re.I)
 PROFILE_PATTERNS = [
     (re.compile(r"\b(extra[- ]high|ultra[- ]high)\b", re.I), "extra-high"),
     (re.compile(r"\bmoderate[- ](profile[- ])?plus\b", re.I), "moderate-plus"),
     (re.compile(r"\bhigh\s+(profile|projection)\b", re.I), "high"),
     (re.compile(r"\bmoderate\s+(profile|projection)\b", re.I), "moderate"),
 ]
+
+
+def full_projection_rungs(text: str) -> set[str]:
+    """Every Full-ladder rung `text` documents: 'high', 'extra-high', both or
+    neither."""
+    return {"extra-high" if match.group("extra") else "high"
+            for match in FULL_PROJECTION_RE.finditer(text)}
+
+
+def full_projection_profile(text: str) -> str | None:
+    """The Full-ladder rung `text` documents, or None.
+
+    None when BOTH rungs appear: tccs 12124 publishes 'a 470cc extra full
+    profile implant for the right and a 365cc full profile implant for the
+    left', and `profile` is one field per pair, so recording either would
+    write one breast's projection as the patient's (the folk/page1 rule).
+    Callers try this AFTER their own patterns, so a case whose text also names
+    another projection ('Moderate profile (left side), full profile (right
+    side)', lakeshore) keeps the value it recorded before the Full ruling.
+    """
+    rungs = full_projection_rungs(text)
+    return rungs.pop() if len(rungs) == 1 else None
 # Motiva projection families map onto the schema's profile enum (captain's
 # ruling): Mini -> moderate, Demi -> moderate-plus, Full -> high,
 # Corsé -> extra-high. The bare words ('Demi', 'Full') are ambiguous outside
@@ -1350,6 +1390,8 @@ def classify_brand_shape_profile(specs: CaseSpecs, haystack: str) -> None:
         if pattern.search(haystack):
             specs.profile = profile
             break
+    if specs.profile is None:
+        specs.profile = full_projection_profile(haystack)
     # Same anchoring as the brand loop above, and for the same reason: this
     # gate is what turns a false Motiva into a fabricated profile, because
     # MOTIVA_PROFILE_PATTERNS decodes the bare words 'full'/'demi'/'mini'.
@@ -3757,6 +3799,8 @@ SWAN_PROFILE_VALUES = {
     "high": "high",
     "high profile": "high",
     "full": "high",
+    "full profile": "high",
+    "full projection": "high",
     "ultra high": "extra-high",
     "ultra high profile": "extra-high",
     "uhp": "extra-high",
@@ -3765,6 +3809,7 @@ SWAN_PROFILE_VALUES = {
     "extra high profile": "extra-high",
     "extra high range": "extra-high",
     "extra full": "extra-high",
+    "extra full profile": "extra-high",
     "extra full projection": "extra-high",
     "corse": "extra-high",
     "corsé": "extra-high",

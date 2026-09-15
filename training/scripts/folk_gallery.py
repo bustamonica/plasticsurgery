@@ -241,6 +241,8 @@ def folk_profile(case_text: str) -> str | None:
     for pattern, profile in FOLK_PROFILE_PATTERNS:
         if pattern.search(text) and profile is not None:
             found.append(profile)
+    # Full is high and Extra-Full extra-high (captain's ruling of 2026-08-26).
+    found.extend(sorted(sg.full_projection_rungs(text)))
     if len(set(found)) > 1:
         return None
     return found[0] if found else None
