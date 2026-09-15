@@ -45,6 +45,31 @@ def _cache(tmp_path: Path, cfg: sg.ClinicConfig, url: str,
     return tmp_path
 
 
+def _offline(cache_dir: Path) -> sg.PoliteFetcher:
+    return sg.PoliteFetcher(cache_dir, offline=True)
+
+
+def test_a_misconfigured_crop_stops_the_sheet_run(tmp_path, monkeypatch):
+    """A crop that cannot apply to the clinic's layout fails every pair alike.
+
+    Rendering the pairs that survive as though the rest were unreadable cache
+    entries would hand the annotator a silently empty or partial sheet.
+    """
+    import dataclasses
+    cfg = dataclasses.replace(
+        sg.CLINICS["arps"], crop=sg.Crop("height_frac", 0.22, stage="composite"))
+    before_url = "https://arplasticsurgery.com.au/x/a-before.jpg"
+    after_url = "https://arplasticsurgery.com.au/x/a-after.jpg"
+    _cache(tmp_path, cfg, before_url, _jpeg(500, 900))
+    _cache(tmp_path, cfg, after_url, _jpeg(500, 900))
+    case = sg.CaseData(case_id="1", source_url="x", pairs=[
+        sg.ImagePair(key="front", before_url=before_url, after_url=after_url)])
+    monkeypatch.setattr(sg, "collect_cases", lambda cfg, fetcher: [case])
+
+    with pytest.raises(sg.framing.CropConfigError, match="composite stage"):
+        acs.collect_tiles(cfg, tmp_path, None, both=True, min_dim=0)
+
+
 def test_composite_stage_crop_is_applied_before_the_sheet_is_measured(tmp_path):
     """mwps burns its logo across 20.7% of the composite's height.
 
@@ -58,7 +83,7 @@ def test_composite_stage_crop_is_applied_before_the_sheet_is_measured(tmp_path):
     pair = sg.ImagePair(key="pair1", before_url=url, after_url=url,
                         split_composite=True)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (750, 389)
     assert _size(after) == (750, 389)
@@ -74,7 +99,7 @@ def test_pixel_bottom_crop_is_applied_to_both_halves_of_a_sheet(tmp_path):
     pair = sg.ImagePair(key="front", before_url=url, after_url=url,
                         split_composite=True)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (600, 625)
     assert _size(after) == (600, 625)
@@ -90,7 +115,7 @@ def test_fractional_bottom_crop_is_applied_to_a_two_file_sheet(tmp_path):
     _cache(tmp_path, cfg, after_url, _jpeg(500, 900))
     pair = sg.ImagePair(key="front", before_url=before_url, after_url=after_url)
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == (500, 850)
     assert _size(after) == (500, 850)
@@ -106,7 +131,7 @@ def test_grid_gutter_is_applied_to_a_sheet(tmp_path):
                         grid_shape=(2, 2), before_cell=(0, 0),
                         after_cell=(0, 1))
 
-    before, after = acs._pair_images(cfg, tmp_path, pair)
+    before, after = acs._pair_images(cfg, _offline(tmp_path), pair)
 
     assert _size(before) == _size(after)
     assert _size(before) == (392, 392)
@@ -124,7 +149,7 @@ def test_a_sheet_half_matches_what_the_emit_path_would_write(slug, tmp_path):
     pair = sg.ImagePair(key="front", before_url=url, after_url=url,
                         split_composite=True)
 
-    sheet = acs._pair_images(cfg, tmp_path, pair)
+    sheet = acs._pair_images(cfg, _offline(tmp_path), pair)
     images = sg.framing.pair_images(
         cfg, pair, lambda _: _jpeg(1400, 900, (180, 140, 130)))
     emitted = (images.before, images.after)

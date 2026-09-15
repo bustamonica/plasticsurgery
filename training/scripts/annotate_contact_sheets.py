@@ -61,14 +61,15 @@ DIVIDER = (255, 60, 60)
 LABEL_H = 22
 
 
-def _pair_images(cfg: sg.ClinicConfig, cache_dir: Path,
+def _pair_images(cfg: sg.ClinicConfig, fetcher: sg.PoliteFetcher,
                  pair: sg.ImagePair) -> tuple[bytes, bytes] | None:
     """(before, after) image bytes for a pair, exactly as the emit writes them.
 
-    None when an image is not in the cache or the frame cannot be split; a
-    sheet is built from the cache alone and never touches the network.
+    `fetcher` is an offline `PoliteFetcher` over the scrape cache: a sheet is
+    built from the cache alone and never touches the network. None when an
+    image is not in the cache or the frame cannot be split. A clinic whose crop
+    cannot apply to its own layout raises `framing.CropConfigError`.
     """
-    fetcher = sg.PoliteFetcher(cache_dir, offline=True)
     try:
         images = framing.pair_images(
             cfg, pair, lambda url: fetcher.get(url, sg.image_cache_key(cfg.slug, url)))
@@ -96,7 +97,9 @@ def collect_tiles(cfg: sg.ClinicConfig, cache_dir: Path, cases: set[str] | None,
             continue
         for pair in case.pairs:
             try:
-                images = _pair_images(cfg, cache_dir, pair)
+                images = _pair_images(cfg, fetcher, pair)
+            except framing.CropConfigError:
+                raise
             except Exception as e:  # unreadable/undecodable cache entry
                 print(f"WARN {case.case_id}:{pair.key}: {e}")
                 continue

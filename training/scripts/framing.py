@@ -66,6 +66,16 @@ import numpy as np
 from PIL import Image
 
 
+class CropConfigError(Exception):
+    """A clinic's crop cannot apply to the layout its parser produced.
+
+    Deliberately not a ValueError: a ValueError from `pair_images` is one image
+    that cannot take its frame or crop, which a run reports as a skipped pair
+    and survives. A misconfigured clinic fails every pair the same way, so it
+    must stop the run rather than become a tally of skips and a zero exit.
+    """
+
+
 @dataclass(frozen=True)
 class Frame:
     """A clinic's presentation template around its photographs.
@@ -338,7 +348,8 @@ def pair_images(cfg, pair, fetch: Callable[[str], bytes]) -> PairImages:
     the caller reports as a skipped pair.
 
     A composite-stage crop only has a composite to cut, so a clinic that sets
-    one on a pair of any other layout is a configuration error and says so.
+    one on a pair of any other layout is a configuration error and raises
+    `CropConfigError`, which no per-pair handler catches.
 
     A composite or grid pair is always written as `.jpg`: its halves are
     re-encoded by the split. A two-file pair keeps its source extension until a
@@ -350,7 +361,7 @@ def pair_images(cfg, pair, fetch: Callable[[str], bytes]) -> PairImages:
     composite_crop = crop if crop is not None and crop.stage == "composite" else None
     half_crop = crop if crop is not None and crop.stage == "half" else None
     if composite_crop is not None and not pair.split_composite:
-        raise ValueError(
+        raise CropConfigError(
             f"{cfg.slug} crops at the composite stage but pair {pair.key} is not "
             "a side-by-side composite")
 

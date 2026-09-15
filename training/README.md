@@ -37,9 +37,19 @@ the hosted Gemini model in `app/api/generate/route.ts`.
   a clinic's blur bands. A clinic watermark clear of breast tissue is kept
   unmasked *only* when it appears on both halves of the pair: a mark burned into
   one half alone correlates perfectly with the before/after label and is cropped
-  out of both halves at scrape time. Four crop mechanisms exist, one per way a
-  clinic draws its mark, and they are not interchangeable - AGENTS.md's four-crop
-  bullet says which knob does what. Which clinic carries what, whether it touches
+  out of both halves at scrape time.
+  Every crop goes through one mechanism, `scripts/framing.py`: a clinic carries at
+  most one `ClinicConfig.crop = Crop(rule, amount, stage)`.
+  The `rule` is one of `framing.CROP_RULES` (`px`, `width_frac`, `height_frac`,
+  `keep_height_frac`, `caption_band`), chosen by how that clinic draws its mark,
+  and the rules are not interchangeable.
+  The `stage` is `composite` (cut from the whole composite before the split) or
+  `half` (cut from each emitted image).
+  Template geometry that is not a watermark (a printed frame, a seam divider, a
+  grid gutter) is `ClinicConfig.frame` instead.
+  AGENTS.md's "Every burnt-in-mark crop goes through ONE mechanism" and "Measure a
+  mark before choosing its rule" bullets say how to pick and verify one.
+  Which clinic carries what, whether it touches
   breast tissue, which crop it uses and the verdict on each is in
   `clinic_watermarks.md`.
 - Pairs are **retired, not deleted**. `retired_pairs.json` enumerates every pair

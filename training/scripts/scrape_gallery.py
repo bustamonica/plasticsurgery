@@ -952,12 +952,12 @@ CLINICS: dict[str, ClinicConfig] = {
     # signal (verified against the anatomy), so the stamp is an actively wrong
     # label on the one axis this corpus teaches. It also publishes some photos
     # that are themselves vertical before/after composites, and removing the
-    # stamp needs a TOP crop, which is a fifth crop mechanism.
+    # stamp needs a TOP crop, which no rule in framing.CROP_RULES provides.
     #
     # Withheld by captain ruling 2026-08-26 as a DEFERRAL, not an abandonment:
-    # it is attached to `ba-viz-post-integration-consolidation`, which owns
-    # unifying the four crop mechanisms into one ClinicConfig crop spec, after
-    # which a top crop is a configuration value rather than new machinery. The
+    # it was attached to `ba-viz-post-integration-consolidation`, which unified
+    # the four crop mechanisms into one `ClinicConfig.crop`, so a top crop is
+    # now a new rule in framing.CROP_RULES rather than new machinery. The
     # measured evidence a later pass needs - which pairs invert, which images
     # are composites, and the stamp's pixel geometry - is in
     # ~/firstmate/data/ba-viz-collect-rosemont-16/report.md and the ruling at

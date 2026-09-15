@@ -3725,8 +3725,47 @@ def test_a_composite_stage_crop_needs_a_composite():
         sg.CLINICS["mwps"], crop=sg.Crop("height_frac", 0.22, stage="composite"))
     pair = sg.ImagePair(key="front", before_url="https://x.test/b.jpg",
                         after_url="https://x.test/a.jpg")
-    with pytest.raises(ValueError, match="composite stage"):
+    with pytest.raises(sg.framing.CropConfigError, match="composite stage"):
         sg.framing.pair_images(cfg, pair, lambda _: b"")
+
+
+def test_a_misconfigured_crop_stops_the_run_instead_of_skipping_every_pair(
+        tmp_path, monkeypatch):
+    """A per-pair SKIP is for one image that cannot take its crop.
+
+    A composite-stage crop on a gallery of separate before/after files fails
+    every pair identically, and reporting that as skips would end the clinic
+    run with nothing emitted and a zero exit status.
+    """
+    cfg = sg.ClinicConfig(
+        slug="rmgcrop", consent_ref="rmgcrop-agreement",
+        base_url="https://rmg.example.com",
+        gallery_paths=[_RmgDuplicateSession.DUAL], kind="rmgallery2",
+        crop=sg.Crop("height_frac", 0.22, stage="composite"))
+    monkeypatch.setitem(sg.CLINICS, "rmgcrop", cfg)
+    annotations = tmp_path / "ann.json"
+    annotations.write_text(json.dumps({
+        "rmgcrop:dual-plane-breast-augmentation-patient-88": {
+            "pairs": {"pair1": {"view": "front"}}},
+    }))
+    session = _RmgDuplicateSession()
+    real = sg.PoliteFetcher
+
+    def build(*a, **kw):
+        f = real(*a, **kw)
+        f.session = session
+        return f
+
+    monkeypatch.setattr(sg, "PoliteFetcher", build)
+    monkeypatch.setattr(sg.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sg.sys, "argv",
+                        ["scrape_gallery.py", "--clinic", "rmgcrop",
+                         "--out", str(tmp_path / "out"), "--delay", "0",
+                         "--annotations", str(annotations)])
+
+    with pytest.raises(sg.framing.CropConfigError, match="rmgcrop crops at the "
+                       "composite stage"):
+        sg.main()
 
 
 def test_crops_are_opt_in_per_clinic():
