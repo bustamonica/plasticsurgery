@@ -490,6 +490,69 @@ def test_harrington_parse_case():
     assert specs.profile == "moderate"
 
 
+# -- 2026-08-14 units ruling: inside a field whose own label names it as the
+# implant size or volume, a bare number or an ml figure reads as cc. A bare
+# number in free prose is not covered and stays rejected.
+
+
+def test_harrington_labelled_bare_number_reads_as_cc():
+    """Case 140: 'Implant Size Left: 440', 'Implant Size Right: 470'."""
+    specs = sg.harrington_parse_case(load_fixture("harrington_case_140.html"), "140", "x").specs
+    assert specs.left_cc == 440 and specs.right_cc == 470
+    assert sg.volume_cc(specs) == 455
+
+
+def test_harrington_labelled_ml_reads_as_cc():
+    """Case 174: 'Implant Size Left: 440 ml', 'Implant Size Right: 470 ml'."""
+    specs = sg.harrington_parse_case(load_fixture("harrington_case_174.html"), "174", "x").specs
+    assert specs.left_cc == 440 and specs.right_cc == 470
+    assert sg.volume_cc(specs) == 455
+
+
+def test_harrington_bare_prose_number_stays_rejected():
+    """Case 174's narrative repeats the sizes as bare prose - '470 on the right,
+    440 on the left'. Without the labelled fields that sentence is the only
+    figure on the page, and it must not become a volume."""
+    html = load_fixture("harrington_case_174.html")
+    html = "\n".join(line for line in html.splitlines() if "Implant Size" not in line)
+    specs = sg.harrington_parse_case(html, "174", "x").specs
+    assert "470 on the right, 440 on the left" in specs.summary
+    assert specs.left_cc is None and specs.right_cc is None
+    assert sg.volume_cc(specs) is None
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("440", [440.0]),
+    ("440 ml", [440.0]),
+    ("440 mL", [440.0]),
+    ("440ml", [440.0]),
+    ("410 cc", [410.0]),
+    ("405 (left side), 485 (right side) 405L", [405.0, 485.0]),
+    ("Implant Size: 440.", [440.0]),
+    # Not sizes: a style code, a range, other units, out-of-range figures.
+    ("Natrelle SRM-445", []),
+    ("405L", []),
+    ("325-335", []),
+    ("130 lbs", []),
+    ("12.5 cm", []),
+    ("5'7\"", []),
+    ("12", []),
+    ("5000", []),
+])
+def test_labelled_field_volumes(value, expected):
+    assert sg.labelled_field_volumes(value) == expected
+
+
+def test_labelled_field_units_do_not_leak_into_prose():
+    """The ruling is scoped to a labelled field; the shared narrative reader is
+    untouched and still reads neither a bare number nor an ml figure."""
+    assert sg.parse_fill_volumes(
+        "Sientra moderate profile implants were placed under the pectoral "
+        "muscle, 470 on the right, 440 on the left.") == (None, None)
+    assert sg.parse_fill_volumes("She is 24 and weighs 135, implants 440") == (None, None)
+    assert sg.parse_fill_volumes("442 grams of tissue plus 225 mL of lipoaspirate") == (None, None)
+
+
 def test_influx_swiper_lakeshore():
     case = sg.influx_swiper_parse_case(
         load_fixture("lakeshore_case_01.html"), "01", "x",
@@ -625,6 +688,17 @@ def test_influx_swiper_unitless_bilateral_volume_stays_unread():
     assert specs.profile == "moderate"
     assert specs.placement == "submuscular" and specs.incision == "inframammary"
     assert specs.height == "5'7" and specs.weight_lbs == 130
+
+
+def test_influx_swiper_labelled_unitless_volume_reads_as_cc():
+    """Case 42's LABELLED field, 'Implant volume: 405 (left side), 485 (right
+    side) 405L', carries no unit: the label supplies it (2026-08-14 units
+    ruling). '405L' is glued to a letter and is not read as a third figure."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_42.html"), "42", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.left_cc == 405 and specs.right_cc == 485
+    assert sg.volume_cc(specs) == 445
 
 
 def test_influx_swiper_labelled_layout_gains_only_chart_fields():
@@ -1172,7 +1246,7 @@ def test_etna_pure_augmentation_case_is_kept():
 
 def test_etna_labelled_bare_number_reads_as_cc():
     """Inside a field whose label names it as an implant size, a bare number
-    or an ml figure reads as cc (2026-08-15 units ruling)."""
+    or an ml figure reads as cc (2026-08-14 units ruling)."""
     assert sg._etna_labelled_volume("Implant Size", "350") == 350.0
     assert sg._etna_labelled_volume("Implant Size", "350 ml") == 350.0
     assert sg._etna_labelled_volume("Implant Size", "350cc") == 350.0
@@ -4530,7 +4604,7 @@ def test_swan_height_and_weight_have_no_documented_unit_and_do_not_convert():
 
 
 def test_swan_bare_number_in_a_labelled_implant_size_field_reads_as_cc():
-    """The 2026-08-15 units ruling: labelled field yes, free prose no."""
+    """The 2026-08-14 units ruling: labelled field yes, free prose no."""
     specs = swan_case("17094").specs
     assert (specs.left_cc, specs.right_cc) == (325.0, 325.0)
 
