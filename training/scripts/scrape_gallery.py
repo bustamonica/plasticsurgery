@@ -135,6 +135,12 @@ RM Gallery 2 by Rosemont Media - a second parser for the platform, separate
 from kind='rmgallery2' above) and folk is kind='folk' (folk_gallery.py). The
 sixteenth, drtabbal, is consented but deliberately not registered; its note in
 CLINICS says why.
+
+The last 2 of the 2026-08-25 batch (sarasota, brisbane) each add one module:
+sarasota is kind='bragbook_rev' (bragbook_rev.py), the LEGACY BRAG book plugin
+whose `rev*` markup the current-plugin kind='sanantonio' parser cannot read,
+and brisbane is kind='brisbane' (brisbane_gallery.py), a one-page Elementor
+gallery widget, not the Elementor carousel kind='wyten' reads.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
@@ -933,6 +939,38 @@ CLINICS: dict[str, ClinicConfig] = {
         # 400px floor after the crop and is rejected at ingest rather than
         # shipped shrunken.
         bottom_crop_frac=0.105),
+
+    # -- 2026-08-25 prospected batch, collected 2026-09-15 on one branch in one
+    #    sequential pass (CONSENT-2026-08-25-PROSPECTED-CLINICS.md row 17) --
+    #
+    # BRAG book, but the LEGACY plugin: every class is prefixed `rev`, and the
+    # current-plugin parser `sanantonio` finds no case on it (bragbook_rev.py).
+    # sarasotaplasticsurgery.com is the canonical host (the www host 301s to
+    # it). robots.txt disallows /wp-admin/, /?s= and three surgeon-specific
+    # galleries, none of them this one, and publishes no crawl-delay.
+    #
+    # Captain's scope: ONLY the breast-augmentation category. The site's other
+    # augmentation categories (with-lift, subfascial, motiva-implants, ...) are
+    # not part of the captain's brief and are not collected.
+    "sarasota": ClinicConfig(
+        slug="sarasota", consent_ref="sarasota-agreement-2026-08-25",
+        base_url="https://sarasotaplasticsurgery.com",
+        gallery_paths=["/photo-gallery/breast-augmentation/"],
+        kind="bragbook_rev"),
+    # Brisbane Cosmetic Clinic (Dr Georgina Konrat), cleared by the captain's
+    # 2026-08-25 confirmation recorded in the same consent file (its executed
+    # form is not yet archived on disk). NOT Brisbane Plastic & Cosmetic
+    # Surgery (brisbaneplasticsurgery.com), which is unconsented and failed the
+    # prospecting resolution screen, and not arps, which is also in Brisbane.
+    # One Elementor page (brisbane_gallery.py). The apex host 301s to www, which
+    # also serves every upload. robots.txt disallows only /wp-admin/ (and names a
+    # few training crawlers, none of which is this scraper) with no crawl-delay;
+    # the scraper's own User-Agent is served normally.
+    "brisbane": ClinicConfig(
+        slug="brisbane", consent_ref="brisbane-agreement-2026-08-25",
+        base_url="https://www.brisbanecosmetic.com.au",
+        gallery_paths=["/galleries/breast-augmentation/"],
+        kind="brisbane"),
 }
 
 
@@ -7861,6 +7899,15 @@ def _drop_duplicate_patient(fetcher: PoliteFetcher, cfg: ClinicConfig,
 def collect_cases(cfg: ClinicConfig, fetcher: PoliteFetcher,
                   gallery_endpoint: bool = False,
                   grant_root: Path | None = None) -> list[CaseData]:
+    if cfg.kind == "bragbook_rev":
+        # The legacy BRAG book plugin, not `sanantonio`'s current one.
+        import bragbook_rev
+
+        return bragbook_rev.collect(cfg, fetcher)
+    if cfg.kind == "brisbane":
+        import brisbane_gallery
+
+        return brisbane_gallery.collect(cfg, fetcher)
     if cfg.kind == "folk":
         import folk_gallery
 
