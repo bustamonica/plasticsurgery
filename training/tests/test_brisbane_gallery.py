@@ -102,9 +102,36 @@ def test_a_size_inside_a_unitless_model_code_is_not_decoded(cases, case_id):
 
 
 def test_the_style_number_is_never_read_as_the_volume():
-    assert bg.brisbane_volumes("CPG 323-345 cc") == (345.0, 345.0)
-    assert bg.brisbane_volumes("CPG 323-390 left and right breasts") == (None, None)
-    assert bg.brisbane_volumes("ERSF – 315Q (round, full volume)") == (None, None)
+    assert bg.brisbane_volumes("CPG 323-345 cc") == (345.0, 345.0, None)
+    assert bg.brisbane_volumes("CPG 323-390 left and right breasts") == (None, None, None)
+    assert bg.brisbane_volumes("ERSF – 315Q (round, full volume)") == (None, None, None)
+
+
+@pytest.mark.parametrize("caption,reason", [
+    ("Right CPG 321-245 cc (anatomical high profile)", "right breast only"),
+    ("Left ERSD – 300 cc (round)", "left breast only"),
+    ("CPG 322-330 cc and CPG 323-345 cc", "different unsided figures"),
+    ("Right CPG 321-245 cc Right CPG 312-330 cc", "named twice"),
+])
+def test_an_ambiguous_caption_records_no_volume_and_says_why(caption, reason):
+    """Half an answer is not the case's volume: a one-sided or conflicting
+    reading records nothing and is reported, never averaged or picked."""
+    left, right, warning = bg.brisbane_volumes(caption)
+    assert (left, right) == (None, None)
+    assert reason in warning
+
+
+def test_an_ambiguous_caption_is_warned_on_the_case_not_as_a_model_code():
+    html = ('<div class="elementor-widget" data-widget_type="gallery.default">'
+            + "".join(f'<div class="e-gallery-image" data-thumbnail="/u/Breast_Augmentation_9{x}.jpg"></div>'
+                      for x in "abcd")
+            + '</div><div class="elementor-widget" data-widget_type="text-editor.default">'
+            "30 yrs A cup Right CPG 321-245 cc (anatomical high profile)</div>")
+    case, = bg.brisbane_parse_listing(html, "x")
+    assert sg.volume_cc(case.specs) is None
+    assert any(w.startswith("no volume recorded: volume published for the right breast only")
+               for w in case.warnings)
+    assert not any("model code, with no unit" in w for w in case.warnings)
 
 
 # ---------------------------------------------------------------------------

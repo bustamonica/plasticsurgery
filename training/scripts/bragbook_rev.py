@@ -201,6 +201,7 @@ def rev_volumes(text: str) -> tuple[float | None, float | None, str | None]:
 REV_CHART_PROFILES = {
     "high": "high", "moderate plus": "moderate-plus", "moderate": "moderate",
     "extra high": "extra-high", "ultra high": "extra-high",
+    "full": "high", "extra full": "extra-high",
 }
 
 # `lift` as a PROCEDURE, never as the verb ('implants to lift her pseudoptotic
@@ -411,6 +412,10 @@ def collect(cfg: sg.ClinicConfig, fetcher: sg.PoliteFetcher) -> list[sg.CaseData
             url = rev_next_page(html, url)
             page += 1
         print(f"  {gallery}: {len(ids)} case(s) over {page} listing page(s)")
+        if page >= REV_MAX_PAGES and url is not None and url not in visited:
+            print(f"  WARN {cfg.slug}: listing walk hit the {REV_MAX_PAGES}-page "
+                  f"ceiling with a next link still published; the gallery may "
+                  f"still be paging, so this count is a floor, not a total")
         for case_id in ids:
             case_url = f"{gallery.rstrip('/')}/{case_id}/"
             html = fetcher.get(case_url, f"{cfg.slug}_case_{case_id}.html")

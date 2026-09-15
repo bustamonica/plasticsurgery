@@ -59,7 +59,9 @@ CODE with its size - Mentor `CPG 322-330 cc`, Motiva `ERSD-285 cc`,
   right breasts`, `ERSF – 315Q`). A model code that encodes a size is not a
   documented volume until a captain ruling says it may be decoded - the
   Natrelle `SRM-445` precedent (AGENTS.md) - so those cases publish no
-  volume here and are reported, not guessed.
+  volume here and are reported, not guessed. A caption that sizes one side
+  only, names a side twice, or gives two different unsided figures records
+  no volume either, and says why.
 - **Profile comes from the clinic's own gloss**, never from the code. The
   glosses are not consistent with the codes (CPG 323 is glossed 'moderate' on
   one case and 'high' on three), which is exactly why the code is not decoded.
@@ -94,24 +96,42 @@ BRISBANE_PROFILE_RE = re.compile(
 BRISBANE_PAIRS = (("ac", "a", "c"), ("bd", "b", "d"))
 
 
-def brisbane_volumes(caption: str) -> tuple[float | None, float | None]:
-    """(left_cc, right_cc) where the caption writes the unit; else (None, None)."""
+def brisbane_volumes(caption: str) -> tuple[float | None, float | None, str | None]:
+    """(left_cc, right_cc, warning) where the caption writes the unit.
+
+    Anything this cannot read unambiguously - one side named and the other
+    not, a side named twice with different figures, or two different unsided
+    figures - returns no volume and says why, rather than recording half an
+    answer as the whole one (the `bragbook_rev.rev_volumes` rule).
+    """
     sides: dict[str, float] = {}
-    plain: float | None = None
+    plain: list[float] = []
     for m in BRISBANE_VOLUME_RE.finditer(caption):
         cc = float(m.group(2))
         if not 100 <= cc <= 1000:
             continue
         if m.group(1):
-            sides.setdefault(m.group(1).lower(), cc)
-        elif plain is None:
-            plain = cc
+            side = m.group(1).lower()
+            if side in sides and sides[side] != cc:
+                return None, None, (f"the {side} breast is named twice with "
+                                    f"different figures ({sides[side]:g}cc, {cc:g}cc)")
+            sides[side] = cc
+        else:
+            plain.append(cc)
     if sides:
-        # One side named and a plain figure for the other would be a guess.
-        return sides.get("left"), sides.get("right")
-    if plain is not None:
-        return plain, plain
-    return None, None
+        if len(sides) == 2:
+            return sides["left"], sides["right"], None
+        (side, cc), = sides.items()
+        return None, None, (f"volume published for the {side} breast only "
+                            f"({cc:g}cc); the other side's figure is not "
+                            f"attributed in the caption")
+    distinct = list(dict.fromkeys(plain))
+    if len(distinct) == 1:
+        return distinct[0], distinct[0], None
+    if len(distinct) > 1:
+        return None, None, (f"caption publishes different unsided figures "
+                            f"({', '.join(f'{f:g}' for f in distinct)})")
+    return None, None, None
 
 
 def brisbane_profile(caption: str) -> str | None:
@@ -172,7 +192,7 @@ def brisbane_parse_listing(listing_html: str, source_url: str) -> list[sg.CaseDa
         m = BRISBANE_AGE_RE.match(caption)
         if m:
             specs.age = int(m.group(1))
-        specs.left_cc, specs.right_cc = brisbane_volumes(caption)
+        specs.left_cc, specs.right_cc, volume_warning = brisbane_volumes(caption)
         sg.classify_brand_shape_profile(specs, caption)
         # Brand is never inferred from a style code, and the shared classifier
         # only fires on a manufacturer's NAME, which this page never prints -
@@ -182,6 +202,8 @@ def brisbane_parse_listing(listing_html: str, source_url: str) -> list[sg.CaseDa
         case.specs = specs
         if not caption:
             case.warnings.append("no caption follows this gallery")
+        elif volume_warning:
+            case.warnings.append(f"no volume recorded: {volume_warning}")
         # No trailing \b: Motiva's code runs its size into a letter ('315Q').
         elif sg.volume_cc(specs) is None and re.search(r"\b\d{3}", caption):
             case.warnings.append(

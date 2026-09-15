@@ -82,6 +82,31 @@ def test_collect_cases_walks_the_infinite_scroll_to_its_end(tmp_path):
     assert all(len(c.pairs) == 3 for c in cases)
 
 
+def _two_page_gallery(tmp_path):
+    (tmp_path / "sarasota_breast-augmentation_listing.html").write_text(
+        _page(["11", "12"], next_start=1))
+    (tmp_path / "sarasota_breast-augmentation_listing_p1.html").write_text(
+        _page(["13"]))
+    for i in ("11", "12", "13"):
+        (tmp_path / f"sarasota_case_{i}.html").write_text(load("sarasota_case_13268.html"))
+    return sg.PoliteFetcher(tmp_path, delay=0, offline=True)
+
+
+def test_a_walk_stopped_by_the_page_ceiling_is_reported_as_a_floor(tmp_path, monkeypatch, capsys):
+    """The walk is the only enumeration check, so a truncated one must not
+    read as complete."""
+    fetcher = _two_page_gallery(tmp_path)
+    monkeypatch.setattr(br, "REV_MAX_PAGES", 1)
+    cases = sg.collect_cases(sg.CLINICS["sarasota"], fetcher)
+    assert [c.case_id for c in cases] == ["11", "12"]
+    assert "WARN sarasota: listing walk hit the 1-page ceiling" in capsys.readouterr().out
+
+
+def test_a_walk_that_reaches_the_last_page_is_not_warned(tmp_path, capsys):
+    sg.collect_cases(sg.CLINICS["sarasota"], _two_page_gallery(tmp_path))
+    assert "WARN" not in capsys.readouterr().out
+
+
 def test_the_current_plugin_parser_finds_nothing_on_this_markup():
     parsed = sg.sanantonio_parse_case(load("sarasota_case_13268.html"), "13268", "x")
     assert parsed.pairs == []
@@ -286,7 +311,7 @@ def _chart_case(narrative, profile):
 
 @pytest.mark.parametrize("chart,expected", [
     ("High", "high"), ("Moderate Plus", "moderate-plus"), ("Moderate", "moderate"),
-    ("Full", None)])
+    ("Full", "high"), ("Extra Full", "extra-high"), ("Round", None)])
 def test_the_charts_labelled_profile_is_read(chart, expected):
     parsed = br.rev_parse_case(_chart_case("Natrelle 375cc implants.", chart), "9", "x")
     assert parsed.specs.profile == expected
