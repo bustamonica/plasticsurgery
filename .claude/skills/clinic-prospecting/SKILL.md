@@ -175,17 +175,10 @@ Four things the fix has to get right:
   Measure first, then pick the rule that matches what you measured.
   There is one crop mechanism, `training/scripts/framing.py`: the clinic gets one
   `ClinicConfig.crop = Crop(rule, amount, stage)`, never a new per-clinic knob.
-  The `rule` is one of `framing.CROP_RULES`: `px` (a fixed-size stamp),
-  `width_frac` (drawn proportional to width), `height_frac` (scaled to height),
-  `keep_height_frac` (keep the top of the frame) or `caption_band` (read off each
-  image's own pixels).
-  The `stage` is `composite` for a mark drawn across the split seam, cut before
-  the split, and `half` for everything else.
-  A printed frame, seam divider or grid gutter is template geometry, not a mark,
-  and goes in `ClinicConfig.frame`.
-  AGENTS.md's "Every burnt-in-mark crop goes through ONE mechanism" and "Measure a
-  mark before choosing its rule" bullets hold which clinic uses which rule and
-  how to verify the mark is gone.
+  `framing.py`'s module docstring defines each rule and stage; AGENTS.md's
+  "Measure a mark before choosing its rule" bullet says how to pick one and
+  verify the mark is gone, and `training/clinic_watermarks.md` records which
+  clinic uses which.
 - **Crop both halves by the same amount.** Mismatched before/after dimensions
   would be a worse label leak than the watermark.
 - **Exclude what falls below the resolution floor; never ship it shrunken.** And
