@@ -447,9 +447,11 @@ RM_PROFILE_PATTERNS = [
     (re.compile(r"\bprofile\s*[:\-]\s*moderate[- ]plus\b", re.I), "moderate-plus"),
     (re.compile(r"\bprofile\s*[:\-]\s*high\b", re.I), "high"),
     (re.compile(r"\bprofile\s*[:\-]\s*moderate\b(?!\s*plus)", re.I), "moderate"),
-    # Spelled out, unambiguous with or without the word "profile". Natrelle
-    # Inspira's fill names ("extra full", "full") are not profiles and are not
-    # decoded into one.
+    # The Full ladder in a labelled field (captain's ruling of 2026-08-26, see
+    # sg.FULL_PROJECTION_PATTERNS): Extra-Full is extra-high, Full is high.
+    (re.compile(r"\bprofile\s*[:\-]\s*extra[- ]full\b", re.I), "extra-high"),
+    (re.compile(r"\bprofile\s*[:\-]\s*full\b", re.I), "high"),
+    # Spelled out, unambiguous with or without the word "profile".
     (re.compile(r"\b(?:extra|ultra)[- ]high\b", re.I), "extra-high"),
     (re.compile(r"\bmoderate[- ](?:profile[- ])?plus\b|\bmod\.?\s*plus\b", re.I),
      "moderate-plus"),
@@ -472,7 +474,10 @@ def rm_profile(case_text: str) -> str | None:
     for pattern, profile in RM_PROFILE_PATTERNS:
         if pattern.search(text):
             return profile
-    return None
+    # Full and Extra-Full need 'profile'/'projection' beside them: the bare
+    # words are prose as often as projections ('340 cc extra full gel Inspira
+    # implants', coberly 3576, stays undecoded).
+    return sg.full_projection_profile(text)
 
 
 def _rm_assign_sides(text: str, volumes: list[tuple[int, int, float]],

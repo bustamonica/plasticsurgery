@@ -171,6 +171,13 @@ def test_a_moderate_plus_is_not_also_read_as_a_moderate():
     assert fg.folk_profile("smooth round moderate profile plus") == "moderate-plus"
 
 
+def test_full_is_high_and_extra_full_is_extra_high():
+    """Captain's ruling of 2026-08-26, shared through sg.FULL_PROJECTION_PATTERNS:
+    the two are distinct rungs, so neither trips the conflict guard alone."""
+    assert fg.folk_profile("smooth round full profile silicone") == "high"
+    assert fg.folk_profile("smooth round extra full profile silicone") == "extra-high"
+
+
 def test_different_implant_per_breast_is_warned_not_silently_resolved(cases):
     """`profile` is one field per pair, so a decoded value describes at most
     one side. The arps rule: report the contradiction."""

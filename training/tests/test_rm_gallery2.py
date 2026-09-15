@@ -262,6 +262,13 @@ def test_a_bare_implant_figure_before_moderate_is_not_months_post_op():
     ("400 cc smooth round high profile gel implant", "high"),
     ("Profile: Moderate", "moderate"),
     ("Implants: Silicone Profile: Moderate Plus", "moderate-plus"),
+    # The Full ladder (captain's ruling of 2026-08-26): Full is high,
+    # Extra-Full stays extra-high. coberly 3569 and 3570 verbatim.
+    ("breast augmentation with silicone gel implants, 325 cc, full profile.", "high"),
+    ("breast augmentation with 295 cc Full Profile silicone gel implants.", "high"),
+    ("Profile: Full", "high"),
+    ("Profile: Extra Full", "extra-high"),
+    ("340 cc extra full profile gel implants", "extra-high"),
 ])
 def test_profile_vocabulary_this_family_actually_publishes(text, profile):
     assert rm.rm_profile(text) == profile
@@ -276,11 +283,14 @@ def test_profile_vocabulary_this_family_actually_publishes(text, profile):
     "Smooth Round Low Plus 280 cc (Right) 265 cc (Left)",
     # A Natrelle style code is NOT decoded (captain's confirmation).
     "650cc SRF",
-    # Nor is an Inspira fill name (coberly 3576).
+    # Nor is a bare 'extra full' with no 'profile'/'projection' beside it
+    # (coberly 3576): only the spelled-out projection is ruled on.
     "Allergan Inspira 340 cc extra full gel Inspira implants",
     # Mentor's moderate-high has no schema value (boynton 8644, 7289).
     "310 cc smooth round moderate-high profile silicone gel Mentor XTRA breast implant",
     "Mentor MH (moderate High) smooth round silicone gel XTRA breast implants",
+    # Extra-Full on one breast and Full on the other: one field cannot hold both.
+    "470cc extra full profile implant right, 365cc full profile implant left",
 ])
 def test_profile_is_omitted_rather_than_guessed(text):
     assert rm.rm_profile(text) is None

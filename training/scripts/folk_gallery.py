@@ -224,6 +224,8 @@ FOLK_PROFILE_PATTERNS = [
     # conflict guard below throws away a projection the clinic did state.
     (re.compile(r"\bhigh[- ](?:profile|projection)\b(?!\s*plus\b)", re.I), "high"),
     (re.compile(r"\bmoderate[- ](?:profile|projection)\b(?!\s*plus\b)", re.I), "moderate"),
+    # Full is high and Extra-Full extra-high (captain's ruling of 2026-08-26).
+    *sg.FULL_PROJECTION_PATTERNS,
 ]
 
 

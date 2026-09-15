@@ -229,13 +229,13 @@ def test_sanantonio_parse_sparse_case_notes_fallback():
     assert "months_post_op" not in meta
 
 
-def test_sanantonio_full_profile_is_not_remapped():
-    # Allergan's 'full profile' tier is not one of the schema's documented
-    # profile words; it must stay unmapped (raw text survives in notes).
+def test_sanantonio_full_profile_decodes_to_high():
+    # Captain's ruling of 2026-08-26: Full is the rung below Extra-Full on the
+    # clinics' own ladder, so it is high, not extra-high.
     specs = sg.CaseSpecs()
     sg.classify_brand_shape_profile(
         specs, "485 cc full profile silicone gel implants")
-    assert specs.profile is None
+    assert specs.profile == "high"
 
 
 def test_sanantonio_list_cases_dedupes_and_scopes():
@@ -5302,6 +5302,138 @@ def test_captain_profile_ruling_does_not_invent_a_decode(text):
     assert sg.captain_profile_term(text) is None
 
 
+# ---------------------------------------------------------------------------
+# The Full projection ladder (captain's ruling of 2026-08-26)
+# ---------------------------------------------------------------------------
+
+
+def _shared_profile(text):
+    specs = sg.CaseSpecs()
+    sg.classify_brand_shape_profile(specs, text)
+    return specs.profile
+
+
+@pytest.mark.parametrize("text,profile", [
+    ("345cc full profile silicone gel implants", "high"),                    # gallatin
+    ("385 cc, smooth, round, full projection silicone gel implants", "high"),  # tccs 11331
+    ("295 cc Full Profile silicone gel implants", "high"),                   # coberly
+    ("Implant Profile: Full profile.", "high"),                              # lakeshore
+    ("345cc full-profile implants", "high"),
+    # Extra-Full is the rung ABOVE Full and stays extra-high.
+    ("545 cc extra-full profile silicone gel implants", "extra-high"),       # sanantonio
+    ("360g extra full projection implants", "extra-high"),                   # drmiroshnik
+    ("an extra full profile implant was utilized", "extra-high"),            # tccs 12078
+])
+def test_full_is_high_and_extra_full_is_extra_high(text, profile):
+    assert _shared_profile(text) == profile
+
+
+@pytest.mark.parametrize("text", [
+    # Bare 'full' is marketing prose unless a Motiva implant is documented.
+    "a full, balanced figure",
+    "she wanted a fuller look that better fit her frame",
+    "from an A cup to a full/large C",
+])
+def test_bare_full_is_not_a_projection(text):
+    assert _shared_profile(text) is None
+
+
+def test_the_full_pattern_never_reads_extra_full_as_high():
+    """The high rung refuses a preceding 'extra' by itself, so a caller that
+    splices the ladder in either order cannot read Extra-Full as Full."""
+    full = sg.FULL_PROJECTION_PATTERNS[1][0]
+    for text in ("extra full profile", "Extra-Full projection", "extra-full profile"):
+        assert full.search(text) is None, text
+
+
+def test_extra_full_and_corse_vocabulary_is_untouched():
+    """The 2026-08-19 extra-high terms decode exactly as before."""
+    assert sg.captain_profile_term("Extra-Full projection") == "extra-high"
+    assert sg.captain_profile_term("Corsé") == "extra-high"
+    assert _shared_profile("Motiva Ergonomix Corsé 300cc") == "extra-high"
+
+
+def test_motiva_demi_is_untouched_by_the_full_ruling():
+    """Demi is a separate ruling (ba-viz-motiva-demi-decode); this change does
+    not move it."""
+    assert _shared_profile("Motiva Demi 300cc") == "moderate-plus"
+    assert _shared_profile("Motiva Full 300cc") == "high"
+
+
+def test_a_different_projection_per_breast_keeps_its_prior_value():
+    """lakeshore publishes 'Moderate profile (left side), full profile (right
+    side)'. The Full ruling does not decide which side a one-value field
+    records, so the case keeps the value it had before the ruling."""
+    assert _shared_profile("Implant Profile: Moderate profile (left side), "
+                           "full profile (right side).") == "moderate"
+
+
+def test_full_and_extra_full_on_different_breasts_record_no_profile():
+    """tccs 12124 verbatim: one field cannot hold two projections, so neither
+    rung is written (the folk/page1 rule), where first-match would have
+    recorded the right breast's Extra-Full as the patient's."""
+    text = ("a 470cc extra full profile implant for the right and a 365cc full "
+            "profile implant for the left.")
+    assert sg.full_projection_profile(text) is None
+    assert _shared_profile(text) is None
+
+
+def test_etna_tccs_full_projection_decodes_to_high():
+    case = etna_case("etna_tccs_case_11331.html", "11331",
+                     "/gallery/breast-surgery/breast-augmentation/")
+    assert case.specs.profile == "high"
+    assert sg.volume_cc(case.specs) == 385
+
+
+def test_sanantonio_case_notes_full_profile_decodes_to_high():
+    case = sg.sanantonio_parse_case(
+        load_fixture("sanantonio_case_23997.html"), "23997", "x")
+    assert case.specs.profile == "high"
+    assert sg.volume_cc(case.specs) == 695
+
+
+def test_dsm_full_profile_implant_field_decodes_to_high():
+    """'Implants: Silicone full profile 415CC' (patient 2)."""
+    (case,) = sg.dsm_parse_listing(load_fixture("dsm_listing_patient_2.html"),
+                                   DSM_URL)
+    assert case.specs.profile == "high"
+    assert sg.volume_cc(case.specs) == 415
+
+
+def test_drmiroshnik_full_and_extra_full_projection_are_two_rungs():
+    cases = {c.specs.summary.split(",")[0]: c for c in sg.drmiroshnik_parse_listing(
+        load_fixture("drmiroshnik_listing_full_projection.html"), "x")}
+    assert cases["25yo"].specs.profile == "high"
+    assert cases["Bilateral breast augmentation 30 yo"].specs.profile == "extra-high"
+
+
+def test_lakeshore_bare_full_profile_line_decodes_to_high():
+    """Case 62 prints the Implant Profile value as a bare 'Full Profile' <p>."""
+    specs = sg.influx_swiper_parse_case(
+        load_fixture("lakeshore_case_62.html"), "62", "x",
+        "/gallery/breast/breast-augmentation/").specs
+    assert specs.profile == "high"
+
+
+@pytest.mark.parametrize("value,profile", [
+    ("Full", "high"), ("Full Profile", "high"), ("Full projection", "high"),
+    ("Extra-Full", "extra-high"), ("Extra Full Profile", "extra-high"),
+])
+def test_swan_labelled_full_ladder(value, profile):
+    html = load_fixture("swan_case_17094.html")
+    assert "Moderate Plus" in html
+    case = sg.swan_parse_case(html.replace("Moderate Plus", value), "17094", "x")
+    assert case.specs.profile == profile
+    assert not any("profile vocabulary" in w for w in case.warnings)
+
+
+@pytest.mark.parametrize("value,profile", [
+    ("Full", "high"), ("Extra Full", "extra-high"),
+])
+def test_page1_bare_full_ladder(value, profile):
+    assert sg.p1.page1_bare_profile(value) == profile
+
+
 @pytest.mark.parametrize("value,cc", [
     ("339cc", 339.0),
     ("450 High Profile Xtra Filled", 450.0),   # label supplies the unit
@@ -6024,12 +6156,22 @@ def test_gallatin_timepoint_tolerates_the_captions_as_written(caption, months):
 
 
 def test_gallatin_leaves_an_undecodable_profile_unrecorded():
-    """'full profile' and 'low profile' are not in the schema or the ruling."""
+    """'low profile' is not in the schema's enum or any ruling."""
     html = load_fixture("gallatin_listing.html").replace(
-        "high profile", "full profile")
+        "high profile", "low profile")
     case = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}["117"]
     assert case.specs.profile is None
     assert sg.volume_cc(case.specs) == 410      # the volume still counts
+
+
+def test_gallatin_full_profile_decodes_to_high():
+    """gallatin publishes '345cc full profile silicone gel implants'; Full is
+    high under the captain's 2026-08-26 ruling."""
+    html = load_fixture("gallatin_listing.html").replace(
+        "high profile", "full profile")
+    case = {c.case_id: c for c in sg.gallatin_parse_listing(html, GALLATIN_URL)}["117"]
+    assert case.specs.profile == "high"
+    assert sg.volume_cc(case.specs) == 410
 
 
 def test_gallatin_excludes_a_combined_case_and_says_which_term():

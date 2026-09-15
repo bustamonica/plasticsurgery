@@ -143,13 +143,17 @@ PAGE1_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 # implant-size field. Only exact whole-value matches decode, so 'Moderate High'
 # (six ncps cases, and not a term in the captain's 2026-08-19 mapping) and
 # 'Classic Profile' stay undocumented rather than being guessed into an enum.
+# 'Full' is high and 'Extra Full' extra-high (captain's ruling of 2026-08-26,
+# see scrape_gallery.FULL_PROJECTION_PATTERNS).
 PAGE1_BARE_PROFILES = {
     "moderate": "moderate",
     "moderate plus": "moderate-plus",
     "moderate+": "moderate-plus",
     "high": "high",
+    "full": "high",
     "extra high": "extra-high",
     "ultra high": "extra-high",
+    "extra full": "extra-high",
 }
 # 'Implant Profile: Moderate+ Left, High Profile Right' - one case, two
 # profiles. The schema records one, so a sided field is left undocumented
