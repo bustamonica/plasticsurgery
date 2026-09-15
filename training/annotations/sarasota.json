@@ -1,0 +1,2556 @@
+{
+ "sarasota:3275": {
+  "pairs": {
+   "Pw9PD6Hp7Pm9": {
+    "view": "front"
+   },
+   "gC3a19TdT0oh": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "z43Pj33N3DDm": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:3334": {
+  "pairs": {
+   "436vqO2I7ipN": {
+    "view": "front"
+   },
+   "94k7v3ZC86At": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "AVLE10HYdQd2": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:3460": {
+  "pairs": {
+   "2D2oya9i1enX": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "90ERMMuT13gx": {
+    "view": "front"
+   },
+   "z6HVGIIn0UI5": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:3667": {
+  "pairs": {
+   "1JC7ts3Ls4uE": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "E8RB5v8N55e9": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "W47mzPt2z42B": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:3678": {
+  "pairs": {
+   "07oalMIEcIU1": {
+    "view": "front"
+   },
+   "iqB27t8750VZ": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "mWyz4oX2sepU": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:3680": {
+  "pairs": {
+   "5Id8DNP8601Q": {
+    "view": "front"
+   },
+   "K8Oi1O4wIrYw": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "biD7P8o8vQsO": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:4523": {
+  "pairs": {
+   "0Hk3dUtI1KC2": {
+    "view": "front"
+   },
+   "377rpx1B74Ux": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "6jC6muf600y1": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:4536": {
+  "pairs": {
+   "53iyvA9Rx1N2": {
+    "view": "front"
+   },
+   "6029q9fgwk4i": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "a6wz9EGdd4V3": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:4723": {
+  "pairs": {
+   "M4525sypZ3L3": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "eiVZAAN9w9OE": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "oln64Jjqw9A8": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:5695": {
+  "pairs": {
+   "3E04xS4LgMQi": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "75w1eXVu7063": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "N15Bv94nj82w": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:7832": {
+  "pairs": {
+   "3a5KMR38fpoz": {
+    "view": "front"
+   },
+   "7qBfbbUUzBTd": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "iHK83o2541Sb": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:8219": {
+  "pairs": {
+   "69X8etB7Ay5v": {
+    "view": "front"
+   },
+   "8S4Y35fPk07p": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "O4u1m73967Xz": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "b8IF1Pw277wP": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "ewkS6y9WYgQ1": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:8300": {
+  "pairs": {
+   "OpqlN91vx37d": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "YT8M065UYo6U": {
+    "view": "front"
+   },
+   "ZQd0d5332Cog": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:8435": {
+  "pairs": {
+   "20cEqzVD6n4D": {
+    "view": "front"
+   },
+   "A9S6VeVN9HJG": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "blL5802t81V5": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:8453": {
+  "pairs": {
+   "1C6FzywEfvZY": {
+    "view": "front"
+   },
+   "91367S82nDl8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "GZxHR9KXA7dt": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:8455": {
+  "pairs": {
+   "2slY0GDbb9R9": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "9odhJSj47Oz2": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "c8D2Oq2v9ZLd": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:9613": {
+  "pairs": {
+   "352Z9yNW8but": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "4M6KODQeSP10": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "52t5FJ00DMU9": {
+    "view": "front"
+   },
+   "69rKJ57lGyEu": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "w2gH8H661y8N": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10053": {
+  "pairs": {
+   "00vD8k82O0mZ": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "My6I2VOK6oTm": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "iDKhP7A3EDL9": {
+    "view": "front"
+   },
+   "oLlnTGxNUG46": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "pr8xPDdyUWSG": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:10303": {
+  "pairs": {
+   "5GJtB0GoE9JO": {
+    "view": "front"
+   },
+   "5bn64u0bq797": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "T6K5tF1YX2B8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10363": {
+  "pairs": {
+   "59999h2HIZqE": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "KZBJbjrJt798": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "iBkmVcQm18eO": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:10408": {
+  "pairs": {
+   "5BC8U3iIOY02": {
+    "view": "front"
+   },
+   "EWSf69kxET9h": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "GwlnjNorNkp0": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:10421": {
+  "pairs": {
+   "610deqfznKya": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "7RLY4c57TOfV": {
+    "view": "front"
+   },
+   "cK681NoqWJu6": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10425": {
+  "pairs": {
+   "819YLuT648v5": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "O80o40UlFr87": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "W438vgMJF13p": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10675": {
+  "pairs": {
+   "4B03Hc8wbh6q": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "93nIG2F915LT": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "g0xy2zL1a14q": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:10735": {
+  "pairs": {
+   "B40f3H0g3RdO": {
+    "view": "front"
+   },
+   "L8kK7JeK0k06": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "al9CO6p1XD7F": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10748": {
+  "pairs": {
+   "DMQMq0AFR786": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "MBO76dB504Oc": {
+    "view": "front"
+   },
+   "v6q91D7OjNK4": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10749": {
+  "pairs": {
+   "3cZ1l71804yY": {
+    "view": "front"
+   },
+   "6XmqcDETevsy": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "LMofQ7eJ40Pw": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:10758": {
+  "pairs": {
+   "1T3BAZ37J7a4": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "nj280OSGswxj": {
+    "view": "front"
+   },
+   "zvPNQ0f7qV74": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:11179": {
+  "pairs": {
+   "3sxPh16OX3XG": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "8QruyS4883Ko": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "tOmk2THF890Q": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:11185": {
+  "pairs": {
+   "HcNMO63dUm4I": {
+    "view": "front"
+   },
+   "K9AsG6m5YuH2": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "gF8maA8G2Ry1": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:11201": {
+  "pairs": {
+   "0x3PTVRdy973": {
+    "view": "front"
+   },
+   "n8O243jYgCl4": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "re79RMqIgLWb": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:11345": {
+  "pairs": {
+   "GE4Z3HsF2MvO": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "Xj3Ggb6HMGi2": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "rtnY6Uh6B6GN": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:11387": {
+  "pairs": {
+   "0Pstvb5Szo85": {
+    "view": "front"
+   },
+   "egoEt5gg7EHS": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "g6TDQ669vm85": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:11395": {
+  "pairs": {
+   "XXhG4r76z7Rn": {
+    "view": "front"
+   },
+   "jPhy4gDg3sNV": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "m0wB1w374nNs": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:11416": {
+  "pairs": {
+   "08s2yWhImLG0": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "7lJdITwoQ8ed": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "7w1Fb1rU0l3D": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:11418": {
+  "pairs": {
+   "4eM7t29PU7oW": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "K7V3H8lAsD1C": {
+    "view": "front"
+   },
+   "d60Zxrn9v92I": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:11420": {
+  "pairs": {
+   "0Ev3q690rqjz": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "KNP1O2Lmbgd0": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "gk9N74zcg0mV": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:11444": {
+  "pairs": {
+   "579hfRLrt5k1": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "5z502R19Fu98": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "V72Gkke1Tia1": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:11503": {
+  "pairs": {
+   "153ixJv1z4tK": {
+    "view": "front"
+   },
+   "1Da5NauYmNbB": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "OtL7LhHPLvm5": {
+    "withheld": "a burned-in mosaic block survives the crop on the BEFORE half only (the AFTER's is cropped away), a one-sided artifact and so a label leak; the mosaic gate did not flag it, withheld by eye"
+   }
+  }
+ },
+ "sarasota:11734": {
+  "pairs": {
+   "3soaNzHPO27L": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "54H08T7OddYV": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "dpv7c9gXQIHp": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:11934": {
+  "pairs": {
+   "58yg2otl0Co3": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "9GpQslq1676m": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "QR29LLG0M9b6": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "ZTx1ynbKXO5r": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "eNha95yL6u7q": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:11940": {
+  "pairs": {
+   "Ooq642H8g4CN": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "SR6IxN3OygUh": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "Vcj8Kgr58K2i": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:12062": {
+  "pairs": {
+   "Crk5iMLDa44h": {
+    "view": "front"
+   },
+   "alvA4q4UpZx1": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "r9s7hvN3e2k1": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12169": {
+  "pairs": {
+   "QtQ6cs65U871": {
+    "view": "front"
+   },
+   "XLZ16IIZcXgF": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "aZ81CcGGOBK6": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12206": {
+  "pairs": {
+   "347DyhGD6SG1": {
+    "view": "front"
+   },
+   "MKa6eM1hF7IG": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "WkWpcCw2hc4v": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12287": {
+  "pairs": {
+   "3tGc9cnU79ZY": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "AAH5V037q7pI": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "FXTyg89cf288": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:12337": {
+  "pairs": {
+   "029PL19jNy16": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "3Xpw66H70f3F": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "CGUFvAmHcSIg": {
+    "view": "front"
+   },
+   "NFXxnUoc2jG4": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "qHoDn5HFpo15": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12350": {
+  "pairs": {
+   "408bt2xUXbA5": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "PkytZa5C07G8": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "av9QkjEeCIX1": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "tAlgJFVgBFr9": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "tb1QatCPbHZt": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:12415": {
+  "pairs": {
+   "AVA51dC816lY": {
+    "view": "front"
+   },
+   "cSk5G8ig2x3a": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "p225o5r1pG1l": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12584": {
+  "pairs": {
+   "6oo8v2hTWtc0": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "OP9ApVe19VQt": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "ipIlJU53SPc5": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:12587": {
+  "pairs": {
+   "JC1oWF3eh4Z9": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "T2KEK0f1zX0B": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "e7U3WtwK11VP": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:12602": {
+  "pairs": {
+   "9b5WpFRsc8b8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "BYxMf0srR5wE": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "M8zKKz2moei1": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:12683": {
+  "pairs": {
+   "7iDjcYFW0QBj": {
+    "view": "front"
+   },
+   "FFYyyC6VbR9l": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "U134Y85sF2hM": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:12719": {
+  "pairs": {
+   "0Rl4O52269cF": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "V1j3oun8XH4Y": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "bHU4xtfB4tyI": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:12740": {
+  "pairs": {
+   "3f4nn6skVnt4": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "GAlGk0jdq9U2": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "yd7HG33Q6i3p": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:12810": {
+  "pairs": {
+   "Qzq7RN4abSwE": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "Y2v9qaC210ym": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "sR1bXC5a48qh": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13012": {
+  "pairs": {
+   "5vENaxXx1QZG": {
+    "view": "front"
+   },
+   "Dwssl2JSGSVG": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "MuqI1KF2cB35": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:13024": {
+  "pairs": {
+   "1GW9Vo36SyTR": {
+    "view": "front"
+   },
+   "j5og5mcZcrR8": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "r3jVnA3CC57E": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13051": {
+  "pairs": {
+   "36ZNZBx0P5YS": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "GGnqCg6ziGoC": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "yaUt50IvV3C4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13058": {
+  "pairs": {
+   "61Prs0jquCeQ": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "6X51LbcJ95M5": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "eV34Fv1C4sN8": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13060": {
+  "pairs": {
+   "7JZYu5vT45DJ": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "Kz3cK6P321v8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "UY45vNUIzWm8": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13064": {
+  "pairs": {
+   "8E3vpdt4YDqX": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "GBu6DeWY832e": {
+    "view": "front"
+   },
+   "yeKd5n0f6WC9": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13153": {
+  "pairs": {
+   "G790p7G68cnZ": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "XL246n7H0zfF": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "y8jtrlb03145": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13155": {
+  "pairs": {
+   "2tHiZLZ57j5q": {
+    "view": "front"
+   },
+   "8BspzN6m8IMa": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "w65MNa37OJW7": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13156": {
+  "pairs": {
+   "fmbi9nAA3jbu": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "l4NNHLs0Y2Cn": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "vVY7X6s4Q6CF": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13188": {
+  "pairs": {
+   "65XJ2zxfH8Mu": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "pa3B0yz4uH7b": {
+    "view": "front"
+   },
+   "zy9tRCs3z671": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13209": {
+  "pairs": {
+   "0XYDs6tY5Qpw": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "5GcJwDowv5Ib": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "v81T7e8Qq1Ia": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13219": {
+  "pairs": {
+   "6cWmHSTv6a9W": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "U5mpu02D3V6l": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "i953F2K2FBpH": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13231": {
+  "pairs": {
+   "Dmh6yg9wtGjm": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "OFtDjGqP03PW": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "zve10EzZrHb2": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13235": {
+  "pairs": {
+   "626bc2957B7x": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "g6qb6d4XU006": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "xSj4x10T04fy": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13270": {
+  "pairs": {
+   "VtuY2W2J6dp9": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "jp7RtEkL4PtK": {
+    "view": "front"
+   },
+   "zNCv7YmE0c4x": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13304": {
+  "pairs": {
+   "V10RzQKdy5hm": {
+    "view": "front"
+   },
+   "ZjGZT5ngVdUx": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "z8hKBsc22wsK": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13309": {
+  "pairs": {
+   "3J825YI6apIp": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "F1ZH6qX11eCT": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "m4yzcFyJhqK8": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13333": {
+  "pairs": {
+   "74K3Ggg5vQEb": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "8W4FUB73L694": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "oG7r2tW7Ve4W": {
+    "view": "front"
+   },
+   "ryxFRtyp326O": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "wB5z13pyecjk": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:13426": {
+  "pairs": {
+   "2GVz7iN5bZZ8": {
+    "view": "front"
+   },
+   "CQqg52nWf6WG": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "T1D74uD4H7f6": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13427": {
+  "pairs": {
+   "8Pg83pepW1Vg": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "DfneR8I48PEB": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "gmsMx2f4yQr9": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13447": {
+  "pairs": {
+   "7dzT0IH4v3W5": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "sm0L5cb8Q01h": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "vji5938zS806": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13453": {
+  "pairs": {
+   "1CEawIvT6TP5": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "7l1B3wO0gKvg": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "syRKQzbYPvv8": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13468": {
+  "pairs": {
+   "6hW7FwSwnHgO": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "S45W931lEBzJ": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "ijlW4ZfUy8NT": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13526": {
+  "pairs": {
+   "9m8J3wvI87JP": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "DmnbP2G0zlb1": {
+    "view": "front"
+   },
+   "J2Or62c14X41": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13545": {
+  "pairs": {
+   "0kFXA01wlGSe": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "mzGzhBD9Zt3E": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "waxI6YL4UBsS": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13550": {
+  "pairs": {
+   "4Y5jYv4awY1e": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "79Bc2Bhq3Bxp": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "7os3ZZ8ielkz": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13565": {
+  "pairs": {
+   "88gyBIS5e933": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "ID7OW7CC866F": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "V6F7fw2XX74e": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13605": {
+  "pairs": {
+   "DRo7YDF1NMmc": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "di0D5opU9162": {
+    "view": "front"
+   },
+   "i18hN13Psw1L": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:13607": {
+  "pairs": {
+   "3fzYKcp93nZs": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "87361wT4095j": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "Dc6nVPY3G0M0": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13609": {
+  "pairs": {
+   "7Sk22h7eZ8He": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "HSkKh8Qek4Db": {
+    "view": "front"
+   },
+   "I1p5hMzI7Ayn": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13615": {
+  "pairs": {
+   "556o6mUARR33": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "5NrQ894fF2bM": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "PS8cr8B5YMiL": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13644": {
+  "pairs": {
+   "1415XjH2j5n8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "6fLyU7fFErNu": {
+    "view": "front"
+   },
+   "c0k78P6el8G0": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13665": {
+  "pairs": {
+   "8kH5I5RMNnMe": {
+    "view": "front"
+   },
+   "F83c0ouSOgRG": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "oE3IYv4mwgV3": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13676": {
+  "pairs": {
+   "07a1BfYbqvER": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "9lliO29r00yL": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "V4FFr957yCa7": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13694": {
+  "pairs": {
+   "399h06av9eL6": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "d5Js93rK9H2Y": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "mizwOl46752T": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:13841": {
+  "pairs": {
+   "Bjx4bvP30cJZ": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "Q1M074iQ9yB8": {
+    "view": "front"
+   },
+   "kDP29X202qCZ": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13846": {
+  "pairs": {
+   "06Ro7gjrxQH3": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "fO7m8O5CA5V2": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "uvc701Z13nZ5": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:13849": {
+  "pairs": {
+   "0WJs5wsad8G5": {
+    "view": "front"
+   },
+   "4UNoiysI85VM": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "wQ4827sw5z72": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13882": {
+  "pairs": {
+   "0QYKKz7uy3OO": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "5cl6CtYV3cvE": {
+    "view": "front"
+   },
+   "q8KqCItLH71h": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13912": {
+  "pairs": {
+   "6mW9xbD89N6D": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "7TK881R8ly3X": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "L881H8C1aZtK": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:13955": {
+  "pairs": {
+   "3nmWqQ3U0qt5": {
+    "view": "front"
+   },
+   "3pOtFZD55RxX": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "E96v25GC8V0n": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:13958": {
+  "pairs": {
+   "4d5QAvnimdX9": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "B4AO4LBBF2cS": {
+    "view": "front"
+   },
+   "B8k8Uxl29BPB": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:13962": {
+  "pairs": {
+   "76yq60Ntym64": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "RSpS89jBb9c4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "pJ2lZ7HpbrgI": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14028": {
+  "pairs": {
+   "31Q1ck1SY92S": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "845P9HE69Qh9": {
+    "view": "front"
+   },
+   "APmgh4Gi5eaj": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:14036": {
+  "pairs": {
+   "0MHCa6na4SP0": {
+    "view": "front"
+   },
+   "9FeS72J5Nnm3": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "W31B754zxDJJ": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14072": {
+  "pairs": {
+   "86s6NLNsR65V": {
+    "view": "front"
+   },
+   "Qe8dzCsk9h8t": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "XKfVgNVvs2WZ": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14077": {
+  "pairs": {
+   "8051AY80bn41": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "GzGoaCD2vH7T": {
+    "view": "front"
+   },
+   "b60oj11qcPs5": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14238": {
+  "pairs": {
+   "22nUbe4PrFvG": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "C14HX9su7S04": {
+    "view": "front"
+   },
+   "ye5tmHjJwJwN": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14262": {
+  "pairs": {
+   "93fEeI1Up088": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "9VV24Ehr30ku": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "mOYvpnHOxhn1": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14307": {
+  "pairs": {
+   "7zhI07l8fRUK": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "Z2OU8AkGoIB5": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "cATwG1nL6m8r": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14309": {
+  "pairs": {
+   "958Xow4q8R3D": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "Rr0Y0rH22QGZ": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "y09B71yKY896": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14336": {
+  "pairs": {
+   "8YX6nHar2zp6": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "GPuwtUp2AF84": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "elgrq6uP4uP1": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14401": {
+  "pairs": {
+   "B6BcN43C6y6w": {
+    "view": "front"
+   },
+   "CF4o7MGnBYy3": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "F41I1352Rv7S": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14415": {
+  "pairs": {
+   "ZsNY830hgD4x": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "s59bk4Jl1z1H": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "w94P0FguaE6t": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:14424": {
+  "pairs": {
+   "0MA9Jgtw98bt": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "2m4Sk67O13x0": {
+    "view": "front"
+   },
+   "4M6RKXY7Eoxj": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:14434": {
+  "pairs": {
+   "bJEb4qc3VV2P": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "fqKppl2knOfL": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "y17poytkDGKv": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:14439": {
+  "pairs": {
+   "9z584Bc3JpYB": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "X2O644uBKOmk": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "mAgHEg1fwmIo": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14462": {
+  "pairs": {
+   "828sadK3bP68": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "p16hHgWCKXX5": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "tMYhGa69277c": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14467": {
+  "pairs": {
+   "73GzhKvL6af8": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "QeGZPMLs2Dvc": {
+    "view": "front"
+   },
+   "T9rILE95e9NX": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:14468": {
+  "pairs": {
+   "R0JKF48FTy87": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "azd4ab6PjkxU": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "kiwD95FQu8Q7": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:14714": {
+  "pairs": {
+   "snQ98z45ps4y": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "v05nGx4VS97X": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "yE7iJIR7Zht2": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:15307": {
+  "pairs": {
+   "5125Mpqq8iq8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "8yW4HC2A5m0X": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "y974G2W2Sq20": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:15308": {
+  "pairs": {
+   "17994rYuZREs": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "ehw0Lq715qS4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "wMly2MK9NGrx": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:15379": {
+  "pairs": {
+   "1G3G7HmlqXXp": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "GR4siZG6p0bZ": {
+    "view": "front"
+   },
+   "cIB0ke4Zg6J4": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:17109": {
+  "pairs": {
+   "38O90u9kY4yJ": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "8kGCwo5Nkg6m": {
+    "view": "front"
+   },
+   "fa6Sgqdh4xLg": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:17158": {
+  "pairs": {
+   "0156F5E9s6OL": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "bHX1QZOS0co6": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "qc6UkHci2zH6": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:17163": {
+  "pairs": {
+   "RsGjN0ytmZR6": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "qVtHrqxDx4y0": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "whF5LmL0HLRD": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "xk60k82W64w3": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:17164": {
+  "pairs": {
+   "eSe5G9CHloUx": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "noDd4j709tub": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:18165": {
+  "pairs": {
+   "KCkpX5cL0f9u": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "i3Z0B2zB2RI3": {
+    "view": "front"
+   },
+   "kG2vRS6kJJmf": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:18350": {
+  "pairs": {
+   "04LqaTf9v4bo": {
+    "view": "front"
+   },
+   "70WXr1Ye0mY6": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "hp79GlhOFDIY": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:18351": {
+  "pairs": {
+   "22AgtsR5gPW4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "A7iW339l91QC": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "QVOAAAH21jB4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:18662": {
+  "pairs": {
+   "937SWg44wItj": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "Bf85mV9Lg9qf": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "KwR3Ix85T677": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "TN8hLyDM9B1F": {
+    "view": "front"
+   },
+   "ehAzkF71zgkR": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:19003": {
+  "pairs": {
+   "3tdhvU8Mcu8O": {
+    "view": "front"
+   },
+   "Y5QFuU3h0sK3": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "vv4EIVTPaLaB": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:19132": {
+  "pairs": {
+   "dlgY83Db9uFD": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "tiR79MDyAc5n": {
+    "view": "front"
+   },
+   "xL3Zvo4iYjAb": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:19141": {
+  "pairs": {
+   "08ND4SVLT4oL": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "7xcH22982K9L": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "Yxk400UJLbQ5": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:19381": {
+  "pairs": {
+   "aT6P8SJaxCTh": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "cny8sqO02HDJ": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "o2Bm9q3HSlm4": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:19537": {
+  "pairs": {
+   "93aUI6pH1j3M": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "sN3kIC46qEQN": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "u9yIlwaghz2D": {
+    "view": "front"
+   },
+   "xh2hIsJ6YsnI": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "ye9Bsq6R46qw": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:19656": {
+  "pairs": {
+   "Bw3Df7X24Dk2": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "N2e673qnx0t5": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "S779Oa9XCwqA": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "hhRdqx65NlpE": {
+    "view": "front"
+   },
+   "mv3ys1e0KS7i": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:19772": {
+  "pairs": {
+   "5DP5REgQ0lh1": {
+    "view": "front"
+   },
+   "PFr1apFV17X6": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "oUk4jZecdYT7": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20049": {
+  "pairs": {
+   "94uSIv7fEq2g": {
+    "view": "front"
+   },
+   "YN9UpB2xndVh": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "iJ08C8DXA6jv": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20057": {
+  "pairs": {
+   "4p2vg0EtpEis": {
+    "view": "front"
+   },
+   "nIx18876vnr9": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "yZ5jyL7iy9Wm": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20141": {
+  "pairs": {
+   "1zjw45G4XTxx": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "7dZYJf96M77x": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "NdXm6AC729F2": {
+    "view": "front"
+   },
+   "ilqkjm0T332R": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "o5hZIAe90Mnk": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20145": {
+  "pairs": {
+   "0F2wt7UY2spe": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "OgpyUw0UKuxj": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "l6NnicT6Q6cp": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20396": {
+  "pairs": {
+   "VY6X60DtT3tb": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "ZS1pnNfBR963": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "w315v47w3C16": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:20439": {
+  "pairs": {
+   "81rOGM9me5Hq": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "EBg7AtI26x30": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "uRHFj4XSjw8X": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20538": {
+  "pairs": {
+   "NhEAIsA2DSzs": {
+    "view": "front"
+   },
+   "bIeOKU5Ym489": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "i6nw44T0Bu5R": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "n6GNSSL1B63z": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "uvrAg1k9nN15": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20552": {
+  "pairs": {
+   "O73ubuQG9Em6": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "mSgH4deEu1Z1": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "xXknbHoRJsvj": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20558": {
+  "pairs": {
+   "73Bqespv1885": {
+    "view": "front"
+   },
+   "7WQa2dpm181B": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "GVuX19Ij7e6B": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20573": {
+  "pairs": {
+   "2Z2DeJT58EGL": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "P331CfUoEiyI": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "U00W5B5xEa59": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20582": {
+  "pairs": {
+   "6o7bUD0CbLeF": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "dxF0N402jhTp": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "qGD033uXtSAd": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:20645": {
+  "pairs": {
+   "7bc3f9n61mwL": {
+    "view": "front"
+   },
+   "EmHy5KLGrpyw": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "Wmn7QyplvZ93": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:20691": {
+  "pairs": {
+   "Eug3hk0Gcu1O": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "eVJ8MX00p7YB": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "x4n3371F761c": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20698": {
+  "pairs": {
+   "LOW8J0Ql3qQ1": {
+    "view": "front"
+   },
+   "cYVGEy1vy4V4": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "z5YlvI1896UM": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20782": {
+  "pairs": {
+   "1Bi46o74gx1a": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "C79iaB2nSVvO": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "wr3xz6WEbGsD": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20796": {
+  "pairs": {
+   "9H9JDhp2CZqx": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "LN513BfXhKnt": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "va87j1jFRTjK": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20913": {
+  "pairs": {
+   "62b5cge2WYwy": {
+    "view": "front"
+   },
+   "YRVGM12quea8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "qfyVU3KGM5qa": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:20926": {
+  "pairs": {
+   "LWbiiCwdr5Ks": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "hxJT5nYxHhy3": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "s6ae505x47D2": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20927": {
+  "pairs": {
+   "05tFIXuiU8Zd": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "aWh4MhA4XQoa": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "y6c80M1gc1yY": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:20944": {
+  "pairs": {
+   "66DXG9Y94en6": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "jd14ClSpnt9A": {
+    "view": "front"
+   },
+   "nnj6vCOLe876": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:20945": {
+  "pairs": {
+   "8S083Re7YcXF": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "brsC5Y51PYoM": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "sCG4LM7pZK5Z": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:20947": {
+  "pairs": {
+   "51HC7L5Pj3gm": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "8OeVamPGR7Yz": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "C87OStVYv35a": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:20984": {
+  "pairs": {
+   "O1nRj9XN9HpD": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "O2gjln656Xf5": {
+    "view": "front"
+   },
+   "WejJwTFh3BGd": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:20987": {
+  "pairs": {
+   "K411oEz074h8": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "Nyw8GxMbjSYC": {
+    "view": "front"
+   },
+   "vpz2iq0F8u8E": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:21020": {
+  "pairs": {
+   "5Fv645dVLd3G": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "XT5WRBQ4ryg2": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "q6ZpNEV96N1T": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:21117": {
+  "pairs": {
+   "AyY5YbB9Nw6V": {
+    "view": "front"
+   },
+   "V8txkBKTn07r": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "W391Yo2jV8Lr": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:21269": {
+  "pairs": {
+   "N37SHsAs94Qz": {
+    "view": "front"
+   },
+   "c3eSCIfXAUSk": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "xV1oa77jt1q1": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:21518": {
+  "pairs": {
+   "6Aj0ohOZ3K5y": {
+    "view": "front"
+   },
+   "YUMjwAPs7H6p": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "yG37G70028fa": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:21651": {
+  "pairs": {
+   "AzUx26dc0HnB": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "FDgiS4W5imUg": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "oFb0q5oNQNWG": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:21654": {
+  "pairs": {
+   "F9w71x23812i": {
+    "view": "front"
+   },
+   "HUl45E3G1iG8": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "XUE0oQd90rRd": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:21661": {
+  "pairs": {
+   "M64XPzdFgJlx": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "qVYDexvr8BM7": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "x2Zb7Mw0J24m": {
+    "view": "front"
+   }
+  }
+ },
+ "sarasota:21723": {
+  "pairs": {
+   "4d5GQyU5tna4": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "5P050Ic7xe21": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   },
+   "VYy35U0028zb": {
+    "withheld": "crop line at 0.75 of height (the 0.25 bottom crop that removes the corner logo) crosses breast tissue in at least one half, judged at zoom; withheld per decision sarasota-corner-block-crop (A)"
+   }
+  }
+ },
+ "sarasota:21725": {
+  "pairs": {
+   "L58Lv225lhQ3": {
+    "view": "front"
+   },
+   "OOF2kjOeR16U": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "e8NOwX4gM70n": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ },
+ "sarasota:21743": {
+  "pairs": {
+   "501LIiAZhh5q": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "8h0k3KR6l75n": {
+    "view": "front"
+   },
+   "o2h8Nd3E3V2b": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   }
+  }
+ },
+ "sarasota:22074": {
+  "pairs": {
+   "1OR9X4c1jh4I": {
+    "view": "side-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "99G51Jde7j67": {
+    "view": "oblique-left",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's left, far breast edge-on at the frame's left edge in both halves"
+   },
+   "9GursjzDFmMF": {
+    "view": "front"
+   },
+   "U8Sx7WdPPLpW": {
+    "view": "side-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   },
+   "eTZW2KE8m5uo": {
+    "view": "oblique-right",
+    "evidence": "read from pose (2026-08-26 ruling): chest turned toward the viewer's right, far breast edge-on at the frame's right edge in both halves"
+   }
+  }
+ }
+}

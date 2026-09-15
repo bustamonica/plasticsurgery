@@ -228,6 +228,46 @@ def test_one_side_named_and_the_other_not_records_no_volume():
     assert "right breast only" in warning
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("Natrelle style 15 silicone implants 421cc on the left and 533 on the right.",
+     (421.0, 533.0)),
+    ("Style FX 410cc on the left and 360 on the right placed through an "
+     "inframammary incision", (410.0, 360.0)),
+])
+def test_the_second_sided_figure_may_drop_the_unit(text, expected):
+    """13060/13153: the unit the first figure states covers its partner."""
+    left, right, warning = br.rev_volumes(text)
+    assert (left, right) == expected and warning is None
+
+
+def test_a_bare_figure_needs_a_stated_unit_somewhere():
+    assert br.rev_volumes("Natrelle 385 on the left and 360 on the right.")[:2] == (None, None)
+
+
+def test_the_same_side_named_twice_records_no_volume():
+    """14197: '500cc on the left and 600cc on the left' - a clinic typo."""
+    left, right, warning = br.rev_volumes(
+        "Natrelle Style 20 silicone implants, 500cc on the left and 600cc on the left.")
+    assert (left, right) == (None, None)
+    assert "named twice" in warning
+
+
+def test_separate_before_after_files_are_reported_not_emitted():
+    """20920 publishes separate 640x480 befores and 1800x1200 afters."""
+    html = (
+        '<div><h1 id="revPatientHeadline">Breast Augmentation: Patient 191</h1>'
+        '<div class="revBArow revBA-gallery">'
+        '<figure class="revBAcol1"><a class="psLink" data-size="640x480" '
+        'href="https://www.bragbook.gallery/assets/gallery/159/bIYTOcTFS54F_highres.jpg">b</a></figure>'
+        '<figure class="revBAcol2"><a class="psLink" data-size="1800x1200" '
+        'href="https://www.bragbook.gallery/assets/gallery/159/hpKkg2W3rzCV_highres.jpg">a</a></figure>'
+        '</div><div id="revPatientDetails"><p>Natrelle style 20 350cc’s</p></div></div>')
+    parsed = br.rev_parse_case(html, "20920", "x")
+    assert parsed.pairs == []
+    assert any("separate before/after file couples" in w and "640x480" in w
+               for w in parsed.warnings)
+
+
 def test_an_unrelated_trailing_number_is_not_a_volume():
     """Many narratives end in a bare five-digit reference ('... implants. 66766')."""
     assert br.rev_volumes("Natrelle Style 15 421cc silicone implants. 66547")[:2] == (421.0, 421.0)

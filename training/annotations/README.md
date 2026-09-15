@@ -87,3 +87,23 @@ Every pair carries its disposition in the file itself, so there is no table to r
   The reasons are ones no label can fix: halves of different views, a duplicate patient (case 43 republishes case 12), or photos that belong to another case.
   This gallery pairs positionally, and cases 45 and 48 publish before-oblique, before-side, after-oblique, after-side, so it pairs two pre-op or two post-op shots.
   A second shoot on a beige wall is appended to cases 55, 57 and 94, and at 94 it is visibly a different woman.
+
+## brisbane.json
+
+All 10 cases, 20 pairs: `ac` (photos a and c) is `front` and `bd` (photos b and d) is `oblique-right` on every case.
+The gallery publishes no view labels; the filename letter is a position in a fixed four-photo protocol, confirmed by opening every photograph.
+The oblique's laterality is anchored on case 1, whose right-flank tattoo sits on the near side, and every `bd` pair carries that evidence sentence.
+Cases 1, 8 and 10 are annotated but emit nothing (no readable implant volume), and case 12 is held at ingest by the mosaic gate pending release.
+
+## sarasota.json
+
+170 cases, 536 pairs: every pure, volume-bearing case whose halves clear the 400px floor after the watermark crop, and every pair each of those cases publishes.
+Every pair carries its disposition in the file itself: 386 carry a view (120 `front`, 88 `oblique-left`, 93 `side-left`, 38 `oblique-right`, 47 `side-right`) and 150 carry a `withheld` reason and no view (149 for the crop below, and 11503 `OtL7LhHPLvm5`, whose mosaic survives the crop on the before half only).
+
+- **Laterality is read from pose** (2026-08-26 ruling, corpus-wide): the chest facing the viewer's right, far breast edge-on at the frame's right edge, is `-right`.
+  Each lateral's `evidence` sentence says so; none rests on a landmark, and a pair whose pose was unreadable would have been left unannotated (none was).
+  Page order is not trusted: case 14424 publishes its front where a band sheet made it look like an oblique, and only the full-frame render settled it.
+- **Withheld pairs are the crop's cost, not a view problem.**
+  Every composite loses its bottom 0.25 of height to remove the corner logo (`REV_BOTTOM_FRAC` in `bragbook_rev.py`), and on tightly framed shots that line runs through the lower breast pole.
+  Under decision `sarasota-corner-block-crop` (A) a pair is withheld when the line crosses or touches breast tissue in EITHER half, judged at 1.5-2x zoom on a strip around the line; a pair whose fold clears the line by a few pixels was kept.
+  The withheld reason names the decision, and the pair id list is the collection report's.

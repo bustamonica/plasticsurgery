@@ -128,11 +128,21 @@ REV_BOTH_RE = re.compile(r"\b(?:left\s+and\s+right|right\s+and\s+left|both|each)
 REV_CLAUSE_RE = re.compile(r"(?<=[.;])\s+|,\s+|\s+and\s+|\s+[–—-]\s+", re.I)
 
 
-def _clause_figures(clause: str) -> list[float]:
+# The second figure of a sided pair may drop the unit the first one states:
+# '421cc on the left and 533 on the right' (13060), '410cc on the left and 360
+# on the right' (13153). A bare figure counts only hard against its side phrase,
+# and only when the narrative states the unit on another figure.
+REV_BARE_SIDED_RE = re.compile(
+    r"\b(\d{3})\s+(?:on|for)\s+the\s+(?:left|right)\b", re.I)
+
+
+def _clause_figures(clause: str, bare_ok: bool = False) -> list[float]:
     fills = [float(m.group(2)) for m in REV_FILL_RE.finditer(clause)]
     fills += [float(m.group(1)) for m in REV_FILL_ONLY_RE.finditer(clause)
               if not REV_FILL_RE.search(clause)]
     figures = fills or [float(m.group(1)) for m in REV_FIGURE_RE.finditer(clause)]
+    if not figures and bare_ok:
+        figures = [float(m.group(1)) for m in REV_BARE_SIDED_RE.finditer(clause)]
     return list(dict.fromkeys(f for f in figures if 100 <= f <= 1000))
 
 
@@ -147,10 +157,11 @@ def rev_volumes(text: str) -> tuple[float | None, float | None, str | None]:
     whole one (the shared reader's measured failure modes on this gallery).
     """
     text = REV_BOTH_RE.sub("both", " ".join(text.split()))
+    bare_ok = REV_FIGURE_RE.search(text) is not None
     sides: dict[str, float] = {}
     plain: list[float] = []
     for clause in REV_CLAUSE_RE.split(text):
-        figures = _clause_figures(clause)
+        figures = _clause_figures(clause, bare_ok)
         if not figures:
             continue
         named = {m.group(1).lower() for m in REV_SIDE_RE.finditer(clause)}
@@ -158,7 +169,13 @@ def rev_volumes(text: str) -> tuple[float | None, float | None, str | None]:
             return None, None, (f"clause publishes several implant figures "
                                 f"({', '.join(f'{f:g}' for f in figures)}): {clause!r}")
         if len(named) == 1 and "both" not in clause.lower():
-            sides.setdefault(named.pop(), figures[0])
+            side = named.pop()
+            if side in sides and sides[side] != figures[0]:
+                # 14197: '500cc on the left and 600cc on the left'.
+                return None, None, (f"the {side} breast is named twice with "
+                                    f"different figures ({sides[side]:g}cc, "
+                                    f"{figures[0]:g}cc)")
+            sides[side] = figures[0]
         else:
             plain.append(figures[0])
     if sides:
@@ -331,6 +348,21 @@ def rev_parse_case(case_html: str, case_id: str, source_url: str) -> sg.CaseData
     if reason:
         case.warnings.append(f"excluded: not a pure augmentation ({reason})")
         return case
+
+    # A second, older layout publishes the before and the after as SEPARATE
+    # files (`figure.revBAcol1` / `revBAcol2`) at different resolutions - case
+    # 20920 alone, 640x480 befores beside 1800x1200 afters. The corner-block
+    # crop is a composite crop, and a 640x480 before is 360px tall after it,
+    # under the 400px floor, so these are reported rather than emitted.
+    split = soup.select("div.revBA-gallery figure.revBAcol1")
+    if split and not gallery:
+        sizes = [a.get("data-size", "?") for a in soup.select(
+            "div.revBA-gallery figure.revBAcol1 a.psLink")]
+        case.warnings.append(
+            f"published as {len(split)} separate before/after file couples, not "
+            f"composites (befores {', '.join(sizes)}); the corner-block crop is "
+            f"implemented for composites only, and a 480px-tall before falls "
+            f"under the 400px floor after it - not emitted")
 
     for figure in gallery:
         anchor = figure.select_one("a.psLink[href]") or figure.find("a", href=True)
