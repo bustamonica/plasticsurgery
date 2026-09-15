@@ -1260,6 +1260,34 @@ def _cc_numbers(text: str) -> list[float]:
     return values
 
 
+# A figure inside a field whose own label names it as the implant size or
+# volume. Captain units ruling 2026-08-14: there the label supplies the unit, so
+# a bare number ('Implant Size Left: 440') or an ml figure ('440 ml') reads as
+# cc - 1 ml is 1 cc, so the reading is identity. The label is the whole
+# boundary: a bare number in free prose is still not a volume (harrington case
+# 174's own narrative says '470 on the right, 440 on the left'), so this is
+# never applied to narrative text. A figure glued to letters or a hyphen is not
+# a size - '405L' in lakeshore case 42, a Natrelle style code like 'SRM-445' -
+# and a hyphenated range ('325-335') is not a measurement, so neither is read.
+LABELLED_FIELD_FIGURE_RE = re.compile(
+    r"(?<![\w.-])(\d{2,4}(?:\.\d+)?)(?:\s*(?:ccs?|mls?)\b)?"
+    r"(?![\w-]|\s*(?:%|cm\b|mm\b|in\b|lbs?\b|kg\b|[\"'’”]))", re.I)
+
+
+def labelled_field_volumes(value: str) -> list[float]:
+    """Implant figures, in order, from a labelled implant-size field's value.
+
+    Callers apply this only where `_cc_numbers()` found nothing, so a field the
+    clinic already wrote with a unit reads exactly as before.
+    """
+    values = []
+    for m in LABELLED_FIELD_FIGURE_RE.finditer(value):
+        cc = float(m.group(1))
+        if 100 <= cc <= 1000:
+            values.append(cc)
+    return values
+
+
 def parse_fill_volumes(text: str) -> tuple[float | None, float | None]:
     """(left_cc, right_cc) from fill text.
 
@@ -1863,7 +1891,9 @@ def harrington_parse_case(case_html: str, case_id: str, source_url: str) -> Case
         specs.weight_lbs = int(m.group(1))
     left = specs.fields.get("Implant Size Left", "")
     right = specs.fields.get("Implant Size Right", "")
-    left_ccs, right_ccs = _cc_numbers(left), _cc_numbers(right)
+    # Cases 140, 141-2, 163 and 174 write these fields as '440' or '440 ml'.
+    left_ccs = _cc_numbers(left) or labelled_field_volumes(left)
+    right_ccs = _cc_numbers(right) or labelled_field_volumes(right)
     if left_ccs:
         specs.left_cc = left_ccs[0]
     if right_ccs:
@@ -2075,7 +2105,10 @@ def influx_swiper_parse_case(case_html: str, case_id: str, source_url: str,
     specs.height_cm = height_to_cm(specs.height)
     if specs.weight_lbs is not None:
         specs.weight_kg = pounds_to_kg(specs.weight_lbs)
-    vol_ccs = _cc_numbers(specs.fields.get("Implant volume", ""))
+    # Case 42 writes the labelled field without a unit: '405 (left side), 485
+    # (right side) 405L'.
+    vol_field = specs.fields.get("Implant volume", "")
+    vol_ccs = _cc_numbers(vol_field) or labelled_field_volumes(vol_field)
     if vol_ccs:
         # A case documenting two volumes ('405 cc (left side), 445 cc (right
         # side)') gets both, not the left one twice: collapsing onto vol_ccs[0]
