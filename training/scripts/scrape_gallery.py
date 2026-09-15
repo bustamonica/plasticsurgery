@@ -135,6 +135,12 @@ RM Gallery 2 by Rosemont Media - a second parser for the platform, separate
 from kind='rmgallery2' above) and folk is kind='folk' (folk_gallery.py). The
 sixteenth, drtabbal, is consented but deliberately not registered; its note in
 CLINICS says why.
+
+The last 2 of the 2026-08-25 batch (sarasota, brisbane) each add one module:
+sarasota is kind='bragbook_rev' (bragbook_rev.py), the LEGACY BRAG book plugin
+whose `rev*` markup the current-plugin kind='sanantonio' parser cannot read,
+and brisbane is kind='brisbane' (brisbane_gallery.py), a one-page Elementor
+gallery widget, not the Elementor carousel kind='wyten' reads.
 """
 
 # Python >= 3.9 compat: allows PEP 604/585 annotation syntax on older interpreters.
