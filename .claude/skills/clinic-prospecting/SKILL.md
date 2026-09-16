@@ -194,6 +194,14 @@ peak = lambda im: np.abs(np.asarray(im, float) - np.asarray(im.filter(ImageFilte
 # ratio >= 2 means one half carries something the other does not -> crop it
 ```
 
+Keep that `peak` over the WHOLE half. If you window a corner instead, a mark
+centred on the composite's split seam - cut into mirrored fragments, before half
+at its RIGHT edge, after half at its LEFT - reads as a large one-sided asymmetry,
+and the mirrored corner reads the opposite half just as confidently. That
+misread ablavsky's seam badge as after-only (same-corner 7.4-9.9x, inner edges
+1.01-1.03x, both halves marked on 86 of 86 pairs). A seam-centred mark is not a
+label leak; `training/clinic_watermarks.md` has the lesson and the clinics.
+
 Screen for this **at intake, by comparing before-half against after-half mark
 incidence** - not after delivery. tccs reached the finished corpus twice before
 anyone compared the two halves.
