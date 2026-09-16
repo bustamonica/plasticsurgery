@@ -21,6 +21,12 @@ than repair them.
 cropped, not tolerated.** Clear of the breasts or not, a mark carried by every
 after image and no before image correlates perfectly with the training label, so
 the scraper trims both halves equally when it writes the pair.
+**Captain ruling, 2026-09-15: a mark centred on the composite's split seam is
+not one-sided, and is not cropped.**
+The split cuts it into mirrored fragments, so each half carries an equal piece
+and nothing correlates with the label; the screen that says otherwise is the one
+that windows the same corner of both halves, and "A seam-centred mark reads as
+one-sided if you compare the same corner" below owns that lesson.
 The crop is `ClinicConfig.crop`, one `framing.Crop` per clinic: a single
 mechanism with one rule per way a clinic actually draws its mark (`px`,
 `width_frac`, `height_frac`, `keep_height_frac`, `caption_band`), and the rules
@@ -57,7 +63,7 @@ confirming on representative full-size images.
 | drrohrich | "© Rod J. Rohrich MD - http://drrohrich.com" (28 of 45) | white margin between panels | no | not the blocker (resolution is) |
 | drteitelbaum | burnt-in "Before"/"After" | top-left, on the backdrop | no | not the blocker (no volume, resolution) |
 | skplastic | translucent "SK" box; black "before"/"after" bar | lower-right corner; left ~10% of each half | no | not the blocker (resolution) |
-| privateclinic | "The Private Clinic of Harley Street" | **straddles the composite's split midpoint**, so each half carries a fragment | - | re-check if the clinic ever supplies originals; a fragment on both halves is harder to reason about than a whole mark on one |
+| privateclinic | "The Private Clinic of Harley Street" | **straddles the composite's split midpoint**, so each half carries a fragment | - | not a label leak - seam-centred, so each half carries an equal fragment (see the note under this table); re-check if the clinic ever supplies originals, which is a resolution question, not a mark one |
 | drgrover | "© Sanjay Grover, MD, FACS" + date stamp (4 of 12 sampled) | bottom-right; **grazes the lower abdomen on some** | sometimes | re-check before this clinic is ever emitted |
 | allure, austinweston, charlotte, drjeremyhunt, drmiroshnik, lakeshore, marina, mya, sixsurgery | none | - | - | clean |
 | **choice** | white caption band printing **BEFORE** under the left half and **AFTER** under the right, in gold | caption band under both halves of the composite | no - below the subject | **cropped 2026-08-25**, `Crop("px", 60)` (the band starts 50-53px from the bottom and its gold text tops out at 53px, measured over all 52 published composites); the halves stay 455x441, above the 400px floor. The words themselves are the label, so this is the leak in its most literal form even though both halves carry a band |
@@ -73,12 +79,36 @@ confirming on representative full-size images.
 | weston, pscarolina, leber, jkps, boynton, bottger, sbschooler, najera, goldberg, copeland, lintner, savetsky, teleos | none | - | - | clean; per-clinic median over 40 images during the 2026-08-26 Rosemont collection shows no overlay, so no crop is applied |
 | brisbane | none | - | - | clean; measured 2026-09-15 over all 40 published photographs (mean of the 20 before-halves against the 20 after-halves, 384x384, radius-6 high-pass): peaks 19/18, 99.5th percentile 9/9, so no fixed overlay and no one-sided mark, and all 40 opened by eye. The after mean's only structure is dark clothing at the bottom edge, which is photograph content, not a burned-in mark. Two cases carry burned-in mosaic instead (12 on all four photographs, off the breasts; 8 on its AFTER photographs only); see the collection's PR |
 | sarasota | red "SARASOTA PLASTIC SURGERY CENTER" block | bottom-right corner of each half | no | cropped: 0.25 of composite HEIGHT before the split (`Crop("height_frac", 0.25, stage="composite")`), measured 2026-09-15 as a block whose top edge sits at 0.205-0.226 of height across the 1800x599/600/678 and 1280x480 families; on both halves of almost every composite, one half only on `Q1M074iQ9yB8`, and absent on a few, so the crop runs on every composite. Tight framings put the crop line through the lower breast pole: 149 pairs are withheld by eye for it (decision `sarasota-corner-block-crop`, A), each carrying its reason in `training/annotations/sarasota.json`. The 1280x480 family and smaller fall under the 400px floor once cropped |
+| ablavsky | peach-filled disc logo, "ABLAVSKY / PLASTIC SURGERY" | top of the composite, **centred on the split midpoint**, so each half carries half the disc - the before half at its top-RIGHT, the after half at its top-LEFT | no - above the breasts, at the clavicle line | **no crop, ruled 2026-09-15** (captain, option A): both halves carry an equal fragment, so it is not a label leak, and it ships uncropped on the privateclinic precedent - mwps and tcclinic carry the same seam-centred shape but are cropped anyway for a reason that is not the leak, their marks sitting at the bottom where a whole-composite crop reaches them and leaves both halves matched. A v2 sample review reported it as after-only; that screen compared the SAME corner of both halves, which is the wrong pairing for a seam-centred mark - see the note under this table. Measured on all 86 emitted pairs: badge fill present on both halves of 86 of 86, and inner-edge high-pass 1.01-1.03x across the three size groups (the same-corner screen reads 7.4-9.9x, and the mirrored corner "proves" before-only). Removing it anyway would need a new TOP crop direction that `framing.py` does not have, at 0.155 of height, taking the clavicle and upper chest off every frame for 3px of headroom over the 400px floor. 0 pairs lost. Evidence: `~/firstmate/data/ba-viz-ablavsky-badge-crop/report.md` |
 
 drtavakoli marks some gallery images with its own name, but none of the pairs in
 the corpus carries one.
 
 sixsurgery is blocked on **censorship**, not watermarking: every published photo
 has opaque circles over the nipples.
+
+### A seam-centred mark reads as one-sided if you compare the same corner
+
+The one-sided-mark screen compares the before half against the after half.
+Which WINDOW of each half it compares decides the answer, and for a mark centred
+on the composite's split midpoint the obvious choice is the wrong one.
+
+Such a mark is cut in two by `framing.split_composite`, and the two fragments
+land in **mirrored** corners: the before half's is at its top- or bottom-RIGHT,
+the after half's at its top- or bottom-LEFT.
+Compare the same corner of both halves and one of them is empty, so the screen
+reports a large asymmetry and names whichever half you happened to window as the
+marked one.
+Run the identical procedure at the mirrored corner and it reports the opposite
+half with equal confidence.
+
+ablavsky is the worked example, and it cost a v2 training run's sample review a
+false finding: same-corner 7.4-9.9x ("after only"), mirrored corner 37x ("before
+only"), inner edges 1.01-1.03x, which is the true answer.
+Before acting on a one-sided verdict, either window the WHOLE half (the Screen 4a
+recipe's peak over the full frame, which is symmetric for a seam mark) or compare
+the inner edges against each other, and look at the mark.
+privateclinic, mwps, tcclinic and ablavsky all carry marks of this shape.
 
 ## Excluded on paper vs excluded in fact
 
