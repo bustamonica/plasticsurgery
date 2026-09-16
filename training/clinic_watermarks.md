@@ -21,6 +21,12 @@ than repair them.
 cropped, not tolerated.** Clear of the breasts or not, a mark carried by every
 after image and no before image correlates perfectly with the training label, so
 the scraper trims both halves equally when it writes the pair.
+**Captain ruling, 2026-09-15: a mark centred on the composite's split seam is
+not one-sided, and is not cropped.**
+The split cuts it into mirrored fragments, so each half carries an equal piece
+and nothing correlates with the label; the screen that says otherwise is the one
+that windows the same corner of both halves, and "A seam-centred mark reads as
+one-sided if you compare the same corner" below owns that lesson.
 The crop is `ClinicConfig.crop`, one `framing.Crop` per clinic: a single
 mechanism with one rule per way a clinic actually draws its mark (`px`,
 `width_frac`, `height_frac`, `keep_height_frac`, `caption_band`), and the rules
@@ -57,7 +63,7 @@ confirming on representative full-size images.
 | drrohrich | "© Rod J. Rohrich MD - http://drrohrich.com" (28 of 45) | white margin between panels | no | not the blocker (resolution is) |
 | drteitelbaum | burnt-in "Before"/"After" | top-left, on the backdrop | no | not the blocker (no volume, resolution) |
 | skplastic | translucent "SK" box; black "before"/"after" bar | lower-right corner; left ~10% of each half | no | not the blocker (resolution) |
-| privateclinic | "The Private Clinic of Harley Street" | **straddles the composite's split midpoint**, so each half carries a fragment | - | re-check if the clinic ever supplies originals; a fragment on both halves is harder to reason about than a whole mark on one |
+| privateclinic | "The Private Clinic of Harley Street" | **straddles the composite's split midpoint**, so each half carries a fragment | - | not a label leak - seam-centred, so each half carries an equal fragment (see the note under this table); re-check if the clinic ever supplies originals, which is a resolution question, not a mark one |
 | drgrover | "© Sanjay Grover, MD, FACS" + date stamp (4 of 12 sampled) | bottom-right; **grazes the lower abdomen on some** | sometimes | re-check before this clinic is ever emitted |
 | allure, austinweston, charlotte, drjeremyhunt, drmiroshnik, lakeshore, marina, mya, sixsurgery | none | - | - | clean |
 | **choice** | white caption band printing **BEFORE** under the left half and **AFTER** under the right, in gold | caption band under both halves of the composite | no - below the subject | **cropped 2026-08-25**, `Crop("px", 60)` (the band starts 50-53px from the bottom and its gold text tops out at 53px, measured over all 52 published composites); the halves stay 455x441, above the 400px floor. The words themselves are the label, so this is the leak in its most literal form even though both halves carry a band |

@@ -2482,6 +2482,75 @@ def test_clinics_without_a_one_sided_mark_are_not_cropped(slug):
     assert sg.CLINICS[slug].crop is None
 
 
+def _seam_badge_composite(width=1700, height=477, radius=66):
+    """A composite carrying one disc centred on the split midpoint.
+
+    ablavsky's badge shape: the split cuts the disc in two, so the before half
+    gets its left fragment at its own RIGHT edge and the after half the right
+    fragment at its LEFT edge.
+    """
+    import io as _io
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+    im = _Image.new("RGB", (width, height), (60, 70, 85))
+    centre = width // 2
+    _ImageDraw.Draw(im).ellipse(
+        [centre - radius, 4, centre + radius, 4 + 2 * radius], fill=_BADGE_FILL)
+    buf = _io.BytesIO()
+    im.save(buf, "JPEG", quality=95)
+    return buf.getvalue()
+
+
+_BADGE_FILL = (255, 213, 173)
+
+
+def _badge_area(data, corner):
+    """Fraction of a half's top `corner` ("left"/"right") window filled by badge."""
+    import io as _io
+    import numpy as _np
+    from PIL import Image as _Image
+    with _Image.open(_io.BytesIO(data)) as im:
+        im = im.convert("RGB")
+        window = 100, int(round(im.height * 0.16))
+        box = ((0, 0, window[0], window[1]) if corner == "left"
+               else (im.width - window[0], 0, im.width, window[1]))
+        pixels = _np.asarray(im.crop(box), float)
+    return float((_np.abs(pixels - _np.array(_BADGE_FILL, float)).max(axis=2) <= 40).mean())
+
+
+def test_ablavsky_seam_centred_badge_reaches_both_halves_whole():
+    """ablavsky's badge straddles the split, so it is not a one-sided mark.
+
+    Captain ruling 2026-09-15 (option A): ship as-is, no crop, no new crop
+    direction, 0 pairs lost - the standing seam-centred-mark rule, with
+    privateclinic. This runs the real clinic config through the one path that
+    writes corpus halves and pins what the emit produces: both halves full
+    height (nothing trimmed) and an equal badge fragment in each half's INNER
+    top corner. Adding a crop to this clinic, or a top-crop direction, changes
+    one of those.
+    """
+    import io as _io
+    from PIL import Image as _Image
+    composite = _seam_badge_composite()
+    pair = sg.ImagePair(key="front", before_url="/x/ablavsky-102-front-detail.jpg",
+                        after_url="/x/ablavsky-102-front-detail.jpg", split_composite=True)
+    images = sg.framing.pair_images(sg.CLINICS["ablavsky"], pair, lambda _: composite)
+
+    sizes = []
+    for half in (images.before, images.after):
+        with _Image.open(_io.BytesIO(half)) as im:
+            sizes.append(im.size)
+    assert sizes[0] == sizes[1] == (850, 477), "the emitted halves are the whole split, uncropped"
+
+    inner = _badge_area(images.before, "right"), _badge_area(images.after, "left")
+    assert min(inner) > 0.02, f"badge missing from a half: {inner}"
+    assert abs(inner[0] - inner[1]) < 0.02, f"halves carry unequal badge area: {inner}"
+
+    # And the trap the v2 sample review fell into: window the SAME corner of both
+    # halves and this symmetric mark reads as a large one-sided asymmetry.
+    same_corner = _badge_area(images.before, "left"), _badge_area(images.after, "left")
+    assert same_corner[0] < 0.01 < same_corner[1]
+
+
 # ---------------------------------------------------------------------------
 # etna endpoint: an unreadable card is not the end of the gallery
 # ---------------------------------------------------------------------------
